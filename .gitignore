@@ -18,3 +18,4 @@ prisma/dev.db-journal
 .DS_Store
 *.log
 coverage/
+*.tsbuildinfo
