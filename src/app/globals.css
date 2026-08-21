@@ -1,0 +1,103 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Design tokens carried over directly from the Fall Ledger artifact
+ * (the calendar built before this app) so Campus OS extends the same
+ * visual language rather than introducing a new one — per the "keep the
+ * existing design language" requirement.
+ */
+:root {
+  --bg: #f2f3f6;
+  --surface: #ffffff;
+  --surface-2: #e9ebf1;
+  --ink: #1b2130;
+  --ink-soft: #565f74;
+  --ink-faint: #8990a3;
+  --border: #dde1e9;
+  --border-soft: #e8eaf0;
+  --accent: #b8742c;
+  --accent-ink: #7a4c17;
+  --accent-soft: #f3e3d0;
+  --danger: #b23b3b;
+  --danger-soft: #f6e0e0;
+  --ok: #3f7d45;
+  --ok-soft: #e1efe2;
+  --warn: #a9791f;
+  --warn-soft: #f3e8cf;
+
+  --c-1: #1d7a73; /* teal */
+  --c-2: #6d5dbe; /* violet */
+  --c-3: #a9791f; /* gold */
+  --c-4: #b4432f; /* brick */
+  --c-5: #3f7d45; /* green */
+  --c-6: #3c6e9c; /* slate blue */
+  --c-7: #9b3f7a; /* magenta */
+  --c-8: #4a5568; /* graphite */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14161d;
+    --surface: #1c1f29;
+    --surface-2: #252938;
+    --ink: #e8e9ee;
+    --ink-soft: #a7adbe;
+    --ink-faint: #6d7488;
+    --border: #333849;
+    --border-soft: #2a2e3d;
+    --accent: #e0a85c;
+    --accent-ink: #f2cd93;
+    --accent-soft: #3a2c17;
+    --danger: #e08b7d;
+    --danger-soft: #3a2222;
+    --ok: #82c288;
+    --ok-soft: #1f2e21;
+    --warn: #d9a94a;
+    --warn-soft: #362a13;
+
+    --c-1: #4fc9be;
+    --c-2: #a79ae0;
+    --c-3: #d9a94a;
+    --c-4: #e08065;
+    --c-5: #7fc487;
+    --c-6: #7fb0dd;
+    --c-7: #d97fc0;
+    --c-8: #9aa4b8;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #14161d;
+  --surface: #1c1f29;
+  --surface-2: #252938;
+  --ink: #e8e9ee;
+  --ink-soft: #a7adbe;
+  --ink-faint: #6d7488;
+  --border: #333849;
+  --border-soft: #2a2e3d;
+  --accent: #e0a85c;
+  --accent-ink: #f2cd93;
+  --accent-soft: #3a2c17;
+  --danger: #e08b7d;
+  --danger-soft: #3a2222;
+  --ok: #82c288;
+  --ok-soft: #1f2e21;
+  --warn: #d9a94a;
+  --warn-soft: #362a13;
+
+  --c-1: #4fc9be;
+  --c-2: #a79ae0;
+  --c-3: #d9a94a;
+  --c-4: #e08065;
+  --c-5: #7fc487;
+  --c-6: #7fb0dd;
+  --c-7: #d97fc0;
+  --c-8: #9aa4b8;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+}
