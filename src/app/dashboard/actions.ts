@@ -5,7 +5,8 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import { loadWorkItemsForUser, getAvailableMinutesToday } from "@/lib/workload";
-import { findBestFitForMinutes, whatShouldIDoRightNow } from "@/lib/priority-engine";
+import { findBestFitForMinutes, whatShouldIDoRightNow, rankWorkItems, computeWorkloadSummary } from "@/lib/priority-engine";
+import { assessRisk } from "@/lib/risk-engine";
 import { askClaude } from "@/lib/anthropic";
 import { startOfTzDay } from "@/lib/time";
 import { buildCrossAppPrompt } from "@/lib/cross-app-context";
@@ -24,6 +25,7 @@ import { buildCrossAppPrompt } from "@/lib/cross-app-context";
  */
 export async function toggleWorkItemAction(kind: "assignment" | "task", id: string) {
   const user = await requireUser();
+  let classId: string;
 
   if (kind === "task") {
     const task = await prisma.task.findUnique({
@@ -31,6 +33,7 @@ export async function toggleWorkItemAction(kind: "assignment" | "task", id: stri
       include: { assignment: { include: { class: true } } },
     });
     if (!task || task.assignment.class.userId !== user.id) throw new Error("Not found.");
+    classId = task.assignment.classId;
     await prisma.task.update({
       where: { id },
       data: { completed: !task.completed, completedAt: !task.completed ? new Date() : null },
@@ -41,6 +44,7 @@ export async function toggleWorkItemAction(kind: "assignment" | "task", id: stri
       include: { class: true },
     });
     if (!assignment || assignment.class.userId !== user.id) throw new Error("Not found.");
+    classId = assignment.classId;
     const nowDone = assignment.status === "SUBMITTED" || assignment.status === "GRADED";
     await prisma.assignment.update({
       where: { id },
@@ -49,6 +53,8 @@ export async function toggleWorkItemAction(kind: "assignment" | "task", id: stri
   }
 
   revalidatePath("/dashboard");
+  revalidatePath("/assignments");
+  revalidatePath(`/classes/${classId}`);
 }
 
 const minutesSchema = z.coerce.number().int().positive().max(600);
@@ -197,4 +203,44 @@ export async function removeAvailabilityBlockAction(id: string) {
   if (!block || block.userId !== user.id) throw new Error("Not found.");
   await prisma.availabilityBlock.delete({ where: { id } });
   revalidatePath("/dashboard");
+}
+
+export interface ExplainRiskResult {
+  narrative: string;
+  usedAi: boolean;
+}
+
+/**
+ * On-demand AI polish over the deterministic Behind/At-Risk status
+ * (src/lib/risk-engine.ts) — same pattern as whatShouldIDoRightNowAction:
+ * the status itself (level, headline, reasons, recommendations) is
+ * already computed and shown without any AI call; this just asks the
+ * model to turn those facts into 2-3 natural sentences. Recomputes the
+ * assessment itself rather than trusting a client-supplied one, and the
+ * model is instructed to rephrase only — never to add facts beyond what's
+ * already in the deterministic assessment.
+ */
+export async function explainRiskAction(): Promise<ExplainRiskResult> {
+  const user = await requireUser();
+  const now = new Date();
+  const items = await loadWorkItemsForUser(user.id);
+  const availableMinutes = await getAvailableMinutesToday(user.id, now, user.timezone);
+  const ranked = rankWorkItems(items, now, user.timezone);
+  const summary = computeWorkloadSummary(items, now, user.timezone, availableMinutes);
+  const risk = assessRisk(ranked, summary, now, user.timezone);
+
+  const fallback = [risk.headline, ...risk.reasons, ...risk.recommendations].join(" ");
+
+  const aiNarrative = await askClaude({
+    system:
+      "You are a calm, direct academic productivity assistant. Rewrite the given workload status into 2-3 short, natural sentences a student would actually want to read — plain language, no bullet points, no headers, no emoji. Never invent facts (deadlines, counts, minutes, assignment or class names) beyond what's given here; only rephrase them into flowing prose.",
+    prompt: `Status: ${risk.level}\nHeadline: ${risk.headline}\nReasons: ${risk.reasons.join(" | ") || "none"}\nRecommendations: ${risk.recommendations.join(" | ") || "none"}`,
+    maxTokens: 200,
+  });
+
+  if (aiNarrative) return { narrative: aiNarrative, usedAi: true };
+  return {
+    narrative: `${fallback} (AI narrative needs an ANTHROPIC_API_KEY — showing the deterministic version.)`,
+    usedAi: false,
+  };
 }

@@ -7,9 +7,11 @@ import { MinutesMode } from "@/components/dashboard/MinutesMode";
 import { WorkloadSummaryCard } from "@/components/dashboard/WorkloadSummaryCard";
 import { AvailabilityCard } from "@/components/dashboard/AvailabilityCard";
 import { AskPanel } from "@/components/dashboard/AskPanel";
+import { RiskStatusCard } from "@/components/dashboard/RiskStatusCard";
 import Link from "next/link";
 import { loadWorkItemsForUser, getAvailableMinutesToday } from "@/lib/workload";
 import { rankWorkItems, computeWorkloadSummary, type UrgencyBucket } from "@/lib/priority-engine";
+import { assessRisk } from "@/lib/risk-engine";
 import { formatDueLabel, startOfTzDay } from "@/lib/time";
 
 const SECTION_TITLES: Record<UrgencyBucket, string> = {
@@ -39,6 +41,7 @@ export default async function DashboardPage() {
 
   const ranked = rankWorkItems(items, now, user.timezone);
   const summary = computeWorkloadSummary(items, now, user.timezone, availableMinutesToday);
+  const risk = assessRisk(ranked, summary, now, user.timezone);
 
   const grouped = new Map<UrgencyBucket, typeof ranked>();
   for (const r of ranked) {
@@ -57,6 +60,8 @@ export default async function DashboardPage() {
             : `${ranked.length} open item${ranked.length === 1 ? "" : "s"} across your classes.`}
         </p>
       </div>
+
+      <RiskStatusCard risk={risk} />
 
       {pendingChangeCount > 0 && (
         <Link

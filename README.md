@@ -2,12 +2,15 @@
 
 A personal "student operating system" built on top of the Fall Ledger Canvas
 calendar: a Command Center dashboard, per-class pages with flexible notes,
-and Gmail-based email intelligence — all pointed at the same real data, so
-the app can answer *"what should I do right now?"* and *"am I missing
-anything Canvas doesn't know about?"*
+Gmail-based email intelligence, automatic AI assignment breakdown, and a
+Behind/At-Risk workload status — all pointed at the same real data, so the
+app can answer *"what should I do right now?"*, *"am I missing anything
+Canvas doesn't know about?"*, and *"am I actually going to be okay this
+week?"*
 
-This is **phases 1, 2, and 4** of the original plan — see
-[Roadmap](#roadmap) for what's built vs. what's still ahead (phase 3).
+This is the **full original plan — phases 1 through 4** — see
+[Roadmap](#roadmap) for what's built and what's deliberately still flagged
+as out of scope.
 
 ## What's built
 
@@ -47,7 +50,28 @@ This is **phases 1, 2, and 4** of the original plan — see
   category, clickable through to the original in Gmail), and a **pending
   changes queue** for anything an email suggests that conflicts with what's
   already on file — see [Email intelligence](#email-intelligence) below.
-- **Assignments** and **Classes** list views.
+- **Automatic Assignment Breakdown**: a "Break down with AI" action on any
+  assignment with no subtasks yet — the model reads the assignment's
+  description (when Canvas/email provided one) and splits it into 1-5
+  concrete steps with realistic per-step time estimates, stored as real
+  `Task` rows so they show up everywhere the assignment does (dashboard,
+  class page, Assignments list). Without an API key it falls back to
+  `src/lib/breakdown-heuristics.ts` — a deterministic, assignment-type-aware
+  splitter (a paper gets outline/draft/revise, an exam gets
+  review/practice/final-review, etc.) rather than refusing to work. Small
+  assignments (roughly under 30 minutes) are deliberately left unsplit — a
+  2-minute attendance check doesn't need three steps.
+- **Behind / At-Risk status** (`src/lib/risk-engine.ts`): a 🟢/🟡/🔴
+  assessment shown at the top of the dashboard, plus a lightweight badge on
+  each class card. Built from real signals only — overdue items, how much
+  is due in the next 48 hours, upcoming exams, and (only when you've logged
+  it) how your actual free time compares to today's workload — and when
+  you're behind, it says why and recommends what to tackle first, chained
+  in one sentence ("I'd recommend completing X, then Y") rather than a wall
+  of text. An optional "Explain in plain language" button re-narrates the
+  same facts through AI; the status itself never waits on or requires that.
+- **Assignments** and **Classes** list views, both with an inline expandable
+  subtask checklist per assignment.
 
 ## Quick start
 
@@ -82,9 +106,11 @@ a few minutes of one-time setup in Google Cloud that only you can do.
 
 Set `ANTHROPIC_API_KEY` in `.env` to enable: the dashboard's "why this
 task" explanations and cross-app Q&A, every per-class assistant action
-(summarize, study guide, quiz, gap-check, exam prep), and Gmail's
+(summarize, study guide, quiz, gap-check, exam prep), Gmail's
 structured-fact extraction (recognizing "your exam moved to Wednesday" as
-an actual proposed change, not just a relevant-looking email). **Every
+an actual proposed change, not just a relevant-looking email), assignment
+breakdown into concrete steps, and the plain-language narrative over the
+Behind/At-Risk status. **Every
 AI-backed feature has a deterministic fallback and works without a key** —
 the app never breaks or blocks on the AI being unavailable, and Gmail
 specifically still filters/categorizes/tags emails by class without a key,
@@ -203,24 +229,53 @@ drives every "is this due today?" calculation via `date-fns-tz`, rather
 than the server process's own local timezone — which matters a lot once
 this is deployed somewhere that runs in UTC.
 
+## Assignment breakdown & risk status
+
+Both pieces of phase 3 follow the same pure-logic-plus-server-glue split as
+the priority engine, so both are unit tested directly with no database or
+AI call involved:
+
+- `src/lib/breakdown-heuristics.ts` — the no-API-key fallback for
+  Automatic Assignment Breakdown. Splits an assignment's *existing* time
+  estimate into steps (never invents new total effort) and picks a
+  different shape depending on what the assignment looks like — a paper
+  gets outline/draft/revise, a presentation gets research/build/practice,
+  an exam gets review/practice/final-review, and anything short-form (a
+  quiz, a discussion post) is deliberately left unsplit. Tested in
+  `tests/breakdown-heuristics.test.ts`. The real path
+  (`src/app/assignments/actions.ts`, `breakdownAssignmentAction`) prefers
+  the AI version when a key is configured — it reads the assignment's
+  actual description and is told explicitly never to invent specifics
+  (topics, page counts, requirements) that weren't given — and falls back
+  to the heuristic otherwise. Either way the result is stored as real
+  `Task` rows, so it shows up on the dashboard, the class page, and the
+  Assignments list the same way regardless of which path produced it.
+- `src/lib/risk-engine.ts` — the Behind/At-Risk 🟢/🟡/🔴 assessment.
+  Takes the priority engine's already-computed ranked list and workload
+  summary (never a second, possibly-inconsistent read of your data) and
+  applies real thresholds: any overdue item, an hour or more behind your
+  logged free time, three or more things due within 48 hours, or an exam
+  inside 72 hours combined with a busy couple of days all push the status
+  toward red; a single thing due soon only counts as yellow when your
+  actual logged capacity can't rule it out — if you've logged enough free
+  time to comfortably cover today, one due-soon item alone stays green.
+  Tested in `tests/risk-engine.test.ts`, including a case built directly
+  from the spec's own example scenario. Recommendations are capped (2-3
+  items, chained in one sentence, none at all when you're on track) so a
+  red status reads as "here's what to do" rather than a wall of text.
+
 ## Roadmap
 
 Built: foundation, Canvas sync, Command Center (phase 1); per-class pages,
-flexible Notes, Schedule (phase 2); Gmail OAuth, email intelligence,
+flexible Notes, Schedule (phase 2); Automatic Assignment Breakdown and the
+Behind/At-Risk 🟢/🟡/🔴 system (phase 3); Gmail OAuth, email intelligence,
 PendingChange conflict resolution, Inbox Academic Feed, per-class and
 cross-app AI assistants (phase 4, plus the assistants originally slated
-for "after phase 2/4" — built now since both now exist for them to draw
-on).
+for "after phase 2/4" — built once both existed for them to draw on). That
+closes out every numbered phase from the original spec.
 
-Not built yet:
+Not built — one deliberately flagged gap, unrelated to the phase plan:
 
-- **Phase 3** — Automatic Assignment Breakdown (AI estimates workload and
-  splits a new assignment into subtasks from its description, stored so
-  they surface as their own items on the dashboard) and the "Behind / At
-  Risk" 🟢/🟡/🔴 system with a narrative recovery-plan explanation. Both
-  build on the priority engine and the AI-optional pattern already in
-  place; they're staged last because they're genuinely separate features,
-  not because anything else needs to land first.
 - A `ScheduleException` model for single-occurrence schedule changes
   ("class is canceled this Friday only," as opposed to a permanent room
   change) — the spec's canceled-class example is real but under-scoped for
@@ -232,23 +287,44 @@ Not built yet:
 
 ## Verification
 
-- `npm test` — 40 unit tests, all passing: the original 19 on the priority
+- `npm test` — 62 unit tests, all passing: the original 19 on the priority
   engine (urgency bucketing, ranking, the minutes-mode matcher, workload
-  summary, the heuristic estimator), plus 21 new ones on the two pieces of
-  logic that matter most for correctness and safety —
-  `tests/change-rules.test.ts` (the same-value/auto-apply/conflict
-  decision behind "email never silently overwrites your schedule") and
+  summary, the heuristic estimator); 21 from phases 2/4 on
+  `tests/change-rules.test.ts` (the same-value/auto-apply/conflict decision
+  behind "email never silently overwrites your schedule") and
   `tests/email-classify-heuristic.test.ts` (class matching and email
-  categorization without an API key). Both new test files caught a real
-  bug during development — a course-code matcher that mishandled
-  multi-segment codes like `ECON-2330-03` — before it shipped.
+  categorization without an API key); and 22 new ones from phase 3 —
+  `tests/risk-engine.test.ts` (14 tests: on-track/getting-behind/at-risk
+  thresholds, the exact "I'd recommend X, then Y" phrasing from the spec's
+  own example, that reasons/recommendations stay capped even with many
+  simultaneous signals, and that a specific "behind by X" figure is never
+  claimed without real logged availability) and
+  `tests/breakdown-heuristics.test.ts` (9 tests: per-assignment-type step
+  shapes, the small-assignment no-op case, the 5-minute-per-step floor).
+  All four new-this-project test files caught a real bug during
+  development before it shipped: `email-classify-heuristic` caught a
+  course-code matcher that mishandled multi-segment codes like
+  `ECON-2330-03`; `risk-engine` caught a yellow-status threshold that
+  ignored logged free time and flagged "getting behind" even when a
+  student had comfortably enough time logged for the day; and
+  `breakdown-heuristics` caught a category-matching order bug that read
+  "Final Project" as exam prep instead of project work.
 - `npx tsc --noEmit` — clean, project-wide, in strict mode, **after**
   `prisma generate` has run. (If you see `implicitly has an 'any' type`
   errors on Prisma query results, that means `prisma generate` hasn't been
   run yet in this checkout — it's step 1 in Quick Start for exactly this
   reason. As of this update, tsc in the sandbox this was built in shows
-  exactly that error class and nothing else — 40 identical `TS7006`
-  errors, all on Prisma query-result callbacks, zero of any other kind.)
+  exactly that error class and nothing else — 40 identical `TS7006`/related
+  errors, all on Prisma query-result callbacks, zero of any other kind, and
+  that count hasn't grown even though phase 3 added new pages and
+  components.)
+- Manually exercised the risk engine against a scenario built to match the
+  spec's own worked example (a couple of assignments due within 48 hours,
+  logged free time short of what's needed) and confirmed the output reads
+  the same way: *"You're currently about 2 hr 30 min behind your planned
+  workload. 3 assignments due within the next 48 hours. I'd recommend
+  completing "Biology Lab Report", then "History Paper", then "Econ Problem
+  Set.""*
 - `npm run build` — not runnable end-to-end in the sandbox this was built
   in (its network policy blocks Prisma's engine download and Google Fonts
   at build time, both of which are normal, unauthenticated public CDNs
@@ -270,7 +346,12 @@ Not built yet:
   `workload.ts`; `scripts/sync-canvas.ts` and the Canvas client weren't
   touched at all. Every new page calls `requireUser()`, and every new
   Server Action re-checks that the record being touched actually belongs
-  to the logged-in user before reading or writing it.
+  to the logged-in user before reading or writing it. The one existing
+  action phase 3 changed, `toggleWorkItemAction`, now also revalidates
+  `/assignments` and the owning class page (previously just `/dashboard`)
+  so a subtask checked off from the new Assignments/class views reflects
+  everywhere immediately — the dashboard behavior it already had is
+  unchanged.
 
 ## Security notes
 

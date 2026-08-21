@@ -11,7 +11,7 @@ export default async function ClassPage({ params }: { params: { id: string } }) 
     where: { id: params.id },
     include: {
       scheduleEvents: true,
-      assignments: { include: { tasks: true }, orderBy: { dueAt: "asc" } },
+      assignments: { include: { tasks: { orderBy: { order: "asc" } } }, orderBy: { dueAt: "asc" } },
       exams: { orderBy: { examAt: "asc" } },
       resources: { orderBy: { addedAt: "desc" } },
       noteSections: {
@@ -68,11 +68,14 @@ export default async function ClassPage({ params }: { params: { id: string } }) 
           id: a.id,
           name: a.name,
           dueAt: a.dueAt?.toISOString() ?? null,
-          pointsPossible: a.pointsPossible,
           status: a.status,
           estimatedMinutes: a.estimatedMinutes,
-          taskCount: a.tasks.length,
-          taskRemaining: a.tasks.filter((t) => !t.completed).length,
+          tasks: a.tasks.map((t) => ({
+            id: t.id,
+            title: t.title,
+            estimatedMinutes: t.estimatedMinutes,
+            completed: t.completed,
+          })),
         }))}
         noteSections={cls.noteSections.map((s) => ({
           id: s.id,

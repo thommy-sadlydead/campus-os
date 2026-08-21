@@ -1,29 +1,16 @@
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { AppShell } from "@/components/AppShell";
-import { formatDueLabel, formatMinutes } from "@/lib/time";
+import { AssignmentRow } from "@/components/assignments/AssignmentRow";
 
-const STATUS_LABEL: Record<string, string> = {
-  NOT_STARTED: "Not started",
-  IN_PROGRESS: "In progress",
-  SUBMITTED: "Submitted",
-  GRADED: "Graded",
-};
-
-const STATUS_TONE: Record<string, string> = {
-  NOT_STARTED: "bg-surface-2 text-ink-soft",
-  IN_PROGRESS: "bg-warn-soft text-warn",
-  SUBMITTED: "bg-ok-soft text-ok",
-  GRADED: "bg-ok-soft text-ok",
-};
+const COLUMN_COUNT = 5; // Assignment, Class, Due, Est. time, Status
 
 export default async function AssignmentsPage() {
   const user = await requireUser();
-  const now = new Date();
 
   const assignments = await prisma.assignment.findMany({
     where: { class: { userId: user.id } },
-    include: { class: true, tasks: true },
+    include: { class: true, tasks: { orderBy: { order: "asc" } } },
     orderBy: [{ dueAt: "asc" }],
   });
 
@@ -52,33 +39,27 @@ export default async function AssignmentsPage() {
               </tr>
             </thead>
             <tbody>
-              {assignments.map((a) => {
-                const remainingTasks = a.tasks.filter((t) => !t.completed).length;
-                return (
-                  <tr key={a.id} className="border-b border-border-soft last:border-0">
-                    <td className="px-4 py-3">
-                      <div className="font-medium">{a.name}</div>
-                      {a.tasks.length > 0 && (
-                        <div className="text-xs text-ink-faint">
-                          {remainingTasks} of {a.tasks.length} step{a.tasks.length === 1 ? "" : "s"} left
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-ink-soft">{a.class.name}</td>
-                    <td className="px-4 py-3 text-ink-soft">{formatDueLabel(a.dueAt, now, user.timezone)}</td>
-                    <td className="px-4 py-3 font-mono text-ink-soft">
-                      {a.estimatedMinutes != null ? formatMinutes(a.estimatedMinutes) : "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_TONE[a.status]}`}
-                      >
-                        {STATUS_LABEL[a.status]}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
+              {assignments.map((a) => (
+                <AssignmentRow
+                  key={a.id}
+                  assignment={{
+                    id: a.id,
+                    name: a.name,
+                    dueAt: a.dueAt?.toISOString() ?? null,
+                    status: a.status,
+                    estimatedMinutes: a.estimatedMinutes,
+                    tasks: a.tasks.map((t) => ({
+                      id: t.id,
+                      title: t.title,
+                      estimatedMinutes: t.estimatedMinutes,
+                      completed: t.completed,
+                    })),
+                  }}
+                  tz={user.timezone}
+                  classLabel={a.class.name}
+                  columnCount={COLUMN_COUNT}
+                />
+              ))}
             </tbody>
           </table>
         </div>
