@@ -6,6 +6,8 @@ import { WhatNowPanel } from "@/components/dashboard/WhatNowPanel";
 import { MinutesMode } from "@/components/dashboard/MinutesMode";
 import { WorkloadSummaryCard } from "@/components/dashboard/WorkloadSummaryCard";
 import { AvailabilityCard } from "@/components/dashboard/AvailabilityCard";
+import { AskPanel } from "@/components/dashboard/AskPanel";
+import Link from "next/link";
 import { loadWorkItemsForUser, getAvailableMinutesToday } from "@/lib/workload";
 import { rankWorkItems, computeWorkloadSummary, type UrgencyBucket } from "@/lib/priority-engine";
 import { formatDueLabel, startOfTzDay } from "@/lib/time";
@@ -25,13 +27,14 @@ export default async function DashboardPage() {
   const user = await requireUser();
   const now = new Date();
 
-  const [items, availableMinutesToday, availabilityBlocks] = await Promise.all([
+  const [items, availableMinutesToday, availabilityBlocks, pendingChangeCount] = await Promise.all([
     loadWorkItemsForUser(user.id),
     getAvailableMinutesToday(user.id, now, user.timezone),
     prisma.availabilityBlock.findMany({
       where: { userId: user.id, date: startOfTzDay(now, user.timezone) },
       orderBy: { startMinute: "asc" },
     }),
+    prisma.pendingChange.count({ where: { userId: user.id, status: "PENDING" } }),
   ]);
 
   const ranked = rankWorkItems(items, now, user.timezone);
@@ -54,6 +57,18 @@ export default async function DashboardPage() {
             : `${ranked.length} open item${ranked.length === 1 ? "" : "s"} across your classes.`}
         </p>
       </div>
+
+      {pendingChangeCount > 0 && (
+        <Link
+          href="/email"
+          className="mb-6 flex items-center justify-between rounded-xl2 border border-warn bg-warn-soft/40 px-4 py-3 text-sm hover:brightness-95"
+        >
+          <span>
+            <strong>{pendingChangeCount}</strong> email-derived change{pendingChangeCount === 1 ? "" : "s"} waiting on your decision
+          </span>
+          <span className="text-accent-ink">Review →</span>
+        </Link>
+      )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
         <div className="flex flex-col gap-6">
@@ -93,6 +108,7 @@ export default async function DashboardPage() {
           <MinutesMode />
           <WorkloadSummaryCard summary={summary} now={now} tz={user.timezone} />
           <AvailabilityCard blocks={availabilityBlocks} />
+          <AskPanel />
         </div>
       </div>
     </AppShell>

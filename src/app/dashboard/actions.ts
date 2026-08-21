@@ -8,6 +8,7 @@ import { loadWorkItemsForUser, getAvailableMinutesToday } from "@/lib/workload";
 import { findBestFitForMinutes, whatShouldIDoRightNow } from "@/lib/priority-engine";
 import { askClaude } from "@/lib/anthropic";
 import { startOfTzDay } from "@/lib/time";
+import { buildCrossAppPrompt } from "@/lib/cross-app-context";
 
 /**
  * Toggle a work item's completion.
@@ -159,6 +160,35 @@ export async function addAvailabilityBlockAction(formData: FormData) {
   });
 
   revalidatePath("/dashboard");
+}
+
+export interface AskResult {
+  answer: string;
+  usedAi: boolean;
+}
+
+/**
+ * Free-form cross-class Q&A ("What should I do tonight?", "Am I going to
+ * be screwed next week?"). Unlike the deterministic panels elsewhere on
+ * this dashboard, open-ended natural-language answers genuinely need the
+ * model — there's no reasonable rule-based parser for arbitrary
+ * questions. Without an API key the honest fallback is the same real,
+ * computed workload summary already on this page, in sentence form,
+ * rather than a fabricated conversational answer.
+ */
+export async function askCrossAppAction(question: string): Promise<AskResult> {
+  const user = await requireUser();
+  const trimmed = question.trim().slice(0, 500);
+  if (!trimmed) return { answer: "Ask a question first.", usedAi: false };
+
+  const { system, deterministicSummary } = await buildCrossAppPrompt(user.id, user.timezone);
+  const aiAnswer = await askClaude({ system, prompt: trimmed, maxTokens: 700 });
+
+  if (aiAnswer) return { answer: aiAnswer, usedAi: true };
+  return {
+    answer: `AI features need an ANTHROPIC_API_KEY to answer that directly — here's what's actually on your plate: ${deterministicSummary}`,
+    usedAi: false,
+  };
 }
 
 export async function removeAvailabilityBlockAction(id: string) {
