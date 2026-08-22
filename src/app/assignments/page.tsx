@@ -1,7 +1,7 @@
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { AppShell } from "@/components/AppShell";
-import { AssignmentRow } from "@/components/assignments/AssignmentRow";
+import { AssignmentRow, type AssignmentRowStatus } from "@/components/assignments/AssignmentRow";
 import { canvasAssignmentUrl } from "@/lib/canvas";
 
 const COLUMN_COUNT = 5; // Assignment, Class, Due, Est. time, Status
@@ -47,7 +47,7 @@ export default async function AssignmentsPage() {
                     id: a.id,
                     name: a.name,
                     dueAt: a.dueAt?.toISOString() ?? null,
-                    status: a.status,
+                    status: a.status as AssignmentRowStatus,
                     estimatedMinutes: a.estimatedMinutes,
                     description: a.description,
                     canvasUrl: canvasAssignmentUrl(a.class.canvasCourseId, a.canvasAssignmentId),
