@@ -18,6 +18,8 @@ function item(overrides: Partial<WorkItem>): WorkItem {
     pointsPossible: null,
     status: "NOT_STARTED",
     isExamLinked: false,
+    description: null,
+    canvasUrl: null,
     ...overrides,
   };
 }

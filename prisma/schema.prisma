@@ -1,9 +1,12 @@
 // Campus OS data model.
 //
 // Design notes (see README for the full rationale):
-// - SQLite by default for zero-config local/self-hosted runs. Swap the
-//   datasource to postgresql + DATABASE_URL for a serverless deploy
-//   (Vercel + Neon/Supabase) — the schema itself doesn't need to change.
+// - Postgres (deployed on Vercel, via the Prisma Postgres marketplace
+//   integration or Neon) — DATABASE_URL points at it both in production
+//   and for any local run, so there's one real database, not a local
+//   SQLite copy that drifts from what's actually deployed. (This project
+//   started on SQLite for zero-config local dev; see git history / the
+//   README's Roadmap for that migration.)
 // - Canvas stays the source of truth for classes/assignments/exams
 //   (canvasCourseId / canvasAssignmentId let sync be idempotent — re-running
 //   it updates existing rows instead of duplicating them).
@@ -16,7 +19,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -95,26 +98,25 @@ model ScheduleEvent {
   @@index([classId])
 }
 
-enum AssignmentStatus {
-  NOT_STARTED
-  IN_PROGRESS
-  SUBMITTED
-  GRADED
-}
-
+// SQLite has no native enum type (Prisma's `enum` keyword only works on
+// connectors that do — Postgres/MySQL). This is a plain String instead,
+// constrained at the application layer to "NOT_STARTED" | "IN_PROGRESS" |
+// "SUBMITTED" | "GRADED" (see WorkStatus in src/lib/priority-engine.ts).
+// Swapping to Postgres for a real deploy, this could become a true enum
+// again with one line changed here.
 model Assignment {
-  id                String           @id @default(cuid())
-  classId           String
-  canvasAssignmentId String?         @unique
-  name              String
-  description       String? // full assignment text, when Canvas/email provides it
-  dueAt             DateTime?
-  pointsPossible    Float?
-  status            AssignmentStatus @default(NOT_STARTED)
-  estimatedMinutes  Int? // rolled up from tasks once broken down, or a direct estimate
-  sourceEmailId     String?
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
+  id                 String    @id @default(cuid())
+  classId            String
+  canvasAssignmentId String?   @unique
+  name               String
+  description        String? // full assignment text, when Canvas/email provides it
+  dueAt              DateTime?
+  pointsPossible     Float?
+  status             String    @default("NOT_STARTED")
+  estimatedMinutes   Int? // rolled up from tasks once broken down, or a direct estimate
+  sourceEmailId      String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   class       Class  @relation(fields: [classId], references: [id], onDelete: Cascade)
   sourceEmail Email? @relation(fields: [sourceEmailId], references: [id])
@@ -225,55 +227,46 @@ model EmailAccount {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-enum EmailCategory {
-  ASSIGNMENT
-  EXAM
-  SCHEDULE_CHANGE
-  ANNOUNCEMENT
-  SYLLABUS
-  OTHER_ACADEMIC
-  IRRELEVANT
-  UNCLASSIFIED
-}
-
+// String, not a Prisma enum — see the note above Assignment.status.
+// Application-level values: "ASSIGNMENT" | "EXAM" | "SCHEDULE_CHANGE" |
+// "ANNOUNCEMENT" | "SYLLABUS" | "OTHER_ACADEMIC" | "IRRELEVANT" |
+// "UNCLASSIFIED" (see EmailCategory in src/lib/email-classify-heuristic.ts).
 model Email {
-  id             String        @id @default(cuid())
+  id             String   @id @default(cuid())
   userId         String
   classId        String?
-  gmailMessageId String        @unique
+  gmailMessageId String   @unique
   fromAddress    String
   fromName       String?
   subject        String
   snippet        String?
   bodyText       String?
   receivedAt     DateTime
-  category       EmailCategory @default(UNCLASSIFIED)
+  category       String   @default("UNCLASSIFIED")
   extractedJson  String? // raw structured extraction from the AI pass
   confidence     Float?
-  reviewed       Boolean       @default(false)
-  createdAt      DateTime      @default(now())
+  reviewed       Boolean  @default(false)
+  createdAt      DateTime @default(now())
 
-  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  class           Class?           @relation(fields: [classId], references: [id])
+  user               User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  class              Class?          @relation(fields: [classId], references: [id])
   assignmentsSourced Assignment[]
-  pendingChanges  PendingChange[]
+  pendingChanges     PendingChange[]
 
   @@index([userId])
   @@index([classId])
-}
-
-enum PendingChangeStatus {
-  PENDING
-  ACCEPTED
-  REJECTED
 }
 
 // The conflict-resolution queue: email intelligence NEVER writes directly
 // into Class/ScheduleEvent/Assignment/Exam. It proposes a change here, and
 // only a user decision (or an unambiguous new-value-with-no-existing-value
 // case) applies it.
+//
+// `status` is a String, not a Prisma enum — see the note above
+// Assignment.status. Application-level values: "PENDING" | "ACCEPTED" |
+// "REJECTED" (see src/lib/change-rules.ts / src/lib/pending-changes.ts).
 model PendingChange {
-  id            String              @id @default(cuid())
+  id            String    @id @default(cuid())
   userId        String
   classId       String?
   sourceEmailId String?
@@ -283,8 +276,8 @@ model PendingChange {
   oldValueText  String?
   newValueText  String?
   reason        String? // short human-readable explanation of what triggered this
-  status        PendingChangeStatus @default(PENDING)
-  createdAt     DateTime            @default(now())
+  status        String    @default("PENDING")
+  createdAt     DateTime  @default(now())
   resolvedAt    DateTime?
 
   user        User   @relation(fields: [userId], references: [id], onDelete: Cascade)

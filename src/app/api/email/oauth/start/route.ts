@@ -2,9 +2,7 @@ import crypto from "node:crypto";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
-import { buildGoogleAuthUrl } from "@/lib/google-oauth";
-
-export const OAUTH_STATE_COOKIE = "campusos_oauth_state";
+import { buildGoogleAuthUrl, OAUTH_STATE_COOKIE } from "@/lib/google-oauth";
 
 // Kicks off the Gmail OAuth handshake. A random state value is stashed in
 // a short-lived cookie and echoed back by Google on /callback — this is

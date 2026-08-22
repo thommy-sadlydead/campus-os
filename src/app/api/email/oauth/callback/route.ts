@@ -3,8 +3,7 @@ import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { encryptSecret } from "@/lib/crypto";
-import { exchangeCodeForTokens, fetchGmailProfileEmail } from "@/lib/google-oauth";
-import { OAUTH_STATE_COOKIE } from "@/app/api/email/oauth/start/route";
+import { exchangeCodeForTokens, fetchGmailProfileEmail, OAUTH_STATE_COOKIE } from "@/lib/google-oauth";
 
 function errorRedirect(request: Request, message: string) {
   return NextResponse.redirect(new URL(`/email?error=${encodeURIComponent(message)}`, request.url));

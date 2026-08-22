@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { AppShell } from "@/components/AppShell";
 import { ClassTabs } from "@/components/classes/ClassTabs";
+import { canvasAssignmentUrl } from "@/lib/canvas";
 
 export default async function ClassPage({ params }: { params: { id: string } }) {
   const user = await requireUser();
@@ -70,6 +71,8 @@ export default async function ClassPage({ params }: { params: { id: string } }) 
           dueAt: a.dueAt?.toISOString() ?? null,
           status: a.status,
           estimatedMinutes: a.estimatedMinutes,
+          description: a.description,
+          canvasUrl: canvasAssignmentUrl(cls.canvasCourseId, a.canvasAssignmentId),
           tasks: a.tasks.map((t) => ({
             id: t.id,
             title: t.title,

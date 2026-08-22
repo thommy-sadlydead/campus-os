@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { startOfTzDay } from "@/lib/time";
+import { canvasAssignmentUrl } from "@/lib/canvas";
 import type { WorkItem, WorkStatus } from "@/lib/priority-engine";
 
 /**
@@ -40,6 +41,11 @@ export async function loadWorkItemsForUser(userId: string): Promise<WorkItem[]> 
       const isExamLinked = assignment.canvasAssignmentId
         ? examAssignmentIds.has(assignment.canvasAssignmentId)
         : false;
+      // Subtasks aren't their own Canvas objects, so they inherit the
+      // parent assignment's description/link — that's the only "directions"
+      // and Canvas page that actually exist for this work.
+      const description = assignment.description;
+      const canvasUrl = canvasAssignmentUrl(cls.canvasCourseId, assignment.canvasAssignmentId);
 
       if (assignment.tasks.length > 0) {
         for (const task of assignment.tasks) {
@@ -56,6 +62,8 @@ export async function loadWorkItemsForUser(userId: string): Promise<WorkItem[]> 
             pointsPossible: assignment.pointsPossible,
             status: "NOT_STARTED",
             isExamLinked,
+            description,
+            canvasUrl,
           });
         }
         continue;
@@ -74,6 +82,8 @@ export async function loadWorkItemsForUser(userId: string): Promise<WorkItem[]> 
         pointsPossible: assignment.pointsPossible,
         status: assignment.status as WorkStatus,
         isExamLinked,
+        description,
+        canvasUrl,
       });
     }
   }

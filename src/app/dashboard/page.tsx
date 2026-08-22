@@ -100,6 +100,8 @@ export default async function DashboardPage() {
                       dueLabel={formatDueLabel(r.item.dueAt, now, user.timezone)}
                       estimatedMinutes={r.item.estimatedMinutes}
                       reason={r.reason}
+                      description={r.item.description}
+                      canvasUrl={r.item.canvasUrl}
                     />
                   ))}
                 </ul>

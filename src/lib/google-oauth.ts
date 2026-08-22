@@ -12,6 +12,7 @@ import "server-only";
 // necessary."
 
 export const GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";
+export const OAUTH_STATE_COOKIE = "campusos_oauth_state";
 
 function requireEnv(name: string): string {
   const value = process.env[name];

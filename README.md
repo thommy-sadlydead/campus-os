@@ -41,9 +41,10 @@ as out of scope.
   notes yourself (no forced structure), pin important notes, search across
   a class's notes. Available from each class page and from the top-level
   **Notes** tab (pick a class, same board).
-- **Schedule**: a weekly view of recurring meeting times across all
-  classes, since Canvas doesn't provide these either — add them from
-  Schedule directly or from a class's Overview tab.
+- **Schedule**: a 7-day agenda combining recurring class meeting times
+  (Canvas doesn't provide these — add them from Schedule directly or from a
+  class's Overview tab) with real assignment/exam due dates landing on
+  each day, sorted chronologically together.
 - **Gmail email intelligence** (`/email`): connect your school Gmail via
   OAuth (read-only, no password ever touches this app), get a summarized
   **Inbox Academic Feed** of only the relevant emails (grouped by class and
@@ -71,15 +72,23 @@ as out of scope.
   of text. An optional "Explain in plain language" button re-narrates the
   same facts through AI; the status itself never waits on or requires that.
 - **Assignments** and **Classes** list views, both with an inline expandable
-  subtask checklist per assignment.
+  subtask checklist per assignment, plus the assignment's real directions
+  and a "See in Canvas" link.
 
 ## Quick start
 
+The schema targets Postgres (see [Data architecture](#data-architecture)),
+so `DATABASE_URL` needs to point at a real Postgres instance even for
+local runs — either the same one your [Vercel deployment](#deploying-to-vercel)
+uses, or any other Postgres you have (a free tier from Neon/Supabase, a
+local Postgres.app install, etc.). There's no more zero-config SQLite
+fallback as of this update — see the Roadmap entry on why.
+
 ```bash
 npm install
-cp .env.example .env          # then edit .env — see below
+cp .env.example .env          # then edit .env — set a real DATABASE_URL, see below
 npx prisma generate
-npx prisma db push            # creates dev.db (SQLite) from the schema
+npx prisma db push            # creates all the tables on that database from the schema
 npm run db:seed               # demo user + real Fall 2026 Cedarville data
 npm run dev
 ```
@@ -117,6 +126,58 @@ specifically still filters/categorizes/tags emails by class without a key,
 it just won't propose schedule changes on its own (see below). This is the
 same "don't fabricate, don't depend on things that might fail" pattern the
 whole app is built against.
+
+## Deploying to Vercel
+
+Once you're happy running it locally, this moves it to a real URL you can
+open from any device — no laptop, no Terminal, no `localhost`. The schema
+already targets Postgres for exactly this (see `prisma/schema.prisma`),
+and `package.json`'s `build` script runs `prisma db push` on every deploy,
+so the live database schema always matches what's committed — no separate
+migration step to remember.
+
+Steps that only you can do (account creation and dashboard clicks aren't
+something I can do on your behalf):
+
+1. **Push this repo to a new GitHub repository you create yourself**
+   (github.com → New repository — leave it empty, no README/.gitignore,
+   since this project already has both). Then, from this folder:
+   ```
+   git remote add origin <the URL GitHub gives you>
+   git push -u origin master
+   ```
+2. **Go to vercel.com and sign in** (continuing with GitHub is easiest —
+   it reuses the account from step 1), then **Add New → Project** and
+   import that GitHub repo.
+3. **Add the database before the first deploy**: in the new project, go
+   to **Storage → Create Database → Prisma Postgres** (Neon is a fine
+   alternative if you'd rather use that). This automatically sets
+   `DATABASE_URL` for you — nothing to copy in by hand.
+4. **Add the rest of the environment variables** in
+   **Settings → Environment Variables** — the same values already in your
+   local `.env`, with one exception:
+   - `AUTH_SECRET`, `ANTHROPIC_API_KEY` (optional), `ANTHROPIC_MODEL`
+     (optional), `CANVAS_BASE_URL` / `CANVAS_ACCESS_TOKEN` (optional),
+     `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` — copy these straight
+     across.
+   - `GOOGLE_REDIRECT_URI` — set this one to
+     `https://<your-vercel-domain>/api/email/oauth/callback` instead of
+     the `localhost` version.
+5. **Add that same production URL in Google Cloud Console** too
+   (Credentials → your OAuth client → Authorized redirect URIs). Google
+   allows more than one, so the `localhost` entry can stay for local use.
+6. **Click Deploy.** The first build runs `prisma db push` automatically,
+   which creates all the tables on the fresh database before the app
+   builds — nothing else to run by hand.
+7. **Once it's live**, open the URL Vercel gives you and use the
+   **Sign up** link on the login screen (`registerAction` in
+   `src/app/login/actions.ts`) to create your own real account, rather
+   than relying on the seeded demo one. If you'd like the demo data there
+   too, run `npm run db:seed` locally once with `DATABASE_URL` pointed at
+   the same production database.
+
+After this one-time setup, every future `git push` to this repo redeploys
+automatically — no manual steps.
 
 ## Email intelligence
 
@@ -170,12 +231,14 @@ write a value that originated from an email into `Class` / `Assignment` /
 
 ## Data architecture
 
-SQLite by default (`DATABASE_URL="file:./dev.db"`) — zero setup for running
-this yourself or on a small VPS. To deploy on a serverless platform (Vercel,
-etc.), point `DATABASE_URL` at a hosted Postgres instance (Neon, Supabase,
-Vercel Postgres) and change `provider = "sqlite"` to `provider =
-"postgresql"` in `prisma/schema.prisma` — the schema itself doesn't need to
-change.
+Postgres (`prisma/schema.prisma`'s `datasource` is `provider = "postgresql"`,
+reading `DATABASE_URL`) — see [Deploying to Vercel](#deploying-to-vercel)
+for how that gets provisioned (Prisma Postgres or Neon, both zero-config
+through Vercel's Storage tab). This project started on SQLite for
+zero-config local dev and moved to Postgres once it needed to run
+somewhere other than one laptop — same schema either way, Prisma just
+abstracts the two, and nothing in this data model uses a provider-specific
+type or feature.
 
 Key relationships (see `prisma/schema.prisma` for the full picture with
 field-level comments):
@@ -274,6 +337,56 @@ cross-app AI assistants (phase 4, plus the assistants originally slated
 for "after phase 2/4" — built once both existed for them to draw on). That
 closes out every numbered phase from the original spec.
 
+**Added post-launch (2026-08-22), from real usage feedback once the app was
+actually running:**
+
+- **Assignment directions + "See in Canvas" everywhere.** Clicking an
+  assignment's title — on the dashboard, the Assignments page, or a
+  class's Assignments tab — now expands a details panel with the real
+  Canvas description (HTML stripped to plain text, see `src/lib/text.ts`)
+  and a "See in Canvas ↗" link. The link is built from the course/assignment
+  ids already stored for sync idempotency (`canvasAssignmentUrl()` in
+  `src/lib/canvas.ts`) rather than a new stored field, and is only shown
+  when both ids are actually known — never a guessed URL. `WorkItem` (the
+  priority engine's item shape) gained `description`/`canvasUrl` fields to
+  carry this from `src/lib/workload.ts` through to the dashboard's
+  `TaskRow`.
+- **Schedule now shows what's actually due, not just recurring meeting
+  times.** Rewrote `src/app/schedule/page.tsx` from "your weekly pattern
+  only" into a 7-day agenda: each of the next 7 days lists that weekday's
+  recurring class meetings *and* anything with a real due date landing on
+  that specific calendar date (assignments, exams — both link to Canvas
+  when known), sorted chronologically together. Recurring meetings still
+  have their `Remove` button right there since every weekday appears
+  exactly once in a 7-day window, so no separate "manage my pattern" view
+  was needed.
+
+No schema changes in this update — both features build entirely on data
+already being stored, so no new `prisma db push` is required.
+
+**Moved from SQLite to Postgres for deployment (2026-08-22).** Reece
+wanted the app reachable without his Mac running the dev server — see
+[Deploying to Vercel](#deploying-to-vercel). `prisma/schema.prisma`'s
+datasource is now `postgresql` (was `sqlite`); `DATABASE_URL` now points
+at one real hosted database used for both local runs and production,
+rather than a local SQLite file that could drift from what's deployed.
+`package.json` gained `postinstall: prisma generate` and the `build`
+script now runs `prisma db push` first, so every deploy keeps the live
+schema in sync automatically — no separate migration step for a
+single-user personal project like this one. No application code changed;
+Prisma abstracts the two providers identically for everything this schema
+uses (no native-type overrides, and the enum-vs-string fields were
+already resolved for SQLite compatibility, which carries over cleanly).
+
+**Known limits, not gaps in this app:** Gmail (`GOOGLE_CLIENT_ID` etc.) and
+the AI assistants (`ANTHROPIC_API_KEY`) both require credentials you
+create yourself — see "AI features (optional)" above and `.env.example`
+for Gmail. Without them, the app behaves exactly as designed: email intelligence
+is simply unavailable until connected, and every AI-backed feature falls
+back to a deterministic, non-AI answer built from real data (see the
+"Optional but required for AI-backed features" comment in `.env.example`)
+rather than failing.
+
 Not built — one deliberately flagged gap, unrelated to the phase plan:
 
 - A `ScheduleException` model for single-occurrence schedule changes
@@ -318,6 +431,24 @@ Not built — one deliberately flagged gap, unrelated to the phase plan:
   errors, all on Prisma query-result callbacks, zero of any other kind, and
   that count hasn't grown even though phase 3 added new pages and
   components.)
+- **Known sandbox blind spot, now closed:** this project was built in a
+  sandbox that could never actually download Prisma's query/schema engine
+  binaries (network-blocked), so `npx prisma generate`/`db push` could
+  never be run for real here — only `tsc --noEmit` against a stub client.
+  That let a real bug through: `prisma/schema.prisma` used Prisma's
+  `enum` keyword for `Assignment.status`, `Email.category`, and
+  `PendingChange.status`, which SQLite's connector doesn't support (`npx
+  prisma db push` fails with "the current connector does not support
+  enums" — caught the moment this was actually run against a real
+  database). Fixed: all three are now plain `String` fields with the same
+  default values; no application code needed to change, since every field
+  was already typed against a local TS union (`WorkStatus` in
+  `priority-engine.ts`, `EmailCategory` in `email-classify-heuristic.ts`,
+  inline literals in `change-rules.ts`), never the Prisma-generated enum
+  type. Worth calling out explicitly: `tsc`-only verification against a
+  stub client cannot catch schema-level issues like this — anything that
+  needs a real query/schema engine only gets validated once you actually
+  run it.
 - Manually exercised the risk engine against a scenario built to match the
   spec's own worked example (a couple of assignments due within 48 hours,
   logged free time short of what's needed) and confirmed the output reads

@@ -71,6 +71,25 @@ export function isExamLikeName(name: string): boolean {
   return /\b(exam|midterm|final)\b/i.test(name);
 }
 
+/**
+ * The real Canvas URL for an assignment ("See in Canvas"), built from the
+ * course/assignment ids we already store for sync idempotency
+ * (Class.canvasCourseId, Assignment.canvasAssignmentId /
+ * Exam.canvasAssignmentId) rather than a stored URL — one less field to
+ * keep in sync, and Canvas's assignment URL shape
+ * (`/courses/:course_id/assignments/:assignment_id`) has been stable for
+ * years. Returns null (never a guess) when either id is missing — e.g. an
+ * assignment added by hand rather than synced from Canvas.
+ */
+export function canvasAssignmentUrl(
+  canvasCourseId: string | null | undefined,
+  canvasAssignmentId: string | null | undefined
+): string | null {
+  if (!canvasCourseId || !canvasAssignmentId) return null;
+  const base = (process.env.CANVAS_BASE_URL || "https://cedarville.instructure.com").replace(/\/$/, "");
+  return `${base}/courses/${canvasCourseId}/assignments/${canvasAssignmentId}`;
+}
+
 export function canvasSubmissionIsDone(a: CanvasAssignment): boolean {
   const state = a.submission?.workflow_state;
   return state === "submitted" || state === "graded";

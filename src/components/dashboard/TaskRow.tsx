@@ -1,8 +1,9 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { toggleWorkItemAction } from "@/app/dashboard/actions";
 import { formatMinutes } from "@/lib/time";
+import { stripHtml } from "@/lib/text";
 import type { PriorityColor } from "@/lib/priority-engine";
 
 const DOT_CLASS: Record<PriorityColor, string> = {
@@ -30,8 +31,16 @@ export function TaskRow(props: {
   dueLabel: string;
   estimatedMinutes: number | null;
   reason: string;
+  /** Raw HTML from Canvas (rendered with stripHtml()), or null. For a "task" this is the parent assignment's description. */
+  description: string | null;
+  /** "See in Canvas" link, or null when there's no known Canvas assignment id. */
+  canvasUrl: string | null;
 }) {
   const [pending, startTransition] = useTransition();
+  const [expanded, setExpanded] = useState(false);
+
+  const hasDetails = !!props.description || !!props.canvasUrl;
+  const description = props.description ? stripHtml(props.description) : "";
 
   return (
     <li className="flex items-start gap-3 rounded-xl2 border border-border-soft bg-surface p-4 shadow-card">
@@ -44,9 +53,18 @@ export function TaskRow(props: {
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-2">
           <span aria-hidden className={`inline-block h-2.5 w-2.5 rounded-full ${DOT_CLASS[props.color]}`} />
-          <span className="font-medium text-ink">
-            {BADGE_EMOJI[props.color]} {props.title}
-          </span>
+          {hasDetails ? (
+            <button
+              onClick={() => setExpanded((v) => !v)}
+              className="text-left font-medium text-ink hover:underline"
+            >
+              {BADGE_EMOJI[props.color]} {props.title}
+            </button>
+          ) : (
+            <span className="font-medium text-ink">
+              {BADGE_EMOJI[props.color]} {props.title}
+            </span>
+          )}
           <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs font-medium text-ink-soft">
             {props.className}
           </span>
@@ -58,6 +76,21 @@ export function TaskRow(props: {
           )}
         </div>
         <p className="mt-1.5 text-xs text-ink-faint">{props.reason}</p>
+        {expanded && hasDetails && (
+          <div className="mt-2 rounded-lg bg-surface-2/60 p-3">
+            {description && <p className="whitespace-pre-wrap text-xs text-ink-soft">{description}</p>}
+            {props.canvasUrl && (
+              <a
+                href={props.canvasUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-1.5 inline-block text-xs font-medium text-accent hover:underline"
+              >
+                See in Canvas ↗
+              </a>
+            )}
+          </div>
+        )}
       </div>
     </li>
   );

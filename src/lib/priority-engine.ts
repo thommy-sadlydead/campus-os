@@ -27,6 +27,10 @@ export interface WorkItem {
   pointsPossible: number | null;
   status: WorkStatus;
   isExamLinked: boolean;
+  /** Raw (HTML) assignment description from Canvas, or null if added by hand / not synced. Render with stripHtml(). */
+  description: string | null;
+  /** "See in Canvas" link, or null when this item has no known Canvas assignment id. */
+  canvasUrl: string | null;
 }
 
 export interface PriorityResult {

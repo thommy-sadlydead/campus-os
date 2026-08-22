@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { toggleWorkItemAction } from "@/app/dashboard/actions";
 import { breakdownAssignmentAction } from "@/app/assignments/actions";
 import { formatDueLabel, formatMinutes } from "@/lib/time";
+import { stripHtml } from "@/lib/text";
 
 export interface AssignmentRowTask {
   id: string;
@@ -21,6 +22,10 @@ export interface AssignmentRowData {
   estimatedMinutes: number | null;
   status: AssignmentRowStatus;
   tasks: AssignmentRowTask[];
+  /** Raw HTML from Canvas, or null (added by hand / not synced). Rendered with stripHtml(). */
+  description: string | null;
+  /** "See in Canvas" link, or null when this assignment has no known Canvas id. */
+  canvasUrl: string | null;
 }
 
 export const ASSIGNMENT_STATUS_LABEL: Record<AssignmentRowStatus, string> = {
@@ -43,14 +48,19 @@ export const ASSIGNMENT_STATUS_TONE: Record<AssignmentRowStatus, string> = {
  * extra "Class" column (global page only) and `columnCount` so the
  * expanded subtask row's colSpan matches whichever table it's in.
  *
- * Two things live here that the static table never had:
+ * Things that live here beyond a static table row:
+ *  - Clicking the assignment name expands a details panel: the real
+ *    Canvas description (stripped to plain text — see stripHtml) with a
+ *    "No description on Canvas" fallback when there isn't one, a "See in
+ *    Canvas ↗" link when we know the Canvas assignment id, and — if any
+ *    subtasks exist — the checklist below.
  *  - "Break down with AI" — calls breakdownAssignmentAction (Phase 3),
  *    which either creates real Task rows (revalidated from the server, so
  *    this row picks them up automatically) or reports back that the
  *    assignment was too small to bother splitting.
- *  - An expandable subtask checklist reusing the same toggleWorkItemAction
- *    the dashboard's priority list already uses, so checking a step off
- *    here and checking it off from the dashboard are the same action.
+ *  - The subtask checklist reuses the same toggleWorkItemAction the
+ *    dashboard's priority list already uses, so checking a step off here
+ *    and checking it off from the dashboard are the same action.
  */
 export function AssignmentRow({
   assignment,
@@ -84,18 +94,23 @@ export function AssignmentRow({
     startTransition(() => toggleWorkItemAction("task", taskId));
   }
 
+  const description = assignment.description ? stripHtml(assignment.description) : "";
+
   return (
     <>
       <tr className="border-b border-border-soft last:border-0">
         <td className="px-4 py-3">
-          <div className="font-medium">{assignment.name}</div>
+          <button
+            onClick={() => setExpanded((v) => !v)}
+            className="text-left font-medium hover:underline"
+          >
+            <span aria-hidden className="mr-1 text-ink-faint">{expanded ? "▾" : "▸"}</span>
+            {assignment.name}
+          </button>
           {tasks.length > 0 ? (
-            <button
-              onClick={() => setExpanded((v) => !v)}
-              className="mt-0.5 text-xs text-ink-faint hover:text-ink-soft hover:underline"
-            >
-              {remaining} of {tasks.length} step{tasks.length === 1 ? "" : "s"} left {expanded ? "▾" : "▸"}
-            </button>
+            <div className="mt-0.5 text-xs text-ink-faint">
+              {remaining} of {tasks.length} step{tasks.length === 1 ? "" : "s"} left
+            </div>
           ) : breakdownMessage ? (
             <div className="mt-0.5 text-xs text-ink-faint">{breakdownMessage}</div>
           ) : (
@@ -121,29 +136,47 @@ export function AssignmentRow({
           </span>
         </td>
       </tr>
-      {expanded && tasks.length > 0 && (
+      {expanded && (
         <tr className="border-b border-border-soft bg-surface-2/40 last:border-0">
-          <td colSpan={columnCount} className="px-4 py-3">
-            <ul className="space-y-1.5">
-              {tasks.map((t) => (
-                <li key={t.id} className="flex items-center gap-2.5 text-sm">
-                  <button
-                    aria-label={t.completed ? "Mark step incomplete" : "Mark step complete"}
-                    disabled={pending}
-                    onClick={() => toggleTask(t.id)}
-                    className={`flex h-4 w-4 flex-none items-center justify-center rounded border-2 text-[10px] leading-none transition-colors ${
-                      t.completed ? "border-ok bg-ok text-surface" : "border-border text-transparent hover:border-ok"
-                    }`}
-                  >
-                    ✓
-                  </button>
-                  <span className={t.completed ? "flex-1 text-ink-faint line-through" : "flex-1"}>{t.title}</span>
-                  {t.estimatedMinutes != null && (
-                    <span className="font-mono text-xs text-ink-faint">{formatMinutes(t.estimatedMinutes)}</span>
-                  )}
-                </li>
-              ))}
-            </ul>
+          <td colSpan={columnCount} className="px-4 py-4">
+            <div className="mb-3">
+              <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-faint">Directions</div>
+              <p className="whitespace-pre-wrap text-sm text-ink-soft">
+                {description || "No description on file for this assignment — Canvas didn't provide one, or it hasn't synced yet."}
+              </p>
+              {assignment.canvasUrl && (
+                <a
+                  href={assignment.canvasUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2 inline-block text-sm font-medium text-accent hover:underline"
+                >
+                  See in Canvas ↗
+                </a>
+              )}
+            </div>
+            {tasks.length > 0 && (
+              <ul className="space-y-1.5">
+                {tasks.map((t) => (
+                  <li key={t.id} className="flex items-center gap-2.5 text-sm">
+                    <button
+                      aria-label={t.completed ? "Mark step incomplete" : "Mark step complete"}
+                      disabled={pending}
+                      onClick={() => toggleTask(t.id)}
+                      className={`flex h-4 w-4 flex-none items-center justify-center rounded border-2 text-[10px] leading-none transition-colors ${
+                        t.completed ? "border-ok bg-ok text-surface" : "border-border text-transparent hover:border-ok"
+                      }`}
+                    >
+                      ✓
+                    </button>
+                    <span className={t.completed ? "flex-1 text-ink-faint line-through" : "flex-1"}>{t.title}</span>
+                    {t.estimatedMinutes != null && (
+                      <span className="font-mono text-xs text-ink-faint">{formatMinutes(t.estimatedMinutes)}</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
           </td>
         </tr>
       )}
