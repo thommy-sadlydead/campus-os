@@ -15,15 +15,19 @@ as out of scope.
 ## What's built
 
 - **Data model** for the whole app (`prisma/schema.prisma`): User, Class,
-  ScheduleEvent, Assignment, Task, Exam, Email, EmailAccount, PendingChange,
-  NoteSection, Note, Resource, AvailabilityBlock — see
+  ScheduleEvent, Assignment, Task, Exam, Email, EmailAccount, CanvasAccount,
+  PendingChange, NoteSection, Note, Resource, AvailabilityBlock — see
   [Data architecture](#data-architecture).
 - **Auth**: email/password, hashed with bcrypt, session cookies (httpOnly,
   signed) — no third-party auth dependency, since Gmail OAuth is a
   *separate*, narrowly-scoped connection, not your login method.
-- **Canvas sync** (`scripts/sync-canvas.ts`): pulls your real courses and
-  assignments from the Canvas API and upserts them — safe to run repeatedly
-  on a schedule.
+- **Canvas connection** (`/canvas`): paste a Canvas access token right in
+  the app — no terminal needed — to pull in your real courses and
+  assignments, with a **Sync now** button to re-pull any time. The token is
+  encrypted at rest the same way Gmail's is. `scripts/sync-canvas.ts` (`npm
+  run canvas:sync`) still exists as an env-var/cron-friendly alternative for
+  anyone who wants it — both paths share the same sync logic
+  (`src/lib/canvas-sync.ts`), so they can't drift apart.
 - **Command Center dashboard**: a ranked "what should I do" list, a
   **"What should I do right now?"** button, an **"I have X minutes"**
   finder, a workload summary (overdue / due today / due tomorrow, remaining
@@ -97,16 +101,23 @@ Open http://localhost:3000 and log in with the demo account printed by the
 seed script (`student@example.com` / `campusos-demo` — **change this
 password** if you keep using the seeded account for anything real).
 
-To pull your *own* live Canvas data instead of the seeded snapshot:
+To pull your *own* live Canvas data instead of the seeded snapshot, the
+easiest way is right in the app:
 
-1. In Canvas: Account → Settings → New Access Token.
-2. Put your Canvas URL and token in `.env` (`CANVAS_BASE_URL`,
-   `CANVAS_ACCESS_TOKEN`).
-3. `npm run canvas:sync`
+1. In Canvas: Account → Settings → scroll to Approved Integrations → **+
+   New Access Token**. Copy it immediately — Canvas only shows it once.
+2. In the app, go to **Canvas** in the nav → paste your Canvas URL and the
+   token → **Connect Canvas**. This verifies the token, saves it (encrypted
+   the same way Gmail's connection is), and runs the first sync
+   immediately.
+3. Click **Sync now** on that same page any time you want fresh data —
+   it's idempotent (matches on `canvasCourseId` / `canvasAssignmentId`, so
+   it updates existing rows instead of duplicating them).
 
-Re-run `canvas:sync` whenever you want fresh data — it's idempotent
-(matches on `canvasCourseId` / `canvasAssignmentId`, so it updates existing
-rows instead of duplicating them) and safe to put on a cron job.
+If you'd rather sync from the command line or a cron job instead of
+clicking a button, `CANVAS_BASE_URL` / `CANVAS_ACCESS_TOKEN` in `.env` plus
+`npm run canvas:sync` still works exactly as before — both paths share the
+same sync logic.
 
 To connect Gmail, see [Email intelligence](#email-intelligence) — it needs
 a few minutes of one-time setup in Google Cloud that only you can do.
@@ -251,6 +262,7 @@ User ─┬─ Class ─┬─ ScheduleEvent
       │         ├─ Resource
       │         └─ Email
       ├─ EmailAccount (Gmail OAuth link — one per user)
+      ├─ CanvasAccount (Canvas access token — one per user)
       ├─ Email ─── PendingChange (conflict-resolution queue)
       └─ AvailabilityBlock (explicit free-time entries)
 ```
@@ -378,6 +390,21 @@ Prisma abstracts the two providers identically for everything this schema
 uses (no native-type overrides, and the enum-vs-string fields were
 already resolved for SQLite compatibility, which carries over cleanly).
 
+**In-app Canvas connection (2026-08-22).** Previously the only way to pull
+real Canvas data in was the `npm run canvas:sync` CLI script, which needed
+`CANVAS_BASE_URL`/`CANVAS_ACCESS_TOKEN` in `.env` and terminal access —
+fine for local dev, but a dead end once the app is deployed and you're not
+running a terminal against it day to day. Added a `/canvas` page:
+paste a Canvas URL and access token, it verifies the token against the
+real Canvas API before saving anything, stores it encrypted the same way
+Gmail's connection is (`CanvasAccount.accessTokenEnc`, `src/lib/crypto.ts`),
+runs the first sync immediately, and offers **Sync now** afterward. The
+actual sync logic (`src/lib/canvas-sync.ts`) is shared between this and the
+CLI script rather than duplicated, so both stay in lockstep. One schema
+change: new `CanvasAccount` model, applied automatically on the next
+deploy via the existing `prisma db push` build step — no separate
+migration.
+
 **Known limits, not gaps in this app:** Gmail (`GOOGLE_CLIENT_ID` etc.) and
 the AI assistants (`ANTHROPIC_API_KEY`) both require credentials you
 create yourself — see "AI features (optional)" above and `.env.example`
@@ -483,6 +510,16 @@ Not built — one deliberately flagged gap, unrelated to the phase plan:
   so a subtask checked off from the new Assignments/class views reflects
   everywhere immediately — the dashboard behavior it already had is
   unchanged.
+- **In-app Canvas connection**: `src/lib/canvas-sync.ts` is the exact same
+  upsert logic `scripts/sync-canvas.ts` already had (moved, not rewritten),
+  so its correctness carries over from the CLI script's real-world use.
+  What's genuinely new — `connectCanvasAction`'s token-verification call,
+  the encrypt/decrypt round-trip, and the `/canvas` page itself — passed
+  `tsc --noEmit` (still exactly the same 40 baseline errors, none from the
+  new files) and didn't touch any of the 62 existing tests, but **could
+  not be live-tested against the real Canvas API** in this sandbox, the
+  same limitation as the Gmail OAuth flow — try connecting your real
+  account and let me know what you see if anything looks off.
 
 ## Security notes
 
@@ -496,6 +533,11 @@ Not built — one deliberately flagged gap, unrelated to the phase plan:
   and only the read-only `gmail.readonly` scope is ever requested. The
   OAuth `state` parameter is verified against a short-lived signed cookie
   on callback (standard CSRF protection for the redirect flow).
+- Canvas access tokens are encrypted at rest the same way
+  (`CanvasAccount.accessTokenEnc`, same AES-256-GCM helpers) — never stored
+  in plaintext. `connectCanvasAction` verifies a token actually works
+  against the real Canvas API before saving it, so a typo'd or already-bad
+  token never gets persisted in the first place.
 - `npm audit` currently reports 2 high-severity advisories, both in
   Next.js 14.2.x itself (the latest 14.x patch as of this build) — Next 15
   resolves them but is a larger migration. The app sits entirely behind

@@ -35,6 +35,7 @@ model User {
   classes             Class[]
   availabilityBlocks  AvailabilityBlock[]
   emailAccount        EmailAccount?
+  canvasAccount       CanvasAccount?
   emails              Email[]
   pendingChanges      PendingChange[]
 }
@@ -204,6 +205,27 @@ model Resource {
   class Class @relation(fields: [classId], references: [id], onDelete: Cascade)
 
   @@index([classId])
+}
+
+// ---------------------------------------------------------------------------
+// Canvas connection (in-app "Connect Canvas")
+// ---------------------------------------------------------------------------
+
+// One linked Canvas account per user. Unlike Gmail, Canvas doesn't offer a
+// student-facing OAuth flow — this stores a personal access token the user
+// generates themselves (Canvas: Account -> Settings -> New Access Token),
+// encrypted at rest the same way Gmail's tokens are (src/lib/crypto.ts).
+// baseUrl is stored per-user (not just the CANVAS_BASE_URL env var) so this
+// still works correctly if a user ever attends a different school.
+model CanvasAccount {
+  id             String    @id @default(cuid())
+  userId         String    @unique
+  baseUrl        String
+  accessTokenEnc String
+  connectedAt    DateTime  @default(now())
+  lastSyncedAt   DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 // ---------------------------------------------------------------------------
