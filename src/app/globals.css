@@ -108,7 +108,7 @@ body {
 /*
  * Voicewrite integration (2026-08-23) — merged per its own INTEGRATION.md,
  * using Campus OS's existing tokens in place of Voicewrite's standalone
- * --color-brand-*/--color-accent-* palette (which was never carried over).
+ * --color-brand-* and --color-accent-* palette (which was never carried over).
  */
 
 /* Contenteditable placeholder, shown only while genuinely empty. */
