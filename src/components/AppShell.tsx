@@ -9,6 +9,7 @@ const NAV = [
   { href: "/canvas", label: "Canvas" },
   { href: "/email", label: "Email" },
   { href: "/notes", label: "Notes" },
+  { href: "/voicewrite", label: "Voicewrite" },
 ];
 
 export function AppShell({

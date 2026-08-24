@@ -35,6 +35,9 @@
   --c-6: #3c6e9c; /* slate blue */
   --c-7: #9b3f7a; /* magenta */
   --c-8: #4a5568; /* graphite */
+
+  /* Voicewrite's generated-writing editor font (same in light/dark). */
+  --font-editor: "Times New Roman", Times, serif;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -100,4 +103,47 @@
 body {
   background: var(--bg);
   color: var(--ink);
+}
+
+/*
+ * Voicewrite integration (2026-08-23) — merged per its own INTEGRATION.md,
+ * using Campus OS's existing tokens in place of Voicewrite's standalone
+ * --color-brand-*/--color-accent-* palette (which was never carried over).
+ */
+
+/* Contenteditable placeholder, shown only while genuinely empty. */
+[data-placeholder]:empty::before {
+  content: attr(data-placeholder);
+  color: var(--ink-faint);
+  pointer-events: none;
+}
+
+.editor-prose p {
+  margin: 0 0 1em 0;
+}
+.editor-prose p:last-child {
+  margin-bottom: 0;
+}
+.editor-prose ul,
+.editor-prose ol {
+  margin: 0 0 1em 1.5em;
+  padding: 0;
+}
+.editor-prose li {
+  margin-bottom: 0.35em;
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.18s ease-out;
 }

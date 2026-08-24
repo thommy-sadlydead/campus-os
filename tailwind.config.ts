@@ -11,6 +11,9 @@ const config: Config = {
         display: ["var(--font-fraunces)", "Georgia", "serif"],
         sans: ["var(--font-inter)", "system-ui", "sans-serif"],
         mono: ["var(--font-plex-mono)", "ui-monospace", "monospace"],
+        // Voicewrite's generated-writing editor — Times New Roman survives
+        // copy/paste into Word/Docs (see src/lib/voicewrite/clipboard.ts).
+        editor: ["var(--font-editor)", "Times New Roman", "Times", "serif"],
       },
       colors: {
         bg: "var(--bg)",

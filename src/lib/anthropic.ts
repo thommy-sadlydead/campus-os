@@ -13,7 +13,10 @@ export function getAnthropicClient(): Anthropic | null {
 
 // Override with ANTHROPIC_MODEL if you want a different tier/version — see
 // https://docs.claude.com/en/docs/about-claude/models for current model IDs.
-const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-5";
+// Exported so other AI-backed routes (e.g. Voicewrite's /api/voicewrite-generate,
+// which calls the SDK directly instead of through askClaude) stay on the same
+// model Reece has configured, instead of hardcoding a second default.
+export const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-5";
 
 /**
  * One-shot text completion with a system prompt. Returns null on any
