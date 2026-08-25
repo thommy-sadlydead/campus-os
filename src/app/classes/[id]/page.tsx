@@ -5,6 +5,7 @@ import { AppShell } from "@/components/AppShell";
 import { ClassTabs } from "@/components/classes/ClassTabs";
 import { canvasAssignmentUrl } from "@/lib/canvas";
 import type { AssignmentRowStatus } from "@/components/assignments/AssignmentRow";
+import type { LectureRow } from "@/components/classes/LecturesPanel";
 
 export default async function ClassPage({ params }: { params: { id: string } }) {
   const user = await requireUser();
@@ -20,6 +21,7 @@ export default async function ClassPage({ params }: { params: { id: string } }) 
         orderBy: { order: "asc" },
         include: { notes: { orderBy: { order: "asc" } } },
       },
+      lectures: { orderBy: { createdAt: "desc" } },
       emails: {
         where: { category: { notIn: ["IRRELEVANT", "UNCLASSIFIED"] } },
         orderBy: { receivedAt: "desc" },
@@ -93,6 +95,15 @@ export default async function ClassPage({ params }: { params: { id: string } }) 
             order: n.order,
             updatedAt: n.updatedAt.toISOString(),
           })),
+        }))}
+        lectures={cls.lectures.map((l) => ({
+          id: l.id,
+          title: l.title,
+          status: l.status as LectureRow["status"],
+          transcriptText: l.transcriptText,
+          notesMarkdown: l.notesMarkdown,
+          errorMessage: l.errorMessage,
+          createdAt: l.createdAt.toISOString(),
         }))}
         exams={cls.exams.map((e) => ({
           id: e.id,

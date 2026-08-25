@@ -51,7 +51,7 @@ export default async function ClassesPage() {
     <AppShell active="/classes" userName={user.name ?? user.email}>
       <h1 className="mb-1 font-display text-2xl font-semibold">Classes</h1>
       <p className="mb-6 text-sm text-ink-soft">
-        Overview, assignments, notes, exams, resources, and a class-scoped AI assistant for each.
+        Overview, assignments, notes, lectures, exams, resources, and a class-scoped AI assistant for each.
       </p>
 
       {classRows.length === 0 ? (

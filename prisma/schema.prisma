@@ -76,6 +76,7 @@ model Class {
   exams          Exam[]
   noteSections   NoteSection[]
   resources      Resource[]
+  lectures       Lecture[]
   emails         Email[]
   pendingChanges PendingChange[]
 
@@ -201,6 +202,34 @@ model Resource {
   url     String?
   notes   String?
   addedAt DateTime @default(now())
+
+  class Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@index([classId])
+}
+
+// A recorded lecture: an uploaded audio file, its AssemblyAI transcript, and
+// AI-generated notes from that transcript. Like Voicewrite, this has no
+// deterministic fallback — transcription and note generation ARE the
+// feature, so without ASSEMBLYAI_API_KEY/ANTHROPIC_API_KEY configured (or on
+// a transient failure) a lecture just sits in FAILED with errorMessage set,
+// same as Voicewrite's "not configured" error instead of a degraded answer.
+//
+// status is a String, not a Prisma enum — see the note above Assignment.status.
+// Application-level values: "UPLOADED" | "TRANSCRIBING" | "GENERATING_NOTES" |
+// "READY" | "FAILED" (see LectureStatus in src/lib/lecture-notes.ts).
+model Lecture {
+  id               String    @id @default(cuid())
+  classId          String
+  title            String
+  audioUrl         String // Vercel Blob URL (direct client-side upload)
+  status           String    @default("UPLOADED")
+  assemblyaiId     String? // transcript id at AssemblyAI, used to poll status
+  transcriptText   String?
+  notesMarkdown    String?
+  errorMessage     String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   class Class @relation(fields: [classId], references: [id], onDelete: Cascade)
 
