@@ -110,5 +110,3 @@ export async function askClassAssistantAction(
     usedAi: false,
   };
 }
-
-export { QUICK_PROMPTS };
