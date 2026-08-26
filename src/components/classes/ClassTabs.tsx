@@ -6,7 +6,7 @@ import { OverviewPanel, type OverviewClassInfo, type OverviewScheduleEvent, type
 import { ClassAssignmentsPanel, type ClassAssignmentRow } from "@/components/classes/ClassAssignmentsPanel";
 import { ExamsPanel, type ExamRow } from "@/components/classes/ExamsPanel";
 import { ResourcesPanel, type ResourceRow } from "@/components/classes/ResourcesPanel";
-import { LecturesPanel, type LectureRow } from "@/components/classes/LecturesPanel";
+import { LecturesPanel, type LectureRow, type ClassMaterialRow } from "@/components/classes/LecturesPanel";
 import { ClassAssistant } from "@/components/classes/ClassAssistant";
 
 const TABS = ["Overview", "Assignments", "Notes", "Lectures", "Exams", "Resources"] as const;
@@ -18,6 +18,7 @@ export function ClassTabs({
   assignments,
   noteSections,
   lectures,
+  materials,
   exams,
   resources,
   recentEmails,
@@ -28,6 +29,7 @@ export function ClassTabs({
   assignments: ClassAssignmentRow[];
   noteSections: NotesBoardSection[];
   lectures: LectureRow[];
+  materials: ClassMaterialRow[];
   exams: ExamRow[];
   resources: ResourceRow[];
   recentEmails: OverviewEmail[];
@@ -66,7 +68,7 @@ export function ClassTabs({
       )}
       {tab === "Assignments" && <ClassAssignmentsPanel assignments={assignments} tz={tz} />}
       {tab === "Notes" && <NotesBoard classId={classInfo.id} sections={noteSections} />}
-      {tab === "Lectures" && <LecturesPanel classId={classInfo.id} lectures={lectures} />}
+      {tab === "Lectures" && <LecturesPanel classId={classInfo.id} lectures={lectures} materials={materials} />}
       {tab === "Exams" && <ExamsPanel exams={exams} tz={tz} />}
       {tab === "Resources" && <ResourcesPanel classId={classInfo.id} resources={resources} />}
 

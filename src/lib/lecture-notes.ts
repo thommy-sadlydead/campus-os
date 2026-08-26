@@ -38,6 +38,28 @@ export function isLectureInProgress(status: string): boolean {
   return status === "UPLOADED" || status === "TRANSCRIBING" || status === "GENERATING_NOTES";
 }
 
+// String, not a Prisma enum — see the note above Assignment.status in
+// schema.prisma. Mirrors ClassMaterial.type.
+export type ClassMaterialType = "BOOK" | "SLIDES";
+
+export const MAX_MATERIAL_TITLE_LENGTH = 160;
+export const MAX_MATERIAL_CONTENT_LENGTH = 20_000;
+
+const MATERIAL_TYPE_LABELS: Record<ClassMaterialType, string> = {
+  BOOK: "Book",
+  SLIDES: "Slides",
+};
+
+export function classMaterialTypeLabel(type: string): string {
+  return MATERIAL_TYPE_LABELS[type as ClassMaterialType] ?? type;
+}
+
+export interface ClassMaterialInput {
+  type: string;
+  title: string;
+  content: string;
+}
+
 // Comfortably covers a multi-hour lecture (~100k chars is roughly a 2.5-3
 // hour transcript) while keeping a hard ceiling on the note-generation
 // request. Trimmed from the end, not the start, since a lecture's opening
@@ -45,25 +67,53 @@ export function isLectureInProgress(status: string): boolean {
 // closing minutes.
 const MAX_TRANSCRIPT_CHARS = 100_000;
 
-export function buildLectureNotesPrompt(transcriptText: string): { system: string; prompt: string } {
+// Separate, smaller budget for combined class materials — these accumulate
+// across every book/slide entry added to the class, not just one lecture,
+// so the cap has to be tighter than the transcript's to keep the total
+// prompt reasonable.
+const MAX_MATERIALS_CHARS = 40_000;
+
+function formatMaterialsForPrompt(materials: ClassMaterialInput[]): string | null {
+  if (materials.length === 0) return null;
+
+  const blocks = materials.map(
+    (m) => `[${classMaterialTypeLabel(m.type)}: ${m.title}]\n${m.content}`
+  );
+  const joined = blocks.join("\n\n");
+  return joined.length > MAX_MATERIALS_CHARS ? joined.slice(0, MAX_MATERIALS_CHARS) : joined;
+}
+
+export function buildLectureNotesPrompt(
+  transcriptText: string,
+  materials: ClassMaterialInput[] = []
+): { system: string; prompt: string } {
   const truncated = transcriptText.length > MAX_TRANSCRIPT_CHARS;
   const text = truncated ? transcriptText.slice(0, MAX_TRANSCRIPT_CHARS) : transcriptText;
+  const materialsText = formatMaterialsForPrompt(materials);
 
   const system = [
     "You turn raw lecture transcripts into clear, well-organized study notes for a student.",
     "Structure the notes with markdown headings for topics/sections in the order they came up, using bullet points for key facts, definitions, and examples. Bold key terms.",
     "Only include material that's actually in the transcript — never invent facts, dates, or examples that aren't there.",
     "Transcripts sometimes have misheard words or filler ('um', 'you know') — clean those up, but don't editorialize or add commentary of your own.",
+    materialsText &&
+      "Reference material for this class (textbook excerpts, slides) is also provided below. Use it only to inform terminology, structure, and depth, and to correct clear transcription errors (e.g. a misheard term the reference material spells correctly) — never to add content, examples, or claims the transcript doesn't actually cover.",
     "Respond with ONLY the markdown notes — no preamble like \"Here are your notes\".",
-  ].join(" ");
+  ]
+    .filter(Boolean)
+    .join(" ");
 
-  const prompt = [
+  const promptParts = [
     truncated
       ? "The following is the first part of a lecture transcript (it was cut off for length):"
       : "The following is a full lecture transcript:",
     "",
     text,
-  ].join("\n");
+  ];
 
-  return { system, prompt };
+  if (materialsText) {
+    promptParts.push("", "---", "", "Reference material for this class:", "", materialsText);
+  }
+
+  return { system, prompt: promptParts.join("\n") };
 }

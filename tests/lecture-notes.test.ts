@@ -3,6 +3,7 @@ import {
   isAllowedAudioType,
   isLectureInProgress,
   lectureStatusLabel,
+  classMaterialTypeLabel,
   buildLectureNotesPrompt,
 } from "../src/lib/lecture-notes";
 
@@ -61,5 +62,44 @@ describe("buildLectureNotesPrompt", () => {
   it("tells the model not to fabricate content", () => {
     const { system } = buildLectureNotesPrompt("some transcript text");
     expect(system.toLowerCase()).toContain("never invent");
+  });
+
+  it("says nothing about reference material when there are no materials", () => {
+    const { system, prompt } = buildLectureNotesPrompt("some transcript text");
+    expect(system.toLowerCase()).not.toContain("reference material");
+    expect(prompt).not.toContain("Reference material for this class");
+  });
+
+  it("includes book and slide content in the prompt, labeled by type and title", () => {
+    const { prompt } = buildLectureNotesPrompt("Today: supply and demand.", [
+      { type: "BOOK", title: "Principles of Economics", content: "Chapter 4 covers price elasticity." },
+      { type: "SLIDES", title: "Week 3 slides", content: "Slide 12: equilibrium price graph." },
+    ]);
+    expect(prompt).toContain("[Book: Principles of Economics]");
+    expect(prompt).toContain("Chapter 4 covers price elasticity.");
+    expect(prompt).toContain("[Slides: Week 3 slides]");
+    expect(prompt).toContain("Slide 12: equilibrium price graph.");
+  });
+
+  it("tells the model materials only inform, never add content, when materials are present", () => {
+    const { system } = buildLectureNotesPrompt("transcript", [{ type: "BOOK", title: "Text", content: "content" }]);
+    expect(system.toLowerCase()).toContain("never to add content");
+  });
+
+  it("truncates combined materials that exceed the budget", () => {
+    const huge = "word ".repeat(20_000); // ~100k chars, over the 40k materials budget
+    const { prompt } = buildLectureNotesPrompt("transcript", [{ type: "BOOK", title: "Big Book", content: huge }]);
+    expect(prompt.length).toBeLessThan(huge.length);
+  });
+});
+
+describe("classMaterialTypeLabel", () => {
+  it("labels known types", () => {
+    expect(classMaterialTypeLabel("BOOK")).toBe("Book");
+    expect(classMaterialTypeLabel("SLIDES")).toBe("Slides");
+  });
+
+  it("falls back to the raw value for an unknown type", () => {
+    expect(classMaterialTypeLabel("SOMETHING_ELSE")).toBe("SOMETHING_ELSE");
   });
 });

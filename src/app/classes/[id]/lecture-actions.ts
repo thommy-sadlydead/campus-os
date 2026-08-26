@@ -8,7 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import { getAssemblyAIClient } from "@/lib/assemblyai";
 import { getAnthropicClient, MODEL } from "@/lib/anthropic";
-import { buildLectureNotesPrompt } from "@/lib/lecture-notes";
+import { buildLectureNotesPrompt, MAX_MATERIAL_TITLE_LENGTH, MAX_MATERIAL_CONTENT_LENGTH } from "@/lib/lecture-notes";
 
 async function requireOwnedClass(classId: string, userId: string) {
   const cls = await prisma.class.findUnique({ where: { id: classId } });
@@ -20,6 +20,12 @@ async function requireOwnedLecture(lectureId: string, userId: string) {
   const lecture = await prisma.lecture.findUnique({ where: { id: lectureId }, include: { class: true } });
   if (!lecture || lecture.class.userId !== userId) throw new Error("Not found.");
   return lecture;
+}
+
+async function requireOwnedMaterial(materialId: string, userId: string) {
+  const material = await prisma.classMaterial.findUnique({ where: { id: materialId }, include: { class: true } });
+  if (!material || material.class.userId !== userId) throw new Error("Not found.");
+  return material;
 }
 
 const NOT_CONFIGURED = {
@@ -34,8 +40,12 @@ const NOT_CONFIGURED = {
  * null for features that have a deterministic fallback, but note generation
  * IS the feature here, so failures need to surface as a real FAILED status
  * with a real message instead.
+ *
+ * Pulls in the class's materials (books/slides — see ClassMaterial) as
+ * extra context every time, so they inform every lecture in the class
+ * without needing to be re-attached per lecture.
  */
-async function generateNotes(lectureId: string, transcriptText: string) {
+async function generateNotes(lectureId: string, transcriptText: string, classId: string) {
   const anthropic = getAnthropicClient();
   if (!anthropic) {
     await prisma.lecture.update({
@@ -45,7 +55,11 @@ async function generateNotes(lectureId: string, transcriptText: string) {
     return;
   }
 
-  const { system, prompt } = buildLectureNotesPrompt(transcriptText);
+  const materials = await prisma.classMaterial.findMany({
+    where: { classId },
+    orderBy: { createdAt: "asc" },
+  });
+  const { system, prompt } = buildLectureNotesPrompt(transcriptText, materials);
   try {
     const message = await anthropic.messages.create(
       { model: MODEL, max_tokens: 2000, system, messages: [{ role: "user", content: prompt }] },
@@ -164,14 +178,14 @@ export async function pollLectureStatusAction(lectureId: string) {
         where: { id: lecture.id },
         data: { status: "GENERATING_NOTES", transcriptText },
       });
-      await generateNotes(lecture.id, transcriptText);
+      await generateNotes(lecture.id, transcriptText, lecture.classId);
     }
     // "queued" / "processing": no-op, poll again later.
   } else if (lecture.status === "GENERATING_NOTES") {
     // A previous poll started note generation but the row never advanced
     // (e.g. the serverless function was killed mid-request) — retry from
     // the transcript already saved on the row.
-    await generateNotes(lecture.id, lecture.transcriptText || "");
+    await generateNotes(lecture.id, lecture.transcriptText || "", lecture.classId);
   }
 
   revalidatePath(`/classes/${lecture.classId}`);
@@ -185,7 +199,16 @@ export async function retryLectureAction(lectureId: string) {
   if (lecture.transcriptText) {
     // Already have a transcript — the failure was in note generation, retry just that.
     await prisma.lecture.update({ where: { id: lecture.id }, data: { status: "GENERATING_NOTES", errorMessage: null } });
-    await generateNotes(lecture.id, lecture.transcriptText);
+    await generateNotes(lecture.id, lecture.transcriptText, lecture.classId);
+  } else if (!lecture.audioUrl) {
+    // No transcript and no audio — shouldn't happen (a pasted-transcript
+    // lecture always has transcriptText, an audio one always has audioUrl),
+    // but fail loudly instead of calling AssemblyAI with a null URL.
+    await prisma.lecture.update({
+      where: { id: lecture.id },
+      data: { errorMessage: "This lecture has neither a transcript nor an audio file to retry from." },
+    });
+    revalidatePath(`/classes/${lecture.classId}`);
   } else {
     const assemblyai = getAssemblyAIClient();
     if (!assemblyai) {
@@ -214,13 +237,82 @@ export async function deleteLectureAction(lectureId: string) {
   const user = await requireUser();
   const lecture = await requireOwnedLecture(lectureId, user.id);
 
-  try {
-    await del(lecture.audioUrl);
-  } catch (err) {
-    // Best-effort — don't block deleting the record if Blob cleanup fails.
-    console.error("Lecture audio blob delete failed:", err);
+  if (lecture.audioUrl) {
+    try {
+      await del(lecture.audioUrl);
+    } catch (err) {
+      // Best-effort — don't block deleting the record if Blob cleanup fails.
+      console.error("Lecture audio blob delete failed:", err);
+    }
   }
 
   await prisma.lecture.delete({ where: { id: lecture.id } });
   revalidatePath(`/classes/${lecture.classId}`);
+}
+
+const createLectureFromTranscriptSchema = z.object({
+  title: z.string().min(1).max(160),
+  transcriptText: z.string().min(1).max(200_000),
+});
+
+/**
+ * Alternate path into the same pipeline as createLectureAction, for a
+ * transcript the user already has (from elsewhere, or typed up themselves)
+ * instead of an audio file — skips Blob upload and AssemblyAI entirely and
+ * goes straight to note generation. audioUrl stays null on this row.
+ */
+export async function createLectureFromTranscriptAction(
+  classId: string,
+  input: { title: string; transcriptText: string }
+) {
+  const user = await requireUser();
+  await requireOwnedClass(classId, user.id);
+  const parsed = createLectureFromTranscriptSchema.parse(input);
+
+  const lecture = await prisma.lecture.create({
+    data: {
+      classId,
+      title: parsed.title,
+      transcriptText: parsed.transcriptText,
+      status: "GENERATING_NOTES",
+    },
+  });
+
+  await generateNotes(lecture.id, parsed.transcriptText, classId);
+  revalidatePath(`/classes/${classId}`);
+}
+
+// ---------------------------------------------------------------------------
+// Class materials — textbook/slide content that informs every lecture's
+// notes in the class (see the ClassMaterial model and generateNotes above).
+// ---------------------------------------------------------------------------
+
+const classMaterialSchema = z.object({
+  type: z.enum(["BOOK", "SLIDES"]),
+  title: z.string().min(1).max(MAX_MATERIAL_TITLE_LENGTH),
+  content: z.string().min(1).max(MAX_MATERIAL_CONTENT_LENGTH),
+});
+
+export async function addClassMaterialAction(classId: string, formData: FormData) {
+  const user = await requireUser();
+  await requireOwnedClass(classId, user.id);
+
+  const parsed = classMaterialSchema.safeParse({
+    type: formData.get("type"),
+    title: formData.get("title"),
+    content: formData.get("content"),
+  });
+  if (!parsed.success) throw new Error("Enter a title and some content.");
+
+  await prisma.classMaterial.create({
+    data: { classId, type: parsed.data.type, title: parsed.data.title, content: parsed.data.content },
+  });
+  revalidatePath(`/classes/${classId}`);
+}
+
+export async function deleteClassMaterialAction(materialId: string) {
+  const user = await requireUser();
+  const material = await requireOwnedMaterial(materialId, user.id);
+  await prisma.classMaterial.delete({ where: { id: material.id } });
+  revalidatePath(`/classes/${material.classId}`);
 }

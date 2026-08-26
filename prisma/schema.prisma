@@ -77,6 +77,7 @@ model Class {
   noteSections   NoteSection[]
   resources      Resource[]
   lectures       Lecture[]
+  materials      ClassMaterial[]
   emails         Email[]
   pendingChanges PendingChange[]
 
@@ -208,12 +209,34 @@ model Resource {
   @@index([classId])
 }
 
-// A recorded lecture: an uploaded audio file, its AssemblyAI transcript, and
-// AI-generated notes from that transcript. Like Voicewrite, this has no
-// deterministic fallback — transcription and note generation ARE the
-// feature, so without ASSEMBLYAI_API_KEY/ANTHROPIC_API_KEY configured (or on
-// a transient failure) a lecture just sits in FAILED with errorMessage set,
-// same as Voicewrite's "not configured" error instead of a degraded answer.
+// Class-level reference material (textbook excerpts, slide content) that
+// gets folded into the prompt every time notes are generated for any
+// lecture in this class — the class's persistent "memory" for note
+// generation, independent of any one lecture's transcript. Pasted text only
+// for now (no file upload/parsing yet — see src/lib/lecture-notes.ts).
+//
+// type is a String, not a Prisma enum — see the note above Assignment.status.
+// Application-level values: "BOOK" | "SLIDES".
+model ClassMaterial {
+  id        String   @id @default(cuid())
+  classId   String
+  type      String
+  title     String
+  content   String
+  createdAt DateTime @default(now())
+
+  class Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@index([classId])
+}
+
+// A recorded lecture: an uploaded audio file (or a directly pasted
+// transcript — see below), its AssemblyAI transcript, and AI-generated notes
+// from that transcript. Like Voicewrite, this has no deterministic fallback —
+// transcription and note generation ARE the feature, so without
+// ASSEMBLYAI_API_KEY/ANTHROPIC_API_KEY configured (or on a transient
+// failure) a lecture just sits in FAILED with errorMessage set, same as
+// Voicewrite's "not configured" error instead of a degraded answer.
 //
 // status is a String, not a Prisma enum — see the note above Assignment.status.
 // Application-level values: "UPLOADED" | "TRANSCRIBING" | "GENERATING_NOTES" |
@@ -222,7 +245,7 @@ model Lecture {
   id               String    @id @default(cuid())
   classId          String
   title            String
-  audioUrl         String // Vercel Blob URL (direct client-side upload)
+  audioUrl         String? // Vercel Blob URL (direct client-side upload) — null for a pasted-transcript lecture, which skips audio/AssemblyAI entirely
   status           String    @default("UPLOADED")
   assemblyaiId     String? // transcript id at AssemblyAI, used to poll status
   transcriptText   String?

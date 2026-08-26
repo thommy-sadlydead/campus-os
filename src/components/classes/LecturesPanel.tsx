@@ -5,12 +5,22 @@ import { useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
 import ReactMarkdown from "react-markdown";
 import {
+  addClassMaterialAction,
   createLectureAction,
+  createLectureFromTranscriptAction,
+  deleteClassMaterialAction,
   deleteLectureAction,
   pollLectureStatusAction,
   retryLectureAction,
 } from "@/app/classes/[id]/lecture-actions";
-import { isAllowedAudioType, isLectureInProgress, lectureStatusLabel, type LectureStatus } from "@/lib/lecture-notes";
+import {
+  classMaterialTypeLabel,
+  isAllowedAudioType,
+  isLectureInProgress,
+  lectureStatusLabel,
+  type ClassMaterialType,
+  type LectureStatus,
+} from "@/lib/lecture-notes";
 
 export interface LectureRow {
   id: string;
@@ -19,6 +29,14 @@ export interface LectureRow {
   transcriptText: string | null;
   notesMarkdown: string | null;
   errorMessage: string | null;
+  createdAt: string; // ISO
+}
+
+export interface ClassMaterialRow {
+  id: string;
+  type: ClassMaterialType;
+  title: string;
+  content: string;
   createdAt: string; // ISO
 }
 
@@ -42,15 +60,18 @@ const MARKDOWN_CLASSNAME =
 
 const POLL_INTERVAL_MS = 4000;
 
-export function LecturesPanel({ classId, lectures }: { classId: string; lectures: LectureRow[] }) {
+export function LecturesPanel({
+  classId,
+  lectures,
+  materials,
+}: {
+  classId: string;
+  lectures: LectureRow[];
+  materials: ClassMaterialRow[];
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [title, setTitle] = useState("");
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadError, setUploadError] = useState<string | null>(null);
   const [openLectureId, setOpenLectureId] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Only lecture ids, joined into one primitive string — using the
   // lectures/objects themselves as a dependency would re-arm this effect
@@ -73,69 +94,11 @@ export function LecturesPanel({ classId, lectures }: { classId: string; lectures
     return () => clearInterval(interval);
   }, [inProgressKey, router]);
 
-  async function handleUploadSubmit(e: FormEvent) {
-    e.preventDefault();
-    const file = fileInputRef.current?.files?.[0];
-    if (!file) {
-      setUploadError("Choose an audio file first.");
-      return;
-    }
-    if (!isAllowedAudioType(file.type)) {
-      setUploadError("That doesn't look like an audio file.");
-      return;
-    }
-
-    const lectureTitle = title.trim() || file.name.replace(/\.[^.]+$/, "");
-    setIsUploading(true);
-    setUploadProgress(0);
-    setUploadError(null);
-
-    try {
-      const blob = await upload(`lectures/${classId}/${file.name}`, file, {
-        access: "public",
-        handleUploadUrl: "/api/lecture-audio/upload",
-        onUploadProgress: (event) => setUploadProgress(Math.round(event.percentage)),
-      });
-
-      await createLectureAction(classId, { title: lectureTitle, audioUrl: blob.url });
-      setTitle("");
-      if (fileInputRef.current) fileInputRef.current.value = "";
-      router.refresh();
-    } catch (err) {
-      setUploadError(err instanceof Error ? err.message : "Upload failed. Please try again.");
-    } finally {
-      setIsUploading(false);
-    }
-  }
-
   return (
     <div className="flex flex-col gap-4">
-      <form onSubmit={handleUploadSubmit} className="rounded-xl2 border border-border-soft bg-surface p-4 shadow-card">
-        <h4 className="mb-3 text-sm font-semibold">Upload a lecture recording</h4>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Title (optional — defaults to the filename)"
-            className="flex-1 rounded-lg border border-border bg-bg px-2.5 py-1.5 text-sm outline-none focus:border-accent"
-          />
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="audio/*"
-            className="flex-1 rounded-lg border border-border bg-bg px-2.5 py-1.5 text-sm outline-none file:mr-2 file:rounded-md file:border-0 file:bg-surface-2 file:px-2 file:py-1 file:text-xs file:font-medium focus:border-accent"
-          />
-          <button
-            type="submit"
-            disabled={isUploading}
-            className="flex-none rounded-lg bg-ink px-3 py-1.5 text-sm font-medium text-surface hover:opacity-90 disabled:opacity-60"
-          >
-            {isUploading ? `Uploading… ${uploadProgress}%` : "Upload"}
-          </button>
-        </div>
-        {uploadError && <p className="mt-2 text-xs text-danger">{uploadError}</p>}
-      </form>
+      <UploadCard classId={classId} onDone={() => router.refresh()} />
+
+      <ClassMaterialsSection classId={classId} materials={materials} />
 
       {lectures.length === 0 ? (
         <div className="rounded-xl2 border border-dashed border-border p-8 text-center text-sm text-ink-soft">
@@ -167,6 +130,270 @@ export function LecturesPanel({ classId, lectures }: { classId: string; lectures
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Upload — audio (direct-to-Blob, transcribed via AssemblyAI) or a transcript
+// pasted directly, which skips straight to note generation.
+// ---------------------------------------------------------------------------
+
+function UploadCard({ classId, onDone }: { classId: string; onDone: () => void }) {
+  const [mode, setMode] = useState<"audio" | "transcript">("audio");
+  const [title, setTitle] = useState("");
+  const [transcriptText, setTranscriptText] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleAudioSubmit(e: FormEvent) {
+    e.preventDefault();
+    const file = fileInputRef.current?.files?.[0];
+    if (!file) {
+      setUploadError("Choose an audio file first.");
+      return;
+    }
+    if (!isAllowedAudioType(file.type)) {
+      setUploadError("That doesn't look like an audio file.");
+      return;
+    }
+
+    const lectureTitle = title.trim() || file.name.replace(/\.[^.]+$/, "");
+    setIsUploading(true);
+    setUploadProgress(0);
+    setUploadError(null);
+
+    try {
+      const blob = await upload(`lectures/${classId}/${file.name}`, file, {
+        access: "public",
+        handleUploadUrl: "/api/lecture-audio/upload",
+        onUploadProgress: (event) => setUploadProgress(Math.round(event.percentage)),
+      });
+
+      await createLectureAction(classId, { title: lectureTitle, audioUrl: blob.url });
+      setTitle("");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      onDone();
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Upload failed. Please try again.");
+    } finally {
+      setIsUploading(false);
+    }
+  }
+
+  async function handleTranscriptSubmit(e: FormEvent) {
+    e.preventDefault();
+    const trimmed = transcriptText.trim();
+    if (!trimmed) {
+      setUploadError("Paste a transcript first.");
+      return;
+    }
+
+    const lectureTitle = title.trim() || "Untitled lecture";
+    setIsUploading(true);
+    setUploadError(null);
+
+    try {
+      await createLectureFromTranscriptAction(classId, { title: lectureTitle, transcriptText: trimmed });
+      setTitle("");
+      setTranscriptText("");
+      onDone();
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Couldn't generate notes. Please try again.");
+    } finally {
+      setIsUploading(false);
+    }
+  }
+
+  return (
+    <form
+      onSubmit={mode === "audio" ? handleAudioSubmit : handleTranscriptSubmit}
+      className="rounded-xl2 border border-border-soft bg-surface p-4 shadow-card"
+    >
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h4 className="text-sm font-semibold">Add a lecture</h4>
+        <div className="inline-flex rounded-lg border border-border p-0.5">
+          <button
+            type="button"
+            onClick={() => setMode("audio")}
+            className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+              mode === "audio" ? "bg-ink text-surface" : "text-ink-soft hover:text-ink"
+            }`}
+          >
+            Upload audio
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("transcript")}
+            className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+              mode === "transcript" ? "bg-ink text-surface" : "text-ink-soft hover:text-ink"
+            }`}
+          >
+            Paste transcript
+          </button>
+        </div>
+      </div>
+
+      <input
+        type="text"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        placeholder={mode === "audio" ? "Title (optional — defaults to the filename)" : "Title (optional)"}
+        className="w-full rounded-lg border border-border bg-bg px-2.5 py-1.5 text-sm outline-none focus:border-accent"
+      />
+
+      {mode === "audio" ? (
+        <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="audio/*"
+            className="flex-1 rounded-lg border border-border bg-bg px-2.5 py-1.5 text-sm outline-none file:mr-2 file:rounded-md file:border-0 file:bg-surface-2 file:px-2 file:py-1 file:text-xs file:font-medium focus:border-accent"
+          />
+          <button
+            type="submit"
+            disabled={isUploading}
+            className="flex-none rounded-lg bg-ink px-3 py-1.5 text-sm font-medium text-surface hover:opacity-90 disabled:opacity-60"
+          >
+            {isUploading ? `Uploading… ${uploadProgress}%` : "Upload"}
+          </button>
+        </div>
+      ) : (
+        <div className="mt-2 flex flex-col gap-2">
+          <textarea
+            value={transcriptText}
+            onChange={(e) => setTranscriptText(e.target.value)}
+            rows={5}
+            placeholder="Paste the lecture transcript here…"
+            className="w-full rounded-lg border border-border bg-bg px-2.5 py-1.5 text-sm outline-none focus:border-accent"
+          />
+          <button
+            type="submit"
+            disabled={isUploading}
+            className="flex-none self-end rounded-lg bg-ink px-3 py-1.5 text-sm font-medium text-surface hover:opacity-90 disabled:opacity-60"
+          >
+            {isUploading ? "Generating notes…" : "Generate notes"}
+          </button>
+        </div>
+      )}
+
+      {uploadError && <p className="mt-2 text-xs text-danger">{uploadError}</p>}
+    </form>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Class materials — books/slides that inform every lecture's notes in this
+// class (see ClassMaterial in schema.prisma and generateNotes in
+// lecture-actions.ts). Pasted text only for now, no file upload/parsing.
+// ---------------------------------------------------------------------------
+
+function ClassMaterialsSection({ classId, materials }: { classId: string; materials: ClassMaterialRow[] }) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [type, setType] = useState<ClassMaterialType>("BOOK");
+  const [materialTitle, setMaterialTitle] = useState("");
+  const [content, setContent] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleAdd(e: FormEvent) {
+    e.preventDefault();
+    if (!materialTitle.trim() || !content.trim()) {
+      setError("Enter a title and some content.");
+      return;
+    }
+    setError(null);
+
+    const fd = new FormData();
+    fd.set("type", type);
+    fd.set("title", materialTitle.trim());
+    fd.set("content", content.trim());
+
+    startTransition(async () => {
+      try {
+        await addClassMaterialAction(classId, fd);
+        setMaterialTitle("");
+        setContent("");
+        router.refresh();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Couldn't add that. Please try again.");
+      }
+    });
+  }
+
+  return (
+    <div className="rounded-xl2 border border-border-soft bg-surface p-4 shadow-card">
+      <h4 className="text-sm font-semibold">Class materials</h4>
+      <p className="mt-0.5 text-xs text-ink-faint">
+        Textbook excerpts and slide content, used as extra context every time notes are generated for a lecture in
+        this class.
+      </p>
+
+      {materials.length > 0 && (
+        <ul className="mt-3 flex flex-col gap-2">
+          {materials.map((m) => (
+            <li key={m.id} className="flex items-start gap-3 rounded-lg border border-border-soft bg-bg p-2.5">
+              <span className="flex-none rounded-full bg-surface-2 px-2 py-0.5 text-xs font-medium text-ink-soft">
+                {classMaterialTypeLabel(m.type)}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-medium">{m.title}</div>
+                <p className="mt-0.5 line-clamp-2 text-xs text-ink-faint">{m.content}</p>
+              </div>
+              <button
+                onClick={() => {
+                  if (!confirm(`Remove "${m.title}"?`)) return;
+                  startTransition(async () => {
+                    await deleteClassMaterialAction(m.id);
+                    router.refresh();
+                  });
+                }}
+                disabled={pending}
+                className="flex-none text-xs text-ink-faint hover:text-danger disabled:opacity-60"
+              >
+                Remove
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <form onSubmit={handleAdd} className="mt-3 flex flex-col gap-2 border-t border-border-soft pt-3">
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <select
+            value={type}
+            onChange={(e) => setType(e.target.value as ClassMaterialType)}
+            className="flex-none rounded-lg border border-border bg-bg px-2.5 py-1.5 text-sm outline-none focus:border-accent"
+          >
+            <option value="BOOK">Book</option>
+            <option value="SLIDES">Slides</option>
+          </select>
+          <input
+            type="text"
+            value={materialTitle}
+            onChange={(e) => setMaterialTitle(e.target.value)}
+            placeholder="Title (e.g. the textbook name, or “Week 3 slides”)"
+            className="flex-1 rounded-lg border border-border bg-bg px-2.5 py-1.5 text-sm outline-none focus:border-accent"
+          />
+        </div>
+        <textarea
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          rows={3}
+          placeholder="Paste an excerpt, outline, or key points…"
+          className="w-full rounded-lg border border-border bg-bg px-2.5 py-1.5 text-sm outline-none focus:border-accent"
+        />
+        <button
+          type="submit"
+          disabled={pending}
+          className="flex-none self-end rounded-lg border border-border px-3 py-1.5 text-sm font-medium hover:bg-surface-2 disabled:opacity-60"
+        >
+          Add
+        </button>
+        {error && <p className="text-xs text-danger">{error}</p>}
+      </form>
     </div>
   );
 }
