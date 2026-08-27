@@ -343,7 +343,11 @@ function ClassMaterialsSection({ classId, materials }: { classId: string; materi
 
     setIsFetching(true);
     try {
-      await addClassMaterialFromUrlAction(classId, fd);
+      const result = await addClassMaterialFromUrlAction(classId, fd);
+      if (result?.error) {
+        setError(result.error);
+        return;
+      }
       setMaterialTitle("");
       setUrl("");
       router.refresh();

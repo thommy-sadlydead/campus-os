@@ -390,7 +390,10 @@ const classMaterialUrlSchema = z.object({
   url: z.string().url(),
 });
 
-export async function addClassMaterialFromUrlAction(classId: string, formData: FormData) {
+export async function addClassMaterialFromUrlAction(
+  classId: string,
+  formData: FormData
+): Promise<{ error: string } | undefined> {
   const user = await requireUser();
   await requireOwnedClass(classId, user.id);
 
@@ -399,15 +402,25 @@ export async function addClassMaterialFromUrlAction(classId: string, formData: F
     title: (formData.get("title") as string) || undefined,
     url: formData.get("url"),
   });
-  if (!parsed.success) throw new Error("Enter a valid link.");
+  if (!parsed.success) return { error: "Enter a valid link." };
 
-  const { title: pageTitle, content } = await fetchReadableTextFromUrl(parsed.data.url);
-  const title = (parsed.data.title?.trim() || pageTitle || "Untitled").slice(0, MAX_MATERIAL_TITLE_LENGTH);
+  // Thrown errors lose their message in production (Next.js redacts Server
+  // Action error text, keeping only a log digest), which would turn every
+  // one of fetchReadableTextFromUrl's specific, actionable messages into a
+  // generic "something went wrong" — so catch here and return the message
+  // as data instead of letting it cross the server/client boundary as a throw.
+  try {
+    const { title: pageTitle, content } = await fetchReadableTextFromUrl(parsed.data.url);
+    const title = (parsed.data.title?.trim() || pageTitle || "Untitled").slice(0, MAX_MATERIAL_TITLE_LENGTH);
 
-  await prisma.classMaterial.create({
-    data: { classId, type: parsed.data.type, title, content, sourceUrl: parsed.data.url },
-  });
-  revalidatePath(`/classes/${classId}`);
+    await prisma.classMaterial.create({
+      data: { classId, type: parsed.data.type, title, content, sourceUrl: parsed.data.url },
+    });
+    revalidatePath(`/classes/${classId}`);
+    return undefined;
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Couldn't fetch that link. Please try again." };
+  }
 }
 
 export async function deleteClassMaterialAction(materialId: string) {
