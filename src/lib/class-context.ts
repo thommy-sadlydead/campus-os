@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { formatDueLabel } from "@/lib/time";
+import { classMaterialTypeLabel } from "@/lib/lecture-notes";
 
 /**
  * Everything the per-class AI assistant is allowed to see for one class —
@@ -16,6 +17,8 @@ export interface ClassContext {
   assignmentsText: string;
   examsText: string;
   resourcesText: string;
+  lecturesText: string; // AI-generated notes from each ready lecture (see Lecture.notesMarkdown)
+  materialsText: string; // books/slides (see ClassMaterial)
   emailsText: string;
   hasAnyContent: boolean;
 }
@@ -28,6 +31,8 @@ export async function loadClassContext(classId: string, userId: string, tz: stri
       assignments: { include: { tasks: true }, orderBy: { dueAt: "asc" } },
       exams: { orderBy: { examAt: "asc" } },
       resources: true,
+      lectures: { where: { status: "READY" }, orderBy: { createdAt: "desc" } },
+      materials: { orderBy: { createdAt: "asc" } },
       emails: {
         where: { category: { notIn: ["IRRELEVANT", "UNCLASSIFIED"] } },
         orderBy: { receivedAt: "desc" },
@@ -71,6 +76,16 @@ export async function loadClassContext(classId: string, userId: string, tz: stri
   const resourcesText =
     cls.resources.map((r) => `- ${r.title}${r.notes ? `: ${r.notes}` : ""}`).join("\n") || "(no resources saved)";
 
+  const lecturesText =
+    cls.lectures
+      .map((l) => `## ${l.title}\n${(l.notesMarkdown ?? "").slice(0, 2000)}`)
+      .join("\n\n") || "(no lecture notes yet)";
+
+  const materialsText =
+    cls.materials
+      .map((m) => `- [${classMaterialTypeLabel(m.type)}] ${m.title}: ${m.content.slice(0, 2000)}`)
+      .join("\n\n") || "(no books or slides added yet)";
+
   const emailsText =
     cls.emails
       .map((e) => `- [${e.category}] "${e.subject}" (${e.receivedAt.toDateString()}): ${e.snippet ?? ""}`)
@@ -83,12 +98,16 @@ export async function loadClassContext(classId: string, userId: string, tz: stri
     assignmentsText,
     examsText,
     resourcesText,
+    lecturesText,
+    materialsText,
     emailsText,
     hasAnyContent:
       cls.noteSections.some((s) => s.notes.length > 0) ||
       cls.assignments.length > 0 ||
       cls.exams.length > 0 ||
       cls.resources.length > 0 ||
+      cls.lectures.length > 0 ||
+      cls.materials.length > 0 ||
       cls.emails.length > 0,
   };
 }
@@ -111,6 +130,12 @@ export function classSystemPrompt(ctx: ClassContext): string {
     "",
     "=== RESOURCES ===",
     ctx.resourcesText,
+    "",
+    "=== LECTURE NOTES (from uploaded/pasted lecture transcripts) ===",
+    ctx.lecturesText,
+    "",
+    "=== BOOKS & SLIDES ===",
+    ctx.materialsText,
     "",
     "=== RELEVANT EMAILS ===",
     ctx.emailsText,

@@ -31,7 +31,8 @@ export function ClassAssistant({ classId, className }: { classId: string; classN
     <div className="rounded-xl2 border border-border-soft bg-surface p-5 shadow-card">
       <h3 className="font-display text-base font-semibold">Ask about {className}</h3>
       <p className="mt-0.5 text-xs text-ink-faint">
-        Scoped to this class only — your notes, assignments, exams, resources, and any relevant emails.
+        Scoped to this class only — your notes, assignments, exams, resources, lecture notes, books/slides, and any
+        relevant emails.
       </p>
 
       <div className="mt-3 flex flex-wrap gap-2">

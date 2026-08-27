@@ -90,7 +90,7 @@ export async function askClassAssistantAction(
   if (!ctx.hasAnyContent) {
     return {
       answer:
-        "AI features need an ANTHROPIC_API_KEY (see .env.example), and this class doesn't have any notes, assignments, exams, or resources on file yet to summarize even without one.",
+        "AI features need an ANTHROPIC_API_KEY (see .env.example), and this class doesn't have any notes, assignments, exams, lectures, materials, or resources on file yet to summarize even without one.",
       usedAi: false,
     };
   }
@@ -106,6 +106,12 @@ export async function askClassAssistantAction(
       "",
       "Exams:",
       ctx.examsText,
+      "",
+      "Lecture notes:",
+      ctx.lecturesText,
+      "",
+      "Books & slides:",
+      ctx.materialsText,
     ].join("\n"),
     usedAi: false,
   };
