@@ -90,6 +90,35 @@ export function canvasAssignmentUrl(
   return `${base}/courses/${canvasCourseId}/assignments/${canvasAssignmentId}`;
 }
 
+export type CanvasUrlClassification =
+  | { kind: "file"; fileId: string }
+  | { kind: "canvas-page" } // same Canvas instance, but not a link to one specific file
+  | { kind: "external" };
+
+/**
+ * Canvas file links always contain "/files/:id" somewhere in the path,
+ * whether it's a bare `/files/123`, a course-scoped
+ * `/courses/456/files/123`, or either with a trailing `/download` or query
+ * string — so matching that one pattern covers every real-world shape
+ * without needing to enumerate them. A same-host URL that doesn't match
+ * (e.g. the course's whole files *list*, or an unrelated Canvas page) is
+ * "canvas-page": still worth a specific, honest error rather than falling
+ * through to a generic public-page fetch that Canvas's auth wall would
+ * just reject anyway.
+ */
+export function classifyCanvasUrl(url: URL, canvasBaseUrl: string | undefined): CanvasUrlClassification {
+  if (!canvasBaseUrl) return { kind: "external" };
+  let canvasHost: string;
+  try {
+    canvasHost = new URL(canvasBaseUrl).hostname;
+  } catch {
+    return { kind: "external" };
+  }
+  if (url.hostname !== canvasHost) return { kind: "external" };
+  const match = url.pathname.match(/\/files\/(\d+)/);
+  return match ? { kind: "file", fileId: match[1] } : { kind: "canvas-page" };
+}
+
 export function canvasSubmissionIsDone(a: CanvasAssignment): boolean {
   const state = a.submission?.workflow_state;
   return state === "submitted" || state === "graded";

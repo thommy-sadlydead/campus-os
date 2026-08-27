@@ -8,7 +8,9 @@
 // rest of this codebase's minimal-dependency approach (see canvas.ts,
 // google-oauth.ts).
 
-const ENTITY_MAP: Record<string, string> = {
+// Exported so office-text.ts can decode the same entities in OOXML
+// (pptx/docx) text runs without duplicating this table.
+export const ENTITY_MAP: Record<string, string> = {
   "&amp;": "&",
   "&lt;": "<",
   "&gt;": ">",

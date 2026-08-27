@@ -464,8 +464,8 @@ function ClassMaterialsSection({ classId, materials }: { classId: string; materi
           />
         ) : (
           <p className="text-xs text-ink-faint">
-            Fetched once when added — the page's text is saved as-is and never looked at again, so it won't change if
-            the page does later.
+            Works with Canvas file links (PDF, PPTX, DOCX) and regular webpages. Fetched once when added — the text
+            is saved as-is and never looked at again, so it won't change if the source does later.
           </p>
         )}
 
