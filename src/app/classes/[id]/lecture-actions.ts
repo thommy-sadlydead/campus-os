@@ -9,6 +9,7 @@ import { requireUser } from "@/lib/auth";
 import { getAssemblyAIClient } from "@/lib/assemblyai";
 import { getAnthropicClient, MODEL } from "@/lib/anthropic";
 import { buildLectureNotesPrompt, MAX_MATERIAL_TITLE_LENGTH, MAX_MATERIAL_CONTENT_LENGTH } from "@/lib/lecture-notes";
+import { htmlToReadableText, extractHtmlTitle } from "@/lib/text";
 
 async function requireOwnedClass(classId: string, userId: string) {
   const cls = await prisma.class.findUnique({ where: { id: classId } });
@@ -306,6 +307,105 @@ export async function addClassMaterialAction(classId: string, formData: FormData
 
   await prisma.classMaterial.create({
     data: { classId, type: parsed.data.type, title: parsed.data.title, content: parsed.data.content },
+  });
+  revalidatePath(`/classes/${classId}`);
+}
+
+// Basic SSRF guard for a server-side fetch of a user-supplied URL — not
+// exhaustive (doesn't cover DNS rebinding or a redirect chain that lands on
+// an internal address), but a reasonable floor for a personal single-user
+// app rather than no check at all.
+function isFetchableUrl(url: URL): boolean {
+  if (url.protocol !== "http:" && url.protocol !== "https:") return false;
+  const host = url.hostname.toLowerCase();
+  if (host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "169.254.169.254") return false;
+  if (/^10\.|^192\.168\.|^172\.(1[6-9]|2\d|3[01])\./.test(host)) return false;
+  return true;
+}
+
+const FETCH_TIMEOUT_MS = 15_000;
+const MAX_FETCH_BYTES = 5 * 1024 * 1024; // plenty for an HTML page; guards against something absurd
+
+/**
+ * Fetches a URL once and extracts readable text — used only at add-time
+ * (see addClassMaterialFromUrlAction). The result is stored as-is; the link
+ * itself is never fetched again, so a page changing or disappearing later
+ * doesn't affect what was already saved.
+ */
+async function fetchReadableTextFromUrl(rawUrl: string): Promise<{ title: string | null; content: string }> {
+  let url: URL;
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    throw new Error("That doesn't look like a valid URL.");
+  }
+  if (!isFetchableUrl(url)) {
+    throw new Error("That URL can't be fetched.");
+  }
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; CampusOS/1.0)" },
+      redirect: "follow",
+    });
+  } catch (err) {
+    console.error("Class material URL fetch failed:", err);
+    throw new Error("Couldn't reach that link. Check the URL and try again.");
+  }
+
+  if (!res.ok) {
+    throw new Error(`That link returned an error (${res.status}). Check the URL and try again.`);
+  }
+
+  const contentType = res.headers.get("content-type") || "";
+  if (!contentType.includes("text/html") && !contentType.includes("application/xhtml")) {
+    throw new Error(
+      `That link doesn't look like a webpage we can read (got "${contentType.split(";")[0] || "unknown"}"). Try pasting the text directly instead.`
+    );
+  }
+
+  const contentLength = Number(res.headers.get("content-length") || 0);
+  if (contentLength > MAX_FETCH_BYTES) {
+    throw new Error("That page is too large to read.");
+  }
+
+  const html = await res.text();
+  const title = extractHtmlTitle(html);
+  const content = htmlToReadableText(html).slice(0, MAX_MATERIAL_CONTENT_LENGTH);
+
+  if (content.length < 100) {
+    throw new Error(
+      "Couldn't find readable text on that page — it might require JavaScript to load. Try pasting the text directly instead."
+    );
+  }
+
+  return { title, content };
+}
+
+const classMaterialUrlSchema = z.object({
+  type: z.enum(["BOOK", "SLIDES"]),
+  title: z.string().max(MAX_MATERIAL_TITLE_LENGTH).optional(),
+  url: z.string().url(),
+});
+
+export async function addClassMaterialFromUrlAction(classId: string, formData: FormData) {
+  const user = await requireUser();
+  await requireOwnedClass(classId, user.id);
+
+  const parsed = classMaterialUrlSchema.safeParse({
+    type: formData.get("type"),
+    title: (formData.get("title") as string) || undefined,
+    url: formData.get("url"),
+  });
+  if (!parsed.success) throw new Error("Enter a valid link.");
+
+  const { title: pageTitle, content } = await fetchReadableTextFromUrl(parsed.data.url);
+  const title = (parsed.data.title?.trim() || pageTitle || "Untitled").slice(0, MAX_MATERIAL_TITLE_LENGTH);
+
+  await prisma.classMaterial.create({
+    data: { classId, type: parsed.data.type, title, content, sourceUrl: parsed.data.url },
   });
   revalidatePath(`/classes/${classId}`);
 }

@@ -111,6 +111,7 @@ export default async function ClassPage({ params }: { params: { id: string } }) 
           type: m.type as ClassMaterialRow["type"],
           title: m.title,
           content: m.content,
+          sourceUrl: m.sourceUrl,
           createdAt: m.createdAt.toISOString(),
         }))}
         exams={cls.exams.map((e) => ({

@@ -212,8 +212,11 @@ model Resource {
 // Class-level reference material (textbook excerpts, slide content) that
 // gets folded into the prompt every time notes are generated for any
 // lecture in this class — the class's persistent "memory" for note
-// generation, independent of any one lecture's transcript. Pasted text only
-// for now (no file upload/parsing yet — see src/lib/lecture-notes.ts).
+// generation, independent of any one lecture's transcript. content is
+// either pasted directly or fetched once from sourceUrl at add-time (see
+// addClassMaterialFromUrlAction) — a link is never re-fetched afterward, so
+// content is always what's actually being used, even if the page changes or
+// disappears later. No file upload/parsing yet — see src/lib/lecture-notes.ts.
 //
 // type is a String, not a Prisma enum — see the note above Assignment.status.
 // Application-level values: "BOOK" | "SLIDES".
@@ -223,6 +226,7 @@ model ClassMaterial {
   type      String
   title     String
   content   String
+  sourceUrl String? // where content was fetched from, if added as a link — display/reference only, never re-fetched
   createdAt DateTime @default(now())
 
   class Class @relation(fields: [classId], references: [id], onDelete: Cascade)

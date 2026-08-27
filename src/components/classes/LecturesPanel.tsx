@@ -6,6 +6,7 @@ import { upload } from "@vercel/blob/client";
 import ReactMarkdown from "react-markdown";
 import {
   addClassMaterialAction,
+  addClassMaterialFromUrlAction,
   createLectureAction,
   createLectureFromTranscriptAction,
   deleteClassMaterialAction,
@@ -37,6 +38,7 @@ export interface ClassMaterialRow {
   type: ClassMaterialType;
   title: string;
   content: string;
+  sourceUrl: string | null;
   createdAt: string; // ISO
 }
 
@@ -293,12 +295,15 @@ function UploadCard({ classId, onDone }: { classId: string; onDone: () => void }
 function ClassMaterialsSection({ classId, materials }: { classId: string; materials: ClassMaterialRow[] }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [mode, setMode] = useState<"text" | "link">("text");
   const [type, setType] = useState<ClassMaterialType>("BOOK");
   const [materialTitle, setMaterialTitle] = useState("");
   const [content, setContent] = useState("");
+  const [url, setUrl] = useState("");
+  const [isFetching, setIsFetching] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleAdd(e: FormEvent) {
+  async function handleAddText(e: FormEvent) {
     e.preventDefault();
     if (!materialTitle.trim() || !content.trim()) {
       setError("Enter a title and some content.");
@@ -323,6 +328,32 @@ function ClassMaterialsSection({ classId, materials }: { classId: string; materi
     });
   }
 
+  async function handleAddFromUrl(e: FormEvent) {
+    e.preventDefault();
+    if (!url.trim()) {
+      setError("Enter a link first.");
+      return;
+    }
+    setError(null);
+
+    const fd = new FormData();
+    fd.set("type", type);
+    if (materialTitle.trim()) fd.set("title", materialTitle.trim());
+    fd.set("url", url.trim());
+
+    setIsFetching(true);
+    try {
+      await addClassMaterialFromUrlAction(classId, fd);
+      setMaterialTitle("");
+      setUrl("");
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't fetch that link. Please try again.");
+    } finally {
+      setIsFetching(false);
+    }
+  }
+
   return (
     <div className="rounded-xl2 border border-border-soft bg-surface p-4 shadow-card">
       <h4 className="text-sm font-semibold">Class materials</h4>
@@ -340,6 +371,16 @@ function ClassMaterialsSection({ classId, materials }: { classId: string; materi
               </span>
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-medium">{m.title}</div>
+                {m.sourceUrl && (
+                  <a
+                    href={m.sourceUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block truncate text-xs text-ink-faint hover:text-accent hover:underline"
+                  >
+                    {m.sourceUrl}
+                  </a>
+                )}
                 <p className="mt-0.5 line-clamp-2 text-xs text-ink-faint">{m.content}</p>
               </div>
               <button
@@ -360,7 +401,33 @@ function ClassMaterialsSection({ classId, materials }: { classId: string; materi
         </ul>
       )}
 
-      <form onSubmit={handleAdd} className="mt-3 flex flex-col gap-2 border-t border-border-soft pt-3">
+      <form
+        onSubmit={mode === "text" ? handleAddText : handleAddFromUrl}
+        className="mt-3 flex flex-col gap-2 border-t border-border-soft pt-3"
+      >
+        <div className="flex items-center justify-between gap-2">
+          <div className="inline-flex rounded-lg border border-border p-0.5">
+            <button
+              type="button"
+              onClick={() => setMode("text")}
+              className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                mode === "text" ? "bg-ink text-surface" : "text-ink-soft hover:text-ink"
+              }`}
+            >
+              Paste text
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("link")}
+              className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                mode === "link" ? "bg-ink text-surface" : "text-ink-soft hover:text-ink"
+              }`}
+            >
+              Add a link
+            </button>
+          </div>
+        </div>
+
         <div className="flex flex-col gap-2 sm:flex-row">
           <select
             value={type}
@@ -374,23 +441,46 @@ function ClassMaterialsSection({ classId, materials }: { classId: string; materi
             type="text"
             value={materialTitle}
             onChange={(e) => setMaterialTitle(e.target.value)}
-            placeholder="Title (e.g. the textbook name, or “Week 3 slides”)"
+            placeholder={
+              mode === "text"
+                ? "Title (e.g. the textbook name, or “Week 3 slides”)"
+                : "Title (optional — defaults to the page title)"
+            }
             className="flex-1 rounded-lg border border-border bg-bg px-2.5 py-1.5 text-sm outline-none focus:border-accent"
           />
         </div>
-        <textarea
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          rows={3}
-          placeholder="Paste an excerpt, outline, or key points…"
-          className="w-full rounded-lg border border-border bg-bg px-2.5 py-1.5 text-sm outline-none focus:border-accent"
-        />
+
+        {mode === "text" ? (
+          <textarea
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            rows={3}
+            placeholder="Paste an excerpt, outline, or key points…"
+            className="w-full rounded-lg border border-border bg-bg px-2.5 py-1.5 text-sm outline-none focus:border-accent"
+          />
+        ) : (
+          <p className="text-xs text-ink-faint">
+            Fetched once when added — the page's text is saved as-is and never looked at again, so it won't change if
+            the page does later.
+          </p>
+        )}
+
+        {mode === "link" && (
+          <input
+            type="url"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="https://…"
+            className="w-full rounded-lg border border-border bg-bg px-2.5 py-1.5 text-sm outline-none focus:border-accent"
+          />
+        )}
+
         <button
           type="submit"
-          disabled={pending}
+          disabled={mode === "text" ? pending : isFetching}
           className="flex-none self-end rounded-lg border border-border px-3 py-1.5 text-sm font-medium hover:bg-surface-2 disabled:opacity-60"
         >
-          Add
+          {mode === "text" ? "Add" : isFetching ? "Fetching…" : "Fetch & add"}
         </button>
         {error && <p className="text-xs text-danger">{error}</p>}
       </form>
