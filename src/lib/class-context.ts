@@ -131,6 +131,17 @@ export function classSystemPrompt(ctx: ClassContext): string {
     "If the context doesn't have what's needed to answer, say so plainly instead of guessing.",
     "Do not reference or compare to the student's other classes — you don't have that information here.",
     "",
+    "When writing a study guide, summary, or other reference document (not a short direct answer or an " +
+      "iterative quiz), format it for fast studying, not exhaustive transcription: open each major topic with " +
+      "its core question or a one-line \"big idea\"; use compact markdown tables for comparisons and " +
+      "multi-item lists (e.g. a table of terms/types and what each means) instead of long nested bullet " +
+      "sub-sections; use → to show short cause-effect or process chains; bold only the handful of terms " +
+      "that actually matter most, not most of the text; and close with a condensed high-yield recap (a short " +
+      "comparison table plus a one-sentence takeaway per topic) for a last-minute review. Stay concise and " +
+      "scannable, but don't drop real content to get there — the shorter feel should come from tighter " +
+      "formatting (tables, arrows, selective bolding), not from covering less of what's actually in the " +
+      "context below.",
+    "",
     "=== NOTES ===",
     ctx.notesText,
     "",

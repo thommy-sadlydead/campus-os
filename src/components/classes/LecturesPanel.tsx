@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, useTransition, type FormEvent } from "reac
 import { useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { MARKDOWN_CLASSNAME } from "@/lib/markdown";
 import {
   addClassMaterialAction,
   addClassMaterialFromFileAction,
@@ -50,16 +52,6 @@ const STATUS_TONE: Record<LectureStatus, string> = {
   READY: "bg-ok-soft text-ok",
   FAILED: "bg-danger-soft text-danger",
 };
-
-// No @tailwindcss/typography plugin in this app (tailwind.config.ts has no
-// plugins) — style markdown output with plain child-selector utilities
-// instead of "prose", matching the rest of the app's no-plugin Tailwind use.
-const MARKDOWN_CLASSNAME =
-  "text-sm leading-relaxed text-ink [&_h1]:mt-3 [&_h1]:font-display [&_h1]:text-base [&_h1]:font-semibold [&_h1]:first:mt-0 " +
-  "[&_h2]:mt-3 [&_h2]:font-display [&_h2]:text-base [&_h2]:font-semibold [&_h2]:first:mt-0 " +
-  "[&_h3]:mt-2 [&_h3]:text-sm [&_h3]:font-semibold " +
-  "[&_p]:mt-2 [&_p]:first:mt-0 [&_ul]:mt-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:mt-2 [&_ol]:list-decimal [&_ol]:pl-5 " +
-  "[&_li]:mt-1 [&_strong]:font-semibold [&_code]:rounded [&_code]:bg-surface-2 [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-xs";
 
 const POLL_INTERVAL_MS = 4000;
 
@@ -619,7 +611,7 @@ function LectureCard({
             <div>
               <h5 className="mb-1 text-xs font-semibold uppercase tracking-wider text-ink-faint">Notes</h5>
               <div className={MARKDOWN_CLASSNAME}>
-                <ReactMarkdown>{lecture.notesMarkdown}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{lecture.notesMarkdown}</ReactMarkdown>
               </div>
             </div>
           )}

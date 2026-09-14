@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useTransition, type FormEvent } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { askClassAssistantAction, type ClassAssistantResult } from "@/app/classes/[id]/ai-actions";
+import { MARKDOWN_CLASSNAME } from "@/lib/markdown";
 
 const QUICK_ACTIONS: Array<{ key: string; label: string }> = [
   { key: "whats-due-next", label: "What is due next?" },
@@ -65,8 +68,8 @@ export function ClassAssistant({ classId, className }: { classId: string; classN
       </form>
 
       {result && (
-        <div className="mt-4 whitespace-pre-wrap rounded-lg bg-surface-2 p-3 text-sm leading-relaxed">
-          {result.answer}
+        <div className={`mt-4 rounded-lg bg-surface-2 p-3 ${MARKDOWN_CLASSNAME}`}>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{result.answer}</ReactMarkdown>
         </div>
       )}
     </div>
