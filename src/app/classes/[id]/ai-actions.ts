@@ -77,7 +77,12 @@ export async function askClassAssistantAction(
   const aiAnswer = await askClaude({
     system: classSystemPrompt(ctx),
     prompt: question,
-    maxTokens: 700,
+    // A real study guide or quiz over a data-rich class can easily need
+    // several thousand words — 700 was cutting those off mid-sentence, and
+    // even 4096 still did for a two-book-plus-seven-lectures request
+    // (verified live: stopped at exactly 4096/4096 tokens, mid-heading).
+    // This is a ceiling, not a target, so short answers aren't padded out.
+    maxTokens: 8192,
   });
 
   if (aiAnswer) {

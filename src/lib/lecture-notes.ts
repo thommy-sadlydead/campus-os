@@ -38,6 +38,28 @@ export function isLectureInProgress(status: string): boolean {
   return status === "UPLOADED" || status === "TRANSCRIBING" || status === "GENERATING_NOTES";
 }
 
+/**
+ * Joins text blocks up to a combined character budget, including whole
+ * items in order and stopping before the first one that would push the
+ * total over — rather than joining everything and slicing the combined
+ * string, which can cut the last included item off mid-sentence. Used
+ * where every included item should be complete (e.g. the class
+ * assistant's lecture notes / materials context), unlike
+ * formatMaterialsForPrompt below, which deliberately allows a partial
+ * tail so a single oversized item still contributes something instead of
+ * being dropped entirely.
+ */
+export function joinWithBudget(items: string[], maxChars: number, separator = "\n\n"): string {
+  const included: string[] = [];
+  let total = 0;
+  for (const item of items) {
+    if (total + item.length > maxChars) break;
+    included.push(item);
+    total += item.length + separator.length;
+  }
+  return included.join(separator);
+}
+
 // String, not a Prisma enum — see the note above Assignment.status in
 // schema.prisma. Mirrors ClassMaterial.type.
 export type ClassMaterialType = "BOOK" | "SLIDES";

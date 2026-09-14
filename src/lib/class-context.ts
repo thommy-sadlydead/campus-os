@@ -1,7 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { formatDueLabel } from "@/lib/time";
-import { classMaterialTypeLabel } from "@/lib/lecture-notes";
+import { classMaterialTypeLabel, joinWithBudget } from "@/lib/lecture-notes";
 
 /**
  * Everything the per-class AI assistant is allowed to see for one class —
@@ -22,6 +22,16 @@ export interface ClassContext {
   emailsText: string;
   hasAnyContent: boolean;
 }
+
+// Combined (not per-item) budgets for lecture notes and materials — a
+// class with a handful of items gets them in full, while a class with
+// dozens (e.g. after a bulk Canvas import) still gets bounded to something
+// that fits Claude's context window and stays cost-sane. Whole items are
+// included in original order up to the budget rather than slicing every
+// item down uniformly, so what's included is actually complete rather than
+// every single item being cut to an unreadable fragment.
+const MAX_LECTURES_CHARS = 100_000;
+const MAX_MATERIALS_CHARS = 100_000;
 
 export async function loadClassContext(classId: string, userId: string, tz: string): Promise<ClassContext> {
   const cls = await prisma.class.findUnique({
@@ -77,14 +87,16 @@ export async function loadClassContext(classId: string, userId: string, tz: stri
     cls.resources.map((r) => `- ${r.title}${r.notes ? `: ${r.notes}` : ""}`).join("\n") || "(no resources saved)";
 
   const lecturesText =
-    cls.lectures
-      .map((l) => `## ${l.title}\n${(l.notesMarkdown ?? "").slice(0, 2000)}`)
-      .join("\n\n") || "(no lecture notes yet)";
+    joinWithBudget(
+      cls.lectures.map((l) => `## ${l.title}\n${l.notesMarkdown ?? ""}`),
+      MAX_LECTURES_CHARS
+    ) || "(no lecture notes yet)";
 
   const materialsText =
-    cls.materials
-      .map((m) => `- [${classMaterialTypeLabel(m.type)}] ${m.title}: ${m.content.slice(0, 2000)}`)
-      .join("\n\n") || "(no books or slides added yet)";
+    joinWithBudget(
+      cls.materials.map((m) => `- [${classMaterialTypeLabel(m.type)}] ${m.title}: ${m.content}`),
+      MAX_MATERIALS_CHARS
+    ) || "(no books or slides added yet)";
 
   const emailsText =
     cls.emails

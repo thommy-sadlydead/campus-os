@@ -5,6 +5,7 @@ import {
   lectureStatusLabel,
   classMaterialTypeLabel,
   buildLectureNotesPrompt,
+  joinWithBudget,
 } from "../src/lib/lecture-notes";
 
 describe("isAllowedAudioType", () => {
@@ -101,5 +102,36 @@ describe("classMaterialTypeLabel", () => {
 
   it("falls back to the raw value for an unknown type", () => {
     expect(classMaterialTypeLabel("SOMETHING_ELSE")).toBe("SOMETHING_ELSE");
+  });
+});
+
+describe("joinWithBudget", () => {
+  it("includes everything when it's all well under budget", () => {
+    const result = joinWithBudget(["a", "b", "c"], 1000);
+    expect(result).toBe("a\n\nb\n\nc");
+  });
+
+  it("includes whole items up to the budget and stops before the first that wouldn't fit", () => {
+    // Each item is 5 chars + 2-char "\n\n" separator overhead = 7 "counted"
+    // chars per included item. Budget 10: item 1 fits (0+5=5 <= 10, running
+    // total becomes 7); item 2 would push it to 7+5=12 > 10, so it's
+    // dropped and item 3 is never even checked.
+    const items = ["12345", "12345", "12345"];
+    const result = joinWithBudget(items, 10);
+    expect(result).toBe("12345");
+  });
+
+  it("never cuts an included item midway — a lone oversized item is dropped entirely, not sliced", () => {
+    const huge = "x".repeat(1000);
+    const result = joinWithBudget([huge, "short"], 100);
+    expect(result).toBe("");
+  });
+
+  it("returns an empty string for no items", () => {
+    expect(joinWithBudget([], 1000)).toBe("");
+  });
+
+  it("supports a custom separator", () => {
+    expect(joinWithBudget(["a", "b"], 1000, " | ")).toBe("a | b");
   });
 });
