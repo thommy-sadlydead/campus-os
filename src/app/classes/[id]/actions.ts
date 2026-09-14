@@ -71,7 +71,6 @@ export async function createSectionAction(classId: string, name: string) {
     data: { classId, name: trimmed, order: (max._max.order ?? -1) + 1 },
   });
   revalidatePath(`/classes/${classId}`);
-  revalidatePath("/notes");
 }
 
 export async function renameSectionAction(sectionId: string, name: string) {
@@ -82,7 +81,6 @@ export async function renameSectionAction(sectionId: string, name: string) {
   if (!trimmed) throw new Error("Section name can't be empty.");
   await prisma.noteSection.update({ where: { id: sectionId }, data: { name: trimmed } });
   revalidatePath(`/classes/${section.classId}`);
-  revalidatePath("/notes");
 }
 
 export async function deleteSectionAction(sectionId: string) {
@@ -91,7 +89,6 @@ export async function deleteSectionAction(sectionId: string) {
   if (!section || section.class.userId !== user.id) throw new Error("Not found.");
   await prisma.noteSection.delete({ where: { id: sectionId } }); // cascades to its notes
   revalidatePath(`/classes/${section.classId}`);
-  revalidatePath("/notes");
 }
 
 export async function moveSectionAction(sectionId: string, direction: "up" | "down") {
@@ -112,7 +109,6 @@ export async function moveSectionAction(sectionId: string, direction: "up" | "do
     prisma.noteSection.update({ where: { id: swapWith.id }, data: { order: section.order } }),
   ]);
   revalidatePath(`/classes/${section.classId}`);
-  revalidatePath("/notes");
 }
 
 const noteSchema = z.object({
@@ -135,7 +131,6 @@ export async function createNoteAction(sectionId: string, formData: FormData) {
     data: { sectionId, title: parsed.title, bodyMarkdown: parsed.bodyMarkdown, order: (max._max.order ?? -1) + 1 },
   });
   revalidatePath(`/classes/${section.classId}`);
-  revalidatePath("/notes");
 }
 
 export async function updateNoteAction(noteId: string, formData: FormData) {
@@ -156,7 +151,6 @@ export async function updateNoteAction(noteId: string, formData: FormData) {
     data: { title: parsed.title, bodyMarkdown: parsed.bodyMarkdown },
   });
   revalidatePath(`/classes/${note.section.classId}`);
-  revalidatePath("/notes");
 }
 
 export async function deleteNoteAction(noteId: string) {
@@ -168,7 +162,6 @@ export async function deleteNoteAction(noteId: string) {
   if (!note || note.section.class.userId !== user.id) throw new Error("Not found.");
   await prisma.note.delete({ where: { id: noteId } });
   revalidatePath(`/classes/${note.section.classId}`);
-  revalidatePath("/notes");
 }
 
 export async function toggleNotePinAction(noteId: string) {
@@ -180,7 +173,6 @@ export async function toggleNotePinAction(noteId: string) {
   if (!note || note.section.class.userId !== user.id) throw new Error("Not found.");
   await prisma.note.update({ where: { id: noteId }, data: { pinned: !note.pinned } });
   revalidatePath(`/classes/${note.section.classId}`);
-  revalidatePath("/notes");
 }
 
 export async function moveNoteAction(noteId: string, direction: "up" | "down") {
@@ -204,7 +196,6 @@ export async function moveNoteAction(noteId: string, direction: "up" | "down") {
     prisma.note.update({ where: { id: swapWith.id }, data: { order: note.order } }),
   ]);
   revalidatePath(`/classes/${note.section.classId}`);
-  revalidatePath("/notes");
 }
 
 // ---------------------------------------------------------------------------
