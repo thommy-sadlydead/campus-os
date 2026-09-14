@@ -64,9 +64,18 @@ async function generateNotes(lectureId: string, transcriptText: string, classId:
   });
   const { system, prompt } = buildLectureNotesPrompt(transcriptText, materials);
   try {
+    // 2000 was cutting notes off partway through anything longer than a
+    // few minutes of real lecture content (verified: real lecture notes
+    // were landing suspiciously uniformly around ~2000 tokens' worth,
+    // regardless of transcript length — a tell that generation was
+    // hitting the ceiling, not finishing naturally). 8192 matches the
+    // budget proven to let a comparably-sized request complete on its own
+    // (see askClassAssistantAction). The timeout is raised to match — more
+    // output tokens means generation can legitimately take longer, and
+    // this needs to stay under the route's maxDuration (see page.tsx).
     const message = await anthropic.messages.create(
-      { model: MODEL, max_tokens: 2000, system, messages: [{ role: "user", content: prompt }] },
-      { timeout: 60_000 }
+      { model: MODEL, max_tokens: 8192, system, messages: [{ role: "user", content: prompt }] },
+      { timeout: 240_000 }
     );
     const text = message.content
       .filter((block): block is Anthropic.TextBlock => block.type === "text")

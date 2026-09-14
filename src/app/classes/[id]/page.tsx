@@ -7,6 +7,14 @@ import { canvasAssignmentUrl } from "@/lib/canvas";
 import type { AssignmentRowStatus } from "@/components/assignments/AssignmentRow";
 import type { LectureRow, ClassMaterialRow } from "@/components/classes/LecturesPanel";
 
+// Server Actions invoked from this page (notably generateNotes, via
+// pollLectureStatusAction/retryLectureAction in lecture-actions.ts) can now
+// legitimately run for a couple minutes generating a full lecture's notes.
+// Without this, Vercel's default function duration would kill the request
+// well before that — the note generation call has its own 240s timeout, so
+// this just needs to comfortably exceed it.
+export const maxDuration = 300;
+
 export default async function ClassPage({ params }: { params: { id: string } }) {
   const user = await requireUser();
 

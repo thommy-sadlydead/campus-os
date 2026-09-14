@@ -88,13 +88,32 @@ export function LecturesPanel({
   useEffect(() => {
     if (!inProgressKey) return;
     const ids = inProgressKey.split(",");
-    const interval = setInterval(() => {
-      startTransition(async () => {
-        await Promise.all(ids.map((id) => pollLectureStatusAction(id)));
+    let cancelled = false;
+    let timeoutId: ReturnType<typeof setTimeout>;
+
+    // A self-scheduling loop, not setInterval: note generation can now
+    // legitimately take well over POLL_INTERVAL_MS (a full lecture's notes,
+    // not truncated), and setInterval fires on a fixed clock regardless of
+    // whether the previous tick's request ever returned. That would stack
+    // up overlapping pollLectureStatusAction calls — each one still
+    // "GENERATING_NOTES" would kick off its own redundant, concurrent,
+    // costly generateNotes call for the same lecture. Waiting for one poll
+    // to fully resolve before scheduling the next guarantees only one is
+    // ever in flight.
+    async function pollOnce() {
+      await Promise.all(ids.map((id) => pollLectureStatusAction(id)));
+      if (cancelled) return;
+      startTransition(() => {
         router.refresh();
       });
-    }, POLL_INTERVAL_MS);
-    return () => clearInterval(interval);
+      timeoutId = setTimeout(pollOnce, POLL_INTERVAL_MS);
+    }
+
+    timeoutId = setTimeout(pollOnce, POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+    };
   }, [inProgressKey, router]);
 
   return (
