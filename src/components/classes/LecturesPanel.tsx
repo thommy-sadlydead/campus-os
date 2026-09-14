@@ -6,6 +6,7 @@ import { upload } from "@vercel/blob/client";
 import ReactMarkdown from "react-markdown";
 import {
   addClassMaterialAction,
+  addClassMaterialFromFileAction,
   addClassMaterialFromUrlAction,
   createLectureAction,
   createLectureFromTranscriptAction,
@@ -295,13 +296,14 @@ function UploadCard({ classId, onDone }: { classId: string; onDone: () => void }
 function ClassMaterialsSection({ classId, materials }: { classId: string; materials: ClassMaterialRow[] }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [mode, setMode] = useState<"text" | "link">("text");
+  const [mode, setMode] = useState<"text" | "link" | "file">("text");
   const [type, setType] = useState<ClassMaterialType>("BOOK");
   const [materialTitle, setMaterialTitle] = useState("");
   const [content, setContent] = useState("");
   const [url, setUrl] = useState("");
   const [isFetching, setIsFetching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const materialFileInputRef = useRef<HTMLInputElement>(null);
 
   async function handleAddText(e: FormEvent) {
     e.preventDefault();
@@ -358,6 +360,37 @@ function ClassMaterialsSection({ classId, materials }: { classId: string; materi
     }
   }
 
+  async function handleAddFromFile(e: FormEvent) {
+    e.preventDefault();
+    const file = materialFileInputRef.current?.files?.[0];
+    if (!file) {
+      setError("Choose a file first.");
+      return;
+    }
+    setError(null);
+
+    const fd = new FormData();
+    fd.set("type", type);
+    if (materialTitle.trim()) fd.set("title", materialTitle.trim());
+    fd.set("file", file);
+
+    setIsFetching(true);
+    try {
+      const result = await addClassMaterialFromFileAction(classId, fd);
+      if (result?.error) {
+        setError(result.error);
+        return;
+      }
+      setMaterialTitle("");
+      if (materialFileInputRef.current) materialFileInputRef.current.value = "";
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't read that file. Please try again.");
+    } finally {
+      setIsFetching(false);
+    }
+  }
+
   return (
     <div className="rounded-xl2 border border-border-soft bg-surface p-4 shadow-card">
       <h4 className="text-sm font-semibold">Class materials</h4>
@@ -406,7 +439,7 @@ function ClassMaterialsSection({ classId, materials }: { classId: string; materi
       )}
 
       <form
-        onSubmit={mode === "text" ? handleAddText : handleAddFromUrl}
+        onSubmit={mode === "text" ? handleAddText : mode === "link" ? handleAddFromUrl : handleAddFromFile}
         className="mt-3 flex flex-col gap-2 border-t border-border-soft pt-3"
       >
         <div className="flex items-center justify-between gap-2">
@@ -429,6 +462,15 @@ function ClassMaterialsSection({ classId, materials }: { classId: string; materi
             >
               Add a link
             </button>
+            <button
+              type="button"
+              onClick={() => setMode("file")}
+              className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                mode === "file" ? "bg-ink text-surface" : "text-ink-soft hover:text-ink"
+              }`}
+            >
+              Upload a file
+            </button>
           </div>
         </div>
 
@@ -448,13 +490,15 @@ function ClassMaterialsSection({ classId, materials }: { classId: string; materi
             placeholder={
               mode === "text"
                 ? "Title (e.g. the textbook name, or “Week 3 slides”)"
-                : "Title (optional — defaults to the page title)"
+                : mode === "link"
+                  ? "Title (optional — defaults to the page title)"
+                  : "Title (optional — defaults to the filename)"
             }
             className="flex-1 rounded-lg border border-border bg-bg px-2.5 py-1.5 text-sm outline-none focus:border-accent"
           />
         </div>
 
-        {mode === "text" ? (
+        {mode === "text" && (
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
@@ -462,21 +506,34 @@ function ClassMaterialsSection({ classId, materials }: { classId: string; materi
             placeholder="Paste an excerpt, outline, or key points…"
             className="w-full rounded-lg border border-border bg-bg px-2.5 py-1.5 text-sm outline-none focus:border-accent"
           />
-        ) : (
-          <p className="text-xs text-ink-faint">
-            Works with Canvas file links (PDF, PPTX, DOCX) and regular webpages. Fetched once when added — the text
-            is saved as-is and never looked at again, so it won't change if the source does later.
-          </p>
         )}
 
         {mode === "link" && (
-          <input
-            type="url"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://…"
-            className="w-full rounded-lg border border-border bg-bg px-2.5 py-1.5 text-sm outline-none focus:border-accent"
-          />
+          <>
+            <p className="text-xs text-ink-faint">
+              Works with Canvas file links (PDF, PPTX, DOCX) and regular webpages. Fetched once when added — the text
+              is saved as-is and never looked at again, so it won't change if the source does later.
+            </p>
+            <input
+              type="url"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://…"
+              className="w-full rounded-lg border border-border bg-bg px-2.5 py-1.5 text-sm outline-none focus:border-accent"
+            />
+          </>
+        )}
+
+        {mode === "file" && (
+          <>
+            <p className="text-xs text-ink-faint">PDF, PPTX, DOCX, or plain text — up to 25MB.</p>
+            <input
+              ref={materialFileInputRef}
+              type="file"
+              accept=".pdf,.pptx,.docx,.txt,.html,.htm"
+              className="w-full rounded-lg border border-border bg-bg px-2.5 py-1.5 text-sm outline-none file:mr-2 file:rounded-md file:border-0 file:bg-surface-2 file:px-2 file:py-1 file:text-xs file:font-medium focus:border-accent"
+            />
+          </>
         )}
 
         <button
@@ -484,7 +541,7 @@ function ClassMaterialsSection({ classId, materials }: { classId: string; materi
           disabled={mode === "text" ? pending : isFetching}
           className="flex-none self-end rounded-lg border border-border px-3 py-1.5 text-sm font-medium hover:bg-surface-2 disabled:opacity-60"
         >
-          {mode === "text" ? "Add" : isFetching ? "Fetching…" : "Fetch & add"}
+          {mode === "text" ? "Add" : isFetching ? (mode === "link" ? "Fetching…" : "Reading…") : mode === "link" ? "Fetch & add" : "Upload & add"}
         </button>
         {error && <p className="text-xs text-danger">{error}</p>}
       </form>

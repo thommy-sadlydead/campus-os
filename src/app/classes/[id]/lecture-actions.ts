@@ -386,11 +386,13 @@ async function fetchReadableTextFromUrl(rawUrl: string): Promise<{ title: string
   return { title, content };
 }
 
-// Canvas file downloads can be genuinely large (slide decks with embedded
-// images), so this is more generous than MAX_FETCH_BYTES for plain HTML
-// pages — but still bounded, since only the extracted *text* matters and
-// that's capped separately at MAX_MATERIAL_CONTENT_LENGTH regardless.
-const MAX_CANVAS_FILE_BYTES = 25 * 1024 * 1024;
+// Document files (Canvas downloads, or a direct upload) can be genuinely
+// large (slide decks with embedded images), so this is more generous than
+// MAX_FETCH_BYTES for plain HTML pages — but still bounded, since only the
+// extracted *text* matters and that's capped separately at
+// MAX_MATERIAL_CONTENT_LENGTH regardless. Shared by the Canvas-file path
+// and the direct-upload path below.
+const MAX_DOCUMENT_FILE_BYTES = 25 * 1024 * 1024;
 
 interface CanvasFileMeta {
   display_name: string;
@@ -436,7 +438,7 @@ async function fetchCanvasFileText(fileId: string): Promise<{ title: string | nu
   if (meta.locked_for_user) {
     throw new Error("That file is locked in Canvas, so it can't be read yet.");
   }
-  if (meta.size > MAX_CANVAS_FILE_BYTES) {
+  if (meta.size > MAX_DOCUMENT_FILE_BYTES) {
     throw new Error("That file is too large to read.");
   }
 
@@ -533,6 +535,76 @@ export async function addClassMaterialFromUrlAction(
     return undefined;
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Couldn't fetch that link. Please try again." };
+  }
+}
+
+const classMaterialFileSchema = z.object({
+  type: z.enum(["BOOK", "SLIDES"]),
+  title: z.string().max(MAX_MATERIAL_TITLE_LENGTH).optional(),
+});
+
+/**
+ * Adds a material from a file uploaded directly from the user's device —
+ * for slides/books that aren't on Canvas at all (emailed, downloaded
+ * elsewhere, etc.). Reuses the same extractDocumentText() the Canvas-file
+ * path uses, so the same PDF/PPTX/DOCX formats are supported either way.
+ * No sourceUrl — there's no external location this came from to reference.
+ */
+export async function addClassMaterialFromFileAction(
+  classId: string,
+  formData: FormData
+): Promise<{ error: string } | undefined> {
+  const user = await requireUser();
+  await requireOwnedClass(classId, user.id);
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { error: "Choose a file first." };
+  }
+
+  const parsed = classMaterialFileSchema.safeParse({
+    type: formData.get("type"),
+    title: (formData.get("title") as string) || undefined,
+  });
+  if (!parsed.success) return { error: "Enter a valid type." };
+
+  if (file.size > MAX_DOCUMENT_FILE_BYTES) {
+    return { error: "That file is too large to read." };
+  }
+
+  try {
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const content = await extractDocumentText(buffer, file.type, file.name);
+
+    if (content === null) {
+      const ext = file.name.split(".").pop()?.toUpperCase();
+      return { error: `Can't read ${ext ? `${ext} files` : "that file"} yet — try pasting the text directly instead.` };
+    }
+    if (content.trim().length < 20) {
+      return {
+        error: "Couldn't find readable text in that file — it might be scanned images. Try pasting the text directly instead.",
+      };
+    }
+
+    const title = (parsed.data.title?.trim() || file.name.replace(/\.[^.]+$/, "") || "Untitled").slice(
+      0,
+      MAX_MATERIAL_TITLE_LENGTH
+    );
+
+    await prisma.classMaterial.create({
+      data: {
+        classId,
+        type: parsed.data.type,
+        title,
+        content: content.slice(0, MAX_MATERIAL_CONTENT_LENGTH),
+        sourceUrl: null,
+      },
+    });
+    revalidatePath(`/classes/${classId}`);
+    return undefined;
+  } catch (err) {
+    console.error("Class material file extraction failed:", err);
+    return { error: "Couldn't read that file. Please try again." };
   }
 }
 
