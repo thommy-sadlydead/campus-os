@@ -7,8 +7,14 @@ import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import { getAssemblyAIClient } from "@/lib/assemblyai";
-import { getAnthropicClient, MODEL } from "@/lib/anthropic";
-import { buildLectureNotesPrompt, MAX_MATERIAL_TITLE_LENGTH, MAX_MATERIAL_CONTENT_LENGTH } from "@/lib/lecture-notes";
+import { getAnthropicClient, askClaudeForJson, MODEL } from "@/lib/anthropic";
+import {
+  buildLectureNotesPrompt,
+  MAX_MATERIAL_TITLE_LENGTH,
+  MAX_MATERIAL_CONTENT_LENGTH,
+  MAX_MATERIALS_CHARS,
+  type ClassMaterialInput,
+} from "@/lib/lecture-notes";
 import { htmlToReadableText, extractHtmlTitle } from "@/lib/text";
 import { classifyCanvasUrl } from "@/lib/canvas";
 import { extractDocumentText } from "@/lib/office-text";
@@ -36,6 +42,61 @@ const NOT_CONFIGURED = {
   anthropic: "Note generation isn't configured yet. Add an ANTHROPIC_API_KEY to enable it.",
 };
 
+const MATERIAL_MATCH_SYSTEM = [
+  "You match a class lecture to the reference materials (textbook slides/excerpts) that actually cover its specific topic.",
+  "A class can have many materials covering many different chapters/topics — most are irrelevant to any single lecture.",
+  "Return ONLY a JSON array of exact material titles (copied verbatim from the list) that are directly relevant to THIS lecture's specific topic.",
+  "Prefer precision over recall: only include a title if you're confident it covers the same chapter/topic as the lecture. Return an empty array if nothing clearly matches — that's a normal, correct answer when the class doesn't have material for this lecture's topic yet.",
+].join(" ");
+
+// How much of the transcript to show the matching step. Lectures usually
+// establish their topic well before this point, and this is a
+// classification-style call (small output either way) so it doesn't need
+// the full transcript — keeping it well under MAX_TRANSCRIPT_CHARS keeps
+// this extra step fast and cheap.
+const MATERIAL_MATCH_TRANSCRIPT_CHARS = 30_000;
+
+/**
+ * When a class has more material than fits in one prompt (see
+ * MAX_MATERIALS_CHARS), formatMaterialsForPrompt's combined-budget slice
+ * ends up using whichever materials were added earliest, in full, for
+ * every lecture in the class regardless of topic — e.g. a class with a
+ * full semester of slides would show every lecture the same first couple
+ * of chapters. Below the budget, nothing needs to change: every material
+ * already reaches every lecture's prompt as-is. Above it, ask the model
+ * which materials actually match this lecture's topic and use only those,
+ * so a lecture on chapter 9 gets chapter 9's slides instead of chapter 1's
+ * because chapter 1 happened to be added first. Falls back to the full
+ * list (and its existing slice-based truncation) if matching itself fails
+ * for any reason — this is a refinement, not something that should ever
+ * block note generation.
+ */
+async function selectRelevantMaterials(
+  transcriptText: string,
+  materials: ClassMaterialInput[]
+): Promise<ClassMaterialInput[]> {
+  if (materials.length === 0) return materials;
+  const combinedLength = materials.reduce((sum, m) => sum + m.content.length, 0);
+  if (combinedLength <= MAX_MATERIALS_CHARS) return materials;
+
+  const titleList = materials.map((m) => m.title).join("\n");
+  const prompt = [
+    `Lecture transcript (excerpt):\n${transcriptText.slice(0, MATERIAL_MATCH_TRANSCRIPT_CHARS)}`,
+    `Available material titles:\n${titleList}`,
+    "Which titles are directly relevant to this lecture's specific topic?",
+  ].join("\n\n");
+
+  const matchedTitles = await askClaudeForJson<string[]>({
+    system: MATERIAL_MATCH_SYSTEM,
+    prompt,
+    maxTokens: 1024,
+  });
+
+  if (!Array.isArray(matchedTitles)) return materials; // matching failed — fall back to the existing behavior
+
+  return materials.filter((m) => matchedTitles.includes(m.title));
+}
+
 /**
  * Runs the note-generation step and saves the result. Like Voicewrite's
  * /api/voicewrite-generate, this calls the Anthropic SDK directly rather than
@@ -58,10 +119,11 @@ async function generateNotes(lectureId: string, transcriptText: string, classId:
     return;
   }
 
-  const materials = await prisma.classMaterial.findMany({
+  const allMaterials = await prisma.classMaterial.findMany({
     where: { classId },
     orderBy: { createdAt: "asc" },
   });
+  const materials = await selectRelevantMaterials(transcriptText, allMaterials);
   const { system, prompt } = buildLectureNotesPrompt(transcriptText, materials);
   try {
     // 2000 was cutting notes off partway through anything longer than a

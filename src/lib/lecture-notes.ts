@@ -92,8 +92,10 @@ const MAX_TRANSCRIPT_CHARS = 100_000;
 // Separate, smaller budget for combined class materials — these accumulate
 // across every book/slide entry added to the class, not just one lecture,
 // so the cap has to be tighter than the transcript's to keep the total
-// prompt reasonable.
-const MAX_MATERIALS_CHARS = 40_000;
+// prompt reasonable. Exported so lecture-actions.ts can check against the
+// same number before deciding whether a class has "too many" materials to
+// pass through as-is (see selectRelevantMaterials).
+export const MAX_MATERIALS_CHARS = 40_000;
 
 function formatMaterialsForPrompt(materials: ClassMaterialInput[]): string | null {
   if (materials.length === 0) return null;
