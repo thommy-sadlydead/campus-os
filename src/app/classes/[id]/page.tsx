@@ -30,7 +30,13 @@ export default async function ClassPage({ params }: { params: { id: string } }) 
         include: { notes: { orderBy: { order: "asc" } } },
       },
       lectures: { orderBy: { createdAt: "desc" } },
-      materials: { orderBy: { createdAt: "asc" } },
+      // SKIPPED_NOISE is pure Canvas clutter (banner images, icons, etc.
+      // discovered while scanning for real documents) that was never worth
+      // showing a student — see canvas-materials-sync.ts. Everything else
+      // (including FAILED/EXTERNAL/SKIPPED_TOO_LARGE/SKIPPED_UNSUPPORTED)
+      // stays visible since each of those says something genuinely useful
+      // ("we found this but couldn't read it").
+      materials: { where: { syncStatus: { not: "SKIPPED_NOISE" } }, orderBy: { createdAt: "asc" } },
       emails: {
         where: { category: { notIn: ["IRRELEVANT", "UNCLASSIFIED"] } },
         orderBy: { receivedAt: "desc" },
@@ -121,6 +127,8 @@ export default async function ClassPage({ params }: { params: { id: string } }) 
           content: m.content,
           sourceUrl: m.sourceUrl,
           createdAt: m.createdAt.toISOString(),
+          provider: m.provider,
+          syncStatus: m.syncStatus,
         }))}
         exams={cls.exams.map((e) => ({
           id: e.id,

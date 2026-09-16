@@ -62,10 +62,87 @@ export async function extractPdfText(buffer: Buffer): Promise<string> {
   return text;
 }
 
-const EXTENSION_BY_TYPE: Array<{ test: (contentType: string, filename: string) => boolean; kind: "pdf" | "pptx" | "docx" | "text" | "html" }> = [
+/**
+ * Resolves an EPUB manifest href (relative to the OPF package file's own
+ * directory, not the zip root) into a path usable with JSZip's flat file
+ * map. EPUB manifests don't typically use "../", but this handles it
+ * defensively rather than assuming.
+ */
+function resolveEpubPath(opfPath: string, href: string): string {
+  const baseDir = opfPath.includes("/") ? opfPath.slice(0, opfPath.lastIndexOf("/") + 1) : "";
+  const parts = (baseDir + href).split("/");
+  const resolved: string[] = [];
+  for (const part of parts) {
+    if (part === "..") resolved.pop();
+    else if (part !== ".") resolved.push(part);
+  }
+  return resolved.join("/");
+}
+
+/**
+ * EPUB is a zip of XHTML (same shape as pptx/docx), but reading order
+ * isn't "files in some natural order" — it's defined by the OPF package
+ * document's <spine>, which references <manifest> items by id. Container
+ * -> OPF -> manifest (id -> href) -> spine (reading order of ids) -> read
+ * each XHTML file in that order and reuse htmlToReadableText on each,
+ * same as any other web page.
+ */
+export async function extractEpubText(buffer: Buffer): Promise<string> {
+  const zip = await JSZip.loadAsync(buffer);
+
+  const containerFile = zip.file("META-INF/container.xml");
+  if (!containerFile) return "";
+  const containerXml = await containerFile.async("string");
+  const opfPath = containerXml.match(/full-path="([^"]+)"/)?.[1];
+  if (!opfPath) return "";
+
+  const opfFile = zip.file(opfPath);
+  if (!opfFile) return "";
+  const opfXml = await opfFile.async("string");
+
+  const manifest = new Map<string, string>();
+  const itemPattern = /<item\b[^>]*>/g;
+  let itemMatch: RegExpExecArray | null;
+  while ((itemMatch = itemPattern.exec(opfXml)) !== null) {
+    const tag = itemMatch[0];
+    const id = tag.match(/\bid="([^"]+)"/)?.[1];
+    const href = tag.match(/\bhref="([^"]+)"/)?.[1];
+    const mediaType = tag.match(/\bmedia-type="([^"]+)"/)?.[1];
+    if (id && href && mediaType && /html/i.test(mediaType)) {
+      manifest.set(id, href);
+    }
+  }
+
+  const spineIds: string[] = [];
+  const itemrefPattern = /<itemref\b[^>]*>/g;
+  let refMatch: RegExpExecArray | null;
+  while ((refMatch = itemrefPattern.exec(opfXml)) !== null) {
+    const idref = refMatch[0].match(/\bidref="([^"]+)"/)?.[1];
+    if (idref) spineIds.push(idref);
+  }
+
+  const sections: string[] = [];
+  for (const id of spineIds) {
+    const href = manifest.get(id);
+    if (!href) continue;
+    const contentFile = zip.file(resolveEpubPath(opfPath, href));
+    if (!contentFile) continue;
+    const html = await contentFile.async("string");
+    const text = htmlToReadableText(html);
+    if (text) sections.push(text);
+  }
+
+  return sections.join("\n\n");
+}
+
+const EXTENSION_BY_TYPE: Array<{
+  test: (contentType: string, filename: string) => boolean;
+  kind: "pdf" | "pptx" | "docx" | "epub" | "text" | "html";
+}> = [
   { test: (t, f) => t.includes("pdf") || f.endsWith(".pdf"), kind: "pdf" },
   { test: (t, f) => t.includes("presentationml") || f.endsWith(".pptx"), kind: "pptx" },
   { test: (t, f) => t.includes("wordprocessingml") || f.endsWith(".docx"), kind: "docx" },
+  { test: (t, f) => t.includes("epub") || f.endsWith(".epub"), kind: "epub" },
   { test: (t, f) => t.includes("text/html") || f.endsWith(".html") || f.endsWith(".htm"), kind: "html" },
   { test: (t, f) => t.includes("text/plain") || f.endsWith(".txt"), kind: "text" },
 ];
@@ -90,6 +167,8 @@ export async function extractDocumentText(buffer: Buffer, contentType: string, f
       return extractPptxText(buffer);
     case "docx":
       return extractDocxText(buffer);
+    case "epub":
+      return extractEpubText(buffer);
     case "html":
       return htmlToReadableText(buffer.toString("utf-8"));
     case "text":

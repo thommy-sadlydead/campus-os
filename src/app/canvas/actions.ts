@@ -6,6 +6,9 @@ import { prisma } from "@/lib/prisma";
 import { encryptSecret, decryptSecret } from "@/lib/crypto";
 import { fetchActiveCourses, type CanvasConfig } from "@/lib/canvas";
 import { syncCanvasForUser } from "@/lib/canvas-sync";
+import { queueCourseMaterialSync, advanceCanvasMaterialSync, type CourseSyncProgress } from "@/lib/canvas-materials-sync";
+
+export type { CourseSyncProgress };
 
 function revalidateSyncedPages() {
   revalidatePath("/canvas");
@@ -63,6 +66,13 @@ export async function connectCanvasAction(
   try {
     await syncCanvasForUser(prisma, user.id, cfg);
     await prisma.canvasAccount.update({ where: { userId: user.id }, data: { lastSyncedAt: new Date() } });
+    // Classes now exist — queue each one for a materials sync (books,
+    // slides, syllabi). This only creates PENDING tracking rows; it does
+    // NOT itself do any discovery or downloading, so it returns
+    // immediately and doesn't block the connect request. The client starts
+    // polling continueCanvasMaterialSyncAction right after connect
+    // succeeds (see MaterialSyncPanel) to actually advance it.
+    await queueCourseMaterialSync(prisma, user.id);
   } catch {
     // Surfaced on the Canvas page via "Never synced yet" — not a reason to
     // fail the connect step, since the credential itself is good.
@@ -99,6 +109,45 @@ export async function syncCanvasAction(): Promise<SyncCanvasResult> {
     ok: true,
     message: `Synced ${result.assignmentsSynced} assignment(s) across ${result.courses} course(s).`,
   };
+}
+
+/**
+ * The manual "go fetch" button — (re)queues every Canvas-linked class for a
+ * materials scan. Uses the exact same queueCourseMaterialSync as the
+ * automatic post-connect kickoff (see connectCanvasAction above), so a
+ * re-run is genuinely the same engine as the first run, just triggered by
+ * hand: any course already mid-sync is left alone, and any course in a
+ * terminal state is reset to PENDING to pick up anything new or changed
+ * since the last sync.
+ */
+export async function startCanvasMaterialSyncAction(): Promise<{ error?: string }> {
+  const user = await requireUser();
+  const account = await prisma.canvasAccount.findUnique({ where: { userId: user.id } });
+  if (!account) return { error: "No Canvas account connected." };
+
+  await queueCourseMaterialSync(prisma, user.id);
+  revalidatePath("/canvas");
+  return {};
+}
+
+/**
+ * Advances the materials sync by one bounded chunk and returns fresh
+ * per-course progress — polled on an interval by MaterialSyncPanel until
+ * every course reaches a terminal status. See advanceCanvasMaterialSync
+ * for why this is safe to call repeatedly and cheap per call regardless of
+ * how much total work remains.
+ */
+export async function continueCanvasMaterialSyncAction(): Promise<CourseSyncProgress[]> {
+  const user = await requireUser();
+  const account = await prisma.canvasAccount.findUnique({ where: { userId: user.id } });
+  if (!account) return [];
+
+  const cfg: CanvasConfig = { baseUrl: account.baseUrl, token: decryptSecret(account.accessTokenEnc) };
+  const progress = await advanceCanvasMaterialSync(prisma, cfg, user.id);
+  // So a class page opened after (or during) a sync shows newly-imported
+  // materials right away instead of a stale cached render.
+  revalidatePath("/classes");
+  return progress;
 }
 
 export async function disconnectCanvasAction(): Promise<void> {

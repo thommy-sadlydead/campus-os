@@ -43,6 +43,10 @@ export interface ClassMaterialRow {
   content: string;
   sourceUrl: string | null;
   createdAt: string; // ISO
+  // Canvas-synced materials only (see canvas-materials-sync.ts) — null for
+  // anything added by hand (paste/link/upload), which is always READY.
+  provider: string | null;
+  syncStatus: string | null;
 }
 
 const STATUS_TONE: Record<LectureStatus, string> = {
@@ -54,6 +58,23 @@ const STATUS_TONE: Record<LectureStatus, string> = {
 };
 
 const POLL_INTERVAL_MS = 4000;
+
+// Only Canvas-synced materials (provider === "canvas") ever carry a
+// non-READY syncStatus — a manually added one (paste/link/upload) is
+// always fully usable, so this intentionally returns null for those
+// rather than a "Ready" badge nobody needs to see.
+const SYNC_STATUS_NOTE: Record<string, string> = {
+  EXTERNAL: "External link — open to view",
+  SKIPPED_TOO_LARGE: "Too large to import automatically",
+  SKIPPED_UNSUPPORTED: "Found in Canvas, but couldn't read this file",
+  FAILED: "Import failed",
+  MISSING: "No longer found in Canvas",
+};
+
+function materialSyncNote(m: ClassMaterialRow): string | null {
+  if (m.provider !== "canvas" || !m.syncStatus) return null;
+  return SYNC_STATUS_NOTE[m.syncStatus] ?? null;
+}
 
 export function LecturesPanel({
   classId,
@@ -418,7 +439,14 @@ function ClassMaterialsSection({ classId, materials }: { classId: string; materi
                 {classMaterialTypeLabel(m.type)}
               </span>
               <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-medium">{m.title}</div>
+                <div className="flex items-center gap-2">
+                  <div className="truncate text-sm font-medium">{m.title}</div>
+                  {materialSyncNote(m) && (
+                    <span className="flex-none rounded-full bg-warn-soft px-2 py-0.5 text-[11px] font-medium text-warn">
+                      {materialSyncNote(m)}
+                    </span>
+                  )}
+                </div>
                 {m.sourceUrl && (
                   <a
                     href={m.sourceUrl}

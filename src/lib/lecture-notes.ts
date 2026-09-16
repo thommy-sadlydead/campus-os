@@ -61,8 +61,11 @@ export function joinWithBudget(items: string[], maxChars: number, separator = "\
 }
 
 // String, not a Prisma enum — see the note above Assignment.status in
-// schema.prisma. Mirrors ClassMaterial.type.
-export type ClassMaterialType = "BOOK" | "SLIDES";
+// schema.prisma. Mirrors ClassMaterial.type. SYLLABUS/NOTES are produced by
+// the Canvas materials sync (see MaterialType in canvas-materials.ts) —
+// BOOK/SLIDES are also still chosen manually when adding a material by
+// hand (paste/link/upload).
+export type ClassMaterialType = "BOOK" | "SLIDES" | "SYLLABUS" | "NOTES";
 
 export const MAX_MATERIAL_TITLE_LENGTH = 160;
 export const MAX_MATERIAL_CONTENT_LENGTH = 20_000;
@@ -70,6 +73,8 @@ export const MAX_MATERIAL_CONTENT_LENGTH = 20_000;
 const MATERIAL_TYPE_LABELS: Record<ClassMaterialType, string> = {
   BOOK: "Book",
   SLIDES: "Slides",
+  SYLLABUS: "Syllabus",
+  NOTES: "Notes",
 };
 
 export function classMaterialTypeLabel(type: string): string {

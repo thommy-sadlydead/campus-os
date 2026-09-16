@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { AppShell } from "@/components/AppShell";
 import { ConnectCanvasForm } from "@/components/canvas/ConnectCanvasForm";
 import { SyncButton } from "@/components/canvas/SyncButton";
+import { MaterialSyncPanel } from "@/components/canvas/MaterialSyncPanel";
 import { disconnectCanvasAction } from "@/app/canvas/actions";
 
 export default async function CanvasPage() {
@@ -67,7 +68,7 @@ export default async function CanvasPage() {
         </div>
       </div>
 
-      <div className="rounded-xl2 border border-border-soft bg-surface p-6 shadow-card text-sm text-ink-soft">
+      <div className="mb-6 rounded-xl2 border border-border-soft bg-surface p-6 shadow-card text-sm text-ink-soft">
         Your classes, assignments, and exams are pulled from here — check the{" "}
         <a href="/classes" className="text-accent underline">
           Classes
@@ -79,6 +80,8 @@ export default async function CanvasPage() {
         pages to see what's synced. Syncing again any time is safe — it updates existing courses and
         assignments instead of duplicating them.
       </div>
+
+      <MaterialSyncPanel />
     </AppShell>
   );
 }

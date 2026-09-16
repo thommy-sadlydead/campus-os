@@ -80,6 +80,7 @@ model Class {
   materials      ClassMaterial[]
   emails         Email[]
   pendingChanges PendingChange[]
+  syncState      CanvasSyncCourseState?
 
   @@index([userId])
 }
@@ -219,7 +220,15 @@ model Resource {
 // disappears later. No file upload/parsing yet — see src/lib/lecture-notes.ts.
 //
 // type is a String, not a Prisma enum — see the note above Assignment.status.
-// Application-level values: "BOOK" | "SLIDES".
+// Application-level values: "BOOK" | "SLIDES" | "SYLLABUS" | "NOTES" (see
+// MaterialType in src/lib/canvas-materials.ts).
+// provider/resourceType/syncStatus are Strings, not Prisma enums — see the
+// note above Assignment.status. Application-level values:
+// provider: "canvas" | null (manually added via paste/link/upload)
+// resourceType: "file" | "page" | "syllabus" | "external" (see ResourceType in src/lib/canvas-materials.ts)
+// syncStatus: "READY" | "FAILED" | "EXTERNAL" | "SKIPPED_TOO_LARGE" |
+// "SKIPPED_UNSUPPORTED" | "SKIPPED_NOISE" | "MISSING" (see
+// src/lib/canvas-materials-sync.ts)
 model ClassMaterial {
   id        String   @id @default(cuid())
   classId   String
@@ -229,9 +238,49 @@ model ClassMaterial {
   sourceUrl String? // where content was fetched from, if added as a link — display/reference only, never re-fetched
   createdAt DateTime @default(now())
 
+  // Canvas sync tracking — all null for materials added manually (paste,
+  // link, or file upload). See src/lib/canvas-materials-sync.ts.
+  provider         String?
+  canvasResourceId String? // Canvas file id for file-backed resources, or a synthetic stable id for others (see canvas-materials.ts)
+  resourceType     String?
+  canvasUpdatedAt  DateTime? // Canvas's own updated_at, used to detect changed resources on re-sync
+  lastSyncedAt     DateTime?
+  syncStatus       String?
+  syncError        String?
+
   class Class @relation(fields: [classId], references: [id], onDelete: Cascade)
 
+  // Dedup key for Canvas-sourced materials: the same file referenced via
+  // both Files and Modules resolves to the same canvasResourceId, so it's
+  // only ever imported once. NULL is distinct from NULL in a Postgres
+  // unique index, so manually-added materials (canvasResourceId always
+  // null) never collide with each other or with Canvas-sourced ones.
+  @@unique([classId, provider, canvasResourceId])
   @@index([classId])
+}
+
+// One row per class tracking its most-recent-or-in-flight Canvas materials
+// sync. Drives per-course progress in the UI and makes the sync resumable:
+// if processing is interrupted mid-course, the next poll picks the same
+// course back up from its persisted resourcesDone count instead of
+// restarting or silently losing progress. See src/lib/canvas-materials-sync.ts.
+//
+// status is a String, not a Prisma enum — see the note above
+// Assignment.status. Application-level values: "PENDING" | "DISCOVERING" |
+// "DOWNLOADING" | "READY" | "PARTIAL" | "FAILED".
+model CanvasSyncCourseState {
+  id              String    @id @default(cuid())
+  classId         String    @unique
+  status          String    @default("PENDING")
+  resourcesFound  Int       @default(0)
+  resourcesDone   Int       @default(0)
+  resourcesFailed Int       @default(0)
+  errorMessage    String?
+  startedAt       DateTime?
+  finishedAt      DateTime?
+  updatedAt       DateTime  @updatedAt
+
+  class Class @relation(fields: [classId], references: [id], onDelete: Cascade)
 }
 
 // A recorded lecture: an uploaded audio file (or a directly pasted

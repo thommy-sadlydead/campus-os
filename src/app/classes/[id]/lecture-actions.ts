@@ -16,8 +16,9 @@ import {
   type ClassMaterialInput,
 } from "@/lib/lecture-notes";
 import { htmlToReadableText, extractHtmlTitle } from "@/lib/text";
-import { classifyCanvasUrl } from "@/lib/canvas";
+import { classifyCanvasUrl, fetchCanvasFileContent, MAX_DOCUMENT_FILE_BYTES, type CanvasConfig } from "@/lib/canvas";
 import { extractDocumentText } from "@/lib/office-text";
+import { decryptSecret } from "@/lib/crypto";
 
 async function requireOwnedClass(classId: string, userId: string) {
   const cls = await prisma.class.findUnique({ where: { id: classId } });
@@ -457,101 +458,6 @@ async function fetchReadableTextFromUrl(rawUrl: string): Promise<{ title: string
   return { title, content };
 }
 
-// Document files (Canvas downloads, or a direct upload) can be genuinely
-// large (slide decks with embedded images), so this is more generous than
-// MAX_FETCH_BYTES for plain HTML pages — but still bounded, since only the
-// extracted *text* matters and that's capped separately at
-// MAX_MATERIAL_CONTENT_LENGTH regardless. Shared by the Canvas-file path
-// and the direct-upload path below.
-const MAX_DOCUMENT_FILE_BYTES = 25 * 1024 * 1024;
-
-interface CanvasFileMeta {
-  display_name: string;
-  "content-type"?: string;
-  size: number;
-  url: string;
-  locked_for_user?: boolean;
-}
-
-/**
- * Fetches one Canvas-hosted file's content via the Canvas REST API (using
- * this app's existing CANVAS_ACCESS_TOKEN — the same one scripts/sync-canvas
- * uses for courses/assignments) and extracts readable text from it. Unlike
- * fetchReadableTextFromUrl, this never touches the file's *page* URL
- * directly — that requires a logged-in Canvas session this server doesn't
- * have — only the API, which authenticates with the token instead.
- */
-async function fetchCanvasFileText(fileId: string): Promise<{ title: string | null; content: string }> {
-  const baseUrl = process.env.CANVAS_BASE_URL;
-  const token = process.env.CANVAS_ACCESS_TOKEN;
-  if (!baseUrl || !token) {
-    throw new Error("Canvas isn't connected for this app, so file links can't be fetched yet.");
-  }
-
-  let meta: CanvasFileMeta;
-  try {
-    const metaRes = await fetch(`${baseUrl.replace(/\/$/, "")}/api/v1/files/${fileId}`, {
-      headers: { Authorization: `Bearer ${token}` },
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-    });
-    if (metaRes.status === 404) {
-      throw new Error("Couldn't find that file in Canvas. Check the link and try again.");
-    }
-    if (!metaRes.ok) {
-      throw new Error(`Canvas returned an error (${metaRes.status}) looking up that file.`);
-    }
-    meta = await metaRes.json();
-  } catch (err) {
-    if (err instanceof Error && /^(Couldn't find|Canvas returned)/.test(err.message)) throw err;
-    throw new Error("Couldn't reach Canvas to look up that file.");
-  }
-
-  if (meta.locked_for_user) {
-    throw new Error("That file is locked in Canvas, so it can't be read yet.");
-  }
-  if (meta.size > MAX_DOCUMENT_FILE_BYTES) {
-    throw new Error("That file is too large to read.");
-  }
-
-  // meta.url is a short-lived, pre-signed download link Canvas issues
-  // per-request — it's directly fetchable and does NOT take the API
-  // bearer token (it's typically backed by S3-style query-signed auth,
-  // which an extra Authorization header can actually break).
-  let fileRes: Response;
-  try {
-    fileRes = await fetch(meta.url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
-  } catch {
-    throw new Error("Couldn't download that file from Canvas.");
-  }
-  if (!fileRes.ok) {
-    throw new Error("Couldn't download that file from Canvas.");
-  }
-
-  const buffer = Buffer.from(await fileRes.arrayBuffer());
-  const contentType = meta["content-type"] || fileRes.headers.get("content-type") || "";
-
-  let content: string | null;
-  try {
-    content = await extractDocumentText(buffer, contentType, meta.display_name);
-  } catch (err) {
-    console.error("Canvas file text extraction failed:", err);
-    throw new Error("Couldn't read that file — it might be corrupted or password-protected.");
-  }
-
-  if (content === null) {
-    throw new Error(
-      `Can't read ${meta.display_name.split(".").pop()?.toUpperCase() || "that"} files yet — try pasting the text directly instead.`
-    );
-  }
-  if (content.trim().length < 20) {
-    throw new Error(
-      "Couldn't find readable text in that file — it might be scanned images. Try pasting the text directly instead."
-    );
-  }
-
-  return { title: meta.display_name, content };
-}
-
 const classMaterialUrlSchema = z.object({
   type: z.enum(["BOOK", "SLIDES"]),
   title: z.string().max(MAX_MATERIAL_TITLE_LENGTH).optional(),
@@ -572,7 +478,19 @@ export async function addClassMaterialFromUrlAction(
   });
   if (!parsed.success) return { error: "Enter a valid link." };
 
-  const canvasUrl = classifyCanvasUrl(new URL(parsed.data.url), process.env.CANVAS_BASE_URL);
+  // Classified against the current user's OWN connected Canvas account
+  // (null if they haven't connected one), not a global env var — this used
+  // to read CANVAS_BASE_URL/CANVAS_ACCESS_TOKEN directly, so every user's
+  // pasted Canvas links were fetched using whichever account happened to
+  // be in that env var, regardless of who was actually signed in. With no
+  // account connected, every URL classifies as "external" and falls
+  // through to the plain-webpage fetch below, same as before Canvas
+  // support existed.
+  const account = await prisma.canvasAccount.findUnique({ where: { userId: user.id } });
+  const canvasCfg: CanvasConfig | null = account
+    ? { baseUrl: account.baseUrl, token: decryptSecret(account.accessTokenEnc) }
+    : null;
+  const canvasUrl = classifyCanvasUrl(new URL(parsed.data.url), canvasCfg?.baseUrl);
   if (canvasUrl.kind === "canvas-page") {
     return {
       error:
@@ -582,14 +500,14 @@ export async function addClassMaterialFromUrlAction(
 
   // Thrown errors lose their message in production (Next.js redacts Server
   // Action error text, keeping only a log digest), which would turn every
-  // one of fetchReadableTextFromUrl's/fetchCanvasFileText's specific,
+  // one of fetchReadableTextFromUrl's/fetchCanvasFileContent's specific,
   // actionable messages into a generic "something went wrong" — so catch
   // here and return the message as data instead of letting it cross the
   // server/client boundary as a throw.
   try {
     const { title: pageTitle, content } =
-      canvasUrl.kind === "file"
-        ? await fetchCanvasFileText(canvasUrl.fileId)
+      canvasUrl.kind === "file" && canvasCfg
+        ? await fetchCanvasFileContent(canvasCfg, canvasUrl.fileId)
         : await fetchReadableTextFromUrl(parsed.data.url);
     const title = (parsed.data.title?.trim() || pageTitle || "Untitled").slice(0, MAX_MATERIAL_TITLE_LENGTH);
 
