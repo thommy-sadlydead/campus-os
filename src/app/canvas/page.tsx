@@ -6,6 +6,13 @@ import { SyncButton } from "@/components/canvas/SyncButton";
 import { MaterialSyncPanel } from "@/components/canvas/MaterialSyncPanel";
 import { disconnectCanvasAction } from "@/app/canvas/actions";
 
+// continueCanvasMaterialSyncAction (invoked from MaterialSyncPanel) can now
+// process a scanned PDF via OCR mid-chunk — several sequential per-page
+// Claude vision calls — which can comfortably exceed Vercel's default
+// function duration. Matches the same need/pattern as
+// src/app/classes/[id]/page.tsx's maxDuration for lecture note generation.
+export const maxDuration = 300;
+
 export default async function CanvasPage() {
   const user = await requireUser();
   const account = await prisma.canvasAccount.findUnique({ where: { userId: user.id } });

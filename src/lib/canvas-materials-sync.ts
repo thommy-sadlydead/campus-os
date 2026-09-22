@@ -10,6 +10,13 @@
 //
 // Takes a PrismaClient as a parameter rather than importing the app's
 // singleton — see the same note in canvas-sync.ts.
+//
+// Unlike canvas.ts/canvas-sync.ts, this module IS effectively server-only
+// (transitively, via pdf-ocr.ts's Anthropic client) — every real caller is
+// already a "use server" action in src/app/canvas/actions.ts, so this
+// doesn't affect production, but a standalone script importing this module
+// directly (e.g. for ad hoc verification) needs a Next.js server context
+// to load it, the same as src/lib/crypto.ts.
 import type { PrismaClient } from "@prisma/client";
 import {
   CanvasApiError,
@@ -22,7 +29,6 @@ import {
   fetchCourseAssignments,
   fetchCanvasFileMeta,
   downloadCanvasFile,
-  extractCanvasFileContent,
   MAX_DOCUMENT_FILE_BYTES,
   type CanvasConfig,
   type CanvasFile,
@@ -37,6 +43,8 @@ import {
   type ExistingMaterialRecord,
   type MaterialType,
 } from "./canvas-materials";
+import { extractDocumentText } from "./office-text";
+import { ocrPdfPages } from "./pdf-ocr";
 import { htmlToReadableText } from "./text";
 import { MAX_MATERIAL_TITLE_LENGTH, MAX_MATERIAL_CONTENT_LENGTH } from "./lecture-notes";
 
@@ -342,13 +350,24 @@ async function processFileResource(
   }
 
   if (meta.locked_for_user) {
+    // canvasUpdatedAt is deliberately NOT stored here (null instead) even
+    // though the real metadata timestamp is right there — Canvas doesn't
+    // bump a file's updated_at just because a lock/unlock date passed, so
+    // storing the real timestamp would make planSync see this as
+    // "unchanged" forever and never retry it even after the instructor
+    // unlocks it (confirmed live: a course's homework-solution files,
+    // deliberately locked until after the due date, stayed permanently
+    // FAILED across every sync). Storing null instead means the next
+    // sync's real discovered timestamp always compares as "newer" (see
+    // planSync's priorTime-defaults-to-0 branch), so a locked file is
+    // re-checked — and, once unlocked, actually imported — on every sync.
     return upsertMaterial(prisma, classId, resource, {
       title: meta.display_name,
       content: `Canvas file "${meta.display_name}" is locked and can't be read yet.`,
       materialType: classification.materialType,
       syncStatus: "FAILED",
       syncError: "Locked in Canvas.",
-      canvasUpdatedAt,
+      canvasUpdatedAt: null,
     });
   }
   if (meta.size > MAX_DOCUMENT_FILE_BYTES) {
@@ -363,7 +382,34 @@ async function processFileResource(
 
   try {
     const buffer = await downloadCanvasFile(meta);
-    const content = await extractCanvasFileContent(meta, buffer);
+    const contentType = meta["content-type"] || "";
+    let content: string | null;
+    try {
+      content = await extractDocumentText(buffer, contentType, meta.display_name);
+    } catch (err) {
+      console.error("Canvas file text extraction failed:", err);
+      content = null;
+    }
+
+    // A PDF with no (or a near-empty) text layer is almost always a
+    // scanned document — real course material (textbook chapters,
+    // homework solutions) confirmed live, not a rare edge case. Fall back
+    // to OCR instead of giving up: render each page as an image and ask
+    // Claude to transcribe it, the same way a student would just read it.
+    const isPdf = contentType.includes("pdf") || meta.display_name.toLowerCase().endsWith(".pdf");
+    if (isPdf && (content === null || content.trim().length < 20)) {
+      content = await ocrPdfPages(buffer);
+    }
+
+    if (content === null || content.trim().length < 20) {
+      const ext = meta.display_name.split(".").pop()?.toUpperCase();
+      throw new Error(
+        content === null
+          ? `Can't read ${ext ? `${ext} files` : "that file"} yet — try pasting the text directly instead.`
+          : "Couldn't find readable text in that file, even with OCR — it might be blank or too low-quality to read."
+      );
+    }
+
     return upsertMaterial(prisma, classId, resource, {
       title: meta.display_name,
       content,
@@ -373,13 +419,22 @@ async function processFileResource(
       sourceUrl: resource.sourceUrl,
     });
   } catch (err) {
+    // canvasUpdatedAt: null here too, for the same reason as the
+    // locked-file branch above — confirmed live: a scanned PDF's Canvas
+    // updated_at doesn't change just because OCR got better (or the
+    // download/extract transient-failed), so storing the real timestamp
+    // made planSync treat every one of these as "unchanged" and skip them
+    // on every later sync, meaning the OCR fallback above never actually
+    // ran for any of them. Every FAILED outcome in this function stores
+    // null so it's always re-attempted next sync; only a genuine success
+    // (READY/SKIPPED_*/EXTERNAL) trusts the real Canvas timestamp.
     return upsertMaterial(prisma, classId, resource, {
       title: meta.display_name,
       content: `Couldn't import "${meta.display_name}": ${err instanceof Error ? err.message : "unknown error"}.`,
       materialType: classification.materialType,
       syncStatus: "FAILED",
       syncError: err instanceof Error ? err.message : "Unknown error.",
-      canvasUpdatedAt,
+      canvasUpdatedAt: null,
     });
   }
 }
