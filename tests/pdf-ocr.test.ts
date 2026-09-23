@@ -1,13 +1,4 @@
-import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
-
-// unpdf's renderPageAsImage needs @napi-rs/canvas + a real PDF.js render
-// pipeline — mocked here so this test exercises pdf-ocr.ts's own
-// page-loop/prompt/fallback logic, not unpdf's rendering internals (which
-// are unpdf's responsibility, not this app's).
-vi.mock("unpdf", () => ({
-  getDocumentProxy: vi.fn(async () => ({ numPages: 2 })),
-  renderPageAsImage: vi.fn(async () => "data:image/png;base64,ZmFrZS1wbmc="),
-}));
+import { describe, it, expect, vi, afterEach } from "vitest";
 
 const originalKey = process.env.ANTHROPIC_API_KEY;
 
@@ -33,84 +24,92 @@ afterEach(() => {
   else process.env.ANTHROPIC_API_KEY = originalKey;
 });
 
-describe("ocrPdfPages", () => {
-  it("returns null when no ANTHROPIC_API_KEY is configured, without attempting to render anything", async () => {
+describe("ocrPdf", () => {
+  it("returns null when no ANTHROPIC_API_KEY is configured, without attempting a request", async () => {
     delete process.env.ANTHROPIC_API_KEY;
+    const createSpy = vi.fn();
+    vi.doMock("@anthropic-ai/sdk", () => ({ default: class { static APIError = FakeAPIError; messages = { create: createSpy }; } }));
     vi.resetModules();
-    const { ocrPdfPages } = await import("../src/lib/pdf-ocr");
-    const result = await ocrPdfPages(Buffer.from("fake pdf bytes"));
+    const { ocrPdf } = await import("../src/lib/pdf-ocr");
+
+    const result = await ocrPdf(Buffer.from("fake pdf bytes"));
+    expect(result).toBeNull();
+    expect(createSpy).not.toHaveBeenCalled();
+  });
+
+  it("returns null without a request when the buffer exceeds Claude's document size limit", async () => {
+    process.env.ANTHROPIC_API_KEY = "test-key";
+    const createSpy = vi.fn();
+    vi.doMock("@anthropic-ai/sdk", () => ({ default: class { static APIError = FakeAPIError; messages = { create: createSpy }; } }));
+    vi.resetModules();
+    const { ocrPdf, MAX_OCR_PDF_BYTES } = await import("../src/lib/pdf-ocr");
+
+    const oversized = Buffer.alloc(MAX_OCR_PDF_BYTES + 1);
+    const result = await ocrPdf(oversized);
+    expect(result).toBeNull();
+    expect(createSpy).not.toHaveBeenCalled();
+  });
+
+  it("returns the transcribed text from a successful response", async () => {
+    process.env.ANTHROPIC_API_KEY = "test-key";
+    mockAnthropicSdk(async () => ({ content: [{ type: "text", text: "Transcribed page content." }] }));
+    vi.resetModules();
+    const { ocrPdf } = await import("../src/lib/pdf-ocr");
+
+    const result = await ocrPdf(Buffer.from("fake pdf bytes"));
+    expect(result).toBe("Transcribed page content.");
+  });
+
+  it("sends the PDF as a base64 document content block", async () => {
+    process.env.ANTHROPIC_API_KEY = "test-key";
+    const createSpy = vi.fn(async (_req: { messages: Array<{ content: Array<{ type: string }> }> }) => ({
+      content: [{ type: "text", text: "ok" }],
+    }));
+    vi.doMock("@anthropic-ai/sdk", () => ({ default: class { static APIError = FakeAPIError; messages = { create: createSpy }; } }));
+    vi.resetModules();
+    const { ocrPdf } = await import("../src/lib/pdf-ocr");
+
+    const buffer = Buffer.from("fake pdf bytes");
+    await ocrPdf(buffer);
+
+    const call = createSpy.mock.calls[0][0];
+    const documentBlock = call.messages[0].content.find((c: { type: string }) => c.type === "document");
+    expect(documentBlock).toEqual({
+      type: "document",
+      source: { type: "base64", media_type: "application/pdf", data: buffer.toString("base64") },
+    });
+  });
+
+  it("returns null when the response has no usable text", async () => {
+    process.env.ANTHROPIC_API_KEY = "test-key";
+    mockAnthropicSdk(async () => ({ content: [{ type: "text", text: "" }] }));
+    vi.resetModules();
+    const { ocrPdf } = await import("../src/lib/pdf-ocr");
+
+    const result = await ocrPdf(Buffer.from("fake pdf bytes"));
     expect(result).toBeNull();
   });
 
-  it("transcribes each rendered page and joins them in order", async () => {
-    process.env.ANTHROPIC_API_KEY = "test-key";
-    const pageTexts = ["Page one text.", "Page two text."];
-    let call = 0;
-    mockAnthropicSdk(async () => ({ content: [{ type: "text", text: pageTexts[call++] }] }));
-    vi.resetModules();
-    const { ocrPdfPages } = await import("../src/lib/pdf-ocr");
-
-    const result = await ocrPdfPages(Buffer.from("fake pdf bytes"));
-    expect(result).toBe("Page one text.\n\nPage two text.");
-  });
-
-  it("skips a page Claude reports as blank", async () => {
-    process.env.ANTHROPIC_API_KEY = "test-key";
-    const pageTexts = ["[blank page]", "Real content here."];
-    let call = 0;
-    mockAnthropicSdk(async () => ({ content: [{ type: "text", text: pageTexts[call++] }] }));
-    vi.resetModules();
-    const { ocrPdfPages } = await import("../src/lib/pdf-ocr");
-
-    const result = await ocrPdfPages(Buffer.from("fake pdf bytes"));
-    expect(result).toBe("Real content here.");
-  });
-
-  it("returns null when every page hits a non-API-error failure (e.g. an unexpected response shape)", async () => {
+  it("returns null on a non-API-error failure", async () => {
     process.env.ANTHROPIC_API_KEY = "test-key";
     mockAnthropicSdk(async () => {
       throw new Error("unexpected shape");
     });
     vi.resetModules();
-    const { ocrPdfPages } = await import("../src/lib/pdf-ocr");
+    const { ocrPdf } = await import("../src/lib/pdf-ocr");
 
-    const result = await ocrPdfPages(Buffer.from("fake pdf bytes"));
+    const result = await ocrPdf(Buffer.from("fake pdf bytes"));
     expect(result).toBeNull();
   });
 
-  it("one page's non-API-error failure doesn't stop the others from being included", async () => {
+  it("throws with the real reason on a genuine Anthropic API error (billing, auth, rate limit)", async () => {
     process.env.ANTHROPIC_API_KEY = "test-key";
-    let call = 0;
     mockAnthropicSdk(async () => {
-      call++;
-      if (call === 1) throw new Error("transient failure");
-      return { content: [{ type: "text", text: "Second page succeeded." }] };
-    });
-    vi.resetModules();
-    const { ocrPdfPages } = await import("../src/lib/pdf-ocr");
-
-    const result = await ocrPdfPages(Buffer.from("fake pdf bytes"));
-    expect(result).toBe("Second page succeeded.");
-  });
-
-  it("fails fast with the real reason on a genuine Anthropic API error (billing, auth, rate limit) instead of silently retrying every remaining page", async () => {
-    process.env.ANTHROPIC_API_KEY = "test-key";
-    const createSpy = vi.fn(async () => {
       throw new FakeAPIError("credit balance is too low");
     });
-    vi.doMock("@anthropic-ai/sdk", () => ({
-      default: class {
-        static APIError = FakeAPIError;
-        messages = { create: createSpy };
-      },
-    }));
     vi.resetModules();
-    const { ocrPdfPages } = await import("../src/lib/pdf-ocr");
+    const { ocrPdf } = await import("../src/lib/pdf-ocr");
 
-    await expect(ocrPdfPages(Buffer.from("fake pdf bytes"))).rejects.toThrow(/credit balance is too low/);
-    // getDocumentProxy reports numPages: 2 (see the unpdf mock above) — a
-    // real fail-fast should stop after the first page's API error instead
-    // of also attempting the second.
-    expect(createSpy).toHaveBeenCalledTimes(1);
+    await expect(ocrPdf(Buffer.from("fake pdf bytes"))).rejects.toThrow(/credit balance is too low/);
   });
 });

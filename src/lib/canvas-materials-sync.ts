@@ -44,7 +44,7 @@ import {
   type MaterialType,
 } from "./canvas-materials";
 import { extractDocumentText } from "./office-text";
-import { ocrPdfPages } from "./pdf-ocr";
+import { ocrPdf } from "./pdf-ocr";
 import { htmlToReadableText } from "./text";
 import { MAX_MATERIAL_TITLE_LENGTH, MAX_MATERIAL_CONTENT_LENGTH } from "./lecture-notes";
 
@@ -394,11 +394,11 @@ async function processFileResource(
     // A PDF with no (or a near-empty) text layer is almost always a
     // scanned document — real course material (textbook chapters,
     // homework solutions) confirmed live, not a rare edge case. Fall back
-    // to OCR instead of giving up: render each page as an image and ask
-    // Claude to transcribe it, the same way a student would just read it.
+    // to OCR instead of giving up: send the whole PDF to Claude directly
+    // and ask it to transcribe it.
     const isPdf = contentType.includes("pdf") || meta.display_name.toLowerCase().endsWith(".pdf");
     if (isPdf && (content === null || content.trim().length < 20)) {
-      content = await ocrPdfPages(buffer);
+      content = await ocrPdf(buffer);
     }
 
     if (content === null || content.trim().length < 20) {
