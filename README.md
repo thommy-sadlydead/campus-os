@@ -16,7 +16,8 @@ as out of scope.
 
 - **Data model** for the whole app (`prisma/schema.prisma`): User, Class,
   ScheduleEvent, Assignment, Task, Exam, Email, EmailAccount, CanvasAccount,
-  PendingChange, NoteSection, Note, Resource, AvailabilityBlock — see
+  PendingChange, NoteSection, Note, Resource, AvailabilityBlock, Lecture,
+  ClassMaterial, CanvasSyncCourseState — see
   [Data architecture](#data-architecture).
 - **Auth**: email/password, hashed with bcrypt, session cookies (httpOnly,
   signed) — no third-party auth dependency, since Gmail OAuth is a
@@ -78,6 +79,29 @@ as out of scope.
 - **Assignments** and **Classes** list views, both with an inline expandable
   subtask checklist per assignment, plus the assignment's real directions
   and a "See in Canvas" link.
+- **Lectures** (per class, `src/app/classes/[id]/lecture-actions.ts`):
+  upload a recording (direct-to-Blob) or paste a transcript directly, get
+  an AssemblyAI transcript and AI-generated study notes automatically.
+  Notes are regenerated on retry from the saved transcript if generation
+  itself fails, so a flaky AI call never means re-uploading audio.
+- **Class materials** (`ClassMaterial` model, shown on each class's
+  Lectures tab): reference content — textbook excerpts, slides, notes,
+  syllabi — that's folded into every lecture's note generation and the
+  class assistant's context for that class. Four ways in: paste text
+  directly, paste a link (Canvas file link or a regular webpage, fetched
+  once and stored — never re-fetched later), upload a file directly
+  (PDF/PPTX/DOCX/TXT/EPUB), or **automatic Canvas sync** (see next bullet).
+- **Automatic Canvas course material sync** (`/canvas`, "Go fetch
+  materials"): after connecting Canvas, discovers and imports each course's
+  real documents on its own — scanning Files, Modules, Pages, Assignment
+  attachments, and the Syllabus (not just the Files tab, which instructors
+  sometimes hide) — instead of requiring every material to be added by
+  hand. Incremental: re-running only imports what's new or changed,
+  verified idempotent against a real connected account. Scanned/image-only
+  PDFs (no text layer) are OCR'd via Claude's native PDF document support.
+  See `src/lib/canvas-materials.ts` (pure classification/dedup/diff logic)
+  and `src/lib/canvas-materials-sync.ts` (discovery + sync orchestration)
+  for the implementation, and CLAUDE.md for known limitations.
 
 ## Quick start
 
@@ -405,6 +429,39 @@ change: new `CanvasAccount` model, applied automatically on the next
 deploy via the existing `prisma db push` build step — no separate
 migration.
 
+**Lectures, class materials, and automatic Canvas material sync
+(2026-09).** Added the Lectures tab (audio upload or pasted transcript →
+AssemblyAI transcript → Claude-generated study notes) and `ClassMaterial`
+(reference content folded into every lecture's notes and the class
+assistant's context) with four ways to add it: paste, link, direct file
+upload, and — the largest piece of this update — fully automatic Canvas
+sync. Connecting Canvas (or clicking "Go fetch materials" any time after)
+now discovers a course's real documents across Files, Modules, Pages,
+Assignment attachments, and the Syllabus, not just the Files tab, which
+some instructors hide entirely (confirmed on real courses — the files are
+still reachable individually even when the tab is hidden). Sync is
+incremental and idempotent by design (same engine for the first sync and
+every later one; re-running never duplicates a material), and scanned
+PDFs with no text layer are OCR'd by sending the whole file to Claude as a
+native PDF document rather than rendering pages locally — a locally-rendered
+approach was tried first and abandoned after real scanned course PDFs
+turned out to use JBIG2 image compression the local PDF renderer couldn't
+decode. All of this was verified against a real connected Canvas account
+(6 courses, 280+ materials), including confirming idempotency by
+re-running and checking that every existing row was untouched. Also fixed
+a real bug found along the way: the single-link Canvas-file paste feature
+was fetching files using whichever account happened to be in a global env
+var, rather than the signed-in user's own connected Canvas account — a
+real problem once more than one person had their own connected account.
+Schema changes: `ClassMaterial` gained `provider`/`canvasResourceId`/
+`resourceType`/`canvasUpdatedAt`/`lastSyncedAt`/`syncStatus`/`syncError`
+plus a dedup unique constraint; new `Lecture` and `CanvasSyncCourseState`
+models. See CLAUDE.md for the operational details and known limitations
+(a locked file has to be re-checked on every sync since Canvas doesn't
+signal an unlock the way it signals a content edit; two specific scanned
+files still can't be OCR'd because Anthropic's own content-filtering
+policy blocks the output, which isn't something to route around).
+
 **Known limits, not gaps in this app:** Gmail (`GOOGLE_CLIENT_ID` etc.) and
 the AI assistants (`ANTHROPIC_API_KEY`) both require credentials you
 create yourself — see "AI features (optional)" above and `.env.example`
@@ -427,7 +484,12 @@ Not built — one deliberately flagged gap, unrelated to the phase plan:
 
 ## Verification
 
-- `npm test` — 62 unit tests, all passing: the original 19 on the priority
+- `npm test` — 165 unit tests as of the 2026-09 Canvas materials sync
+  update (12 test files; the newest cover Canvas resource
+  classification/dedup/incremental-diff logic, retry/pagination against a
+  stubbed Canvas API, and the PDF OCR fallback — see CLAUDE.md for where
+  those live). What follows is the original verification record from the
+  phases 1-4 build: the original 19 on the priority
   engine (urgency bucketing, ranking, the minutes-mode matcher, workload
   summary, the heuristic estimator); 21 from phases 2/4 on
   `tests/change-rules.test.ts` (the same-value/auto-apply/conflict decision
