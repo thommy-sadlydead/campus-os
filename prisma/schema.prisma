@@ -434,3 +434,17 @@ model AvailabilityBlock {
 
   @@index([userId, date])
 }
+
+// One row per rate-limited event: a failed login, an AI request, a new
+// lecture. src/lib/rate-limit.ts counts rows per key over a sliding window
+// and prunes anything older than a day. `key` is a plain string rather than
+// a User relation because failed logins are keyed by the attempted email,
+// which may not belong to anyone. Examples: "login-email:a@school.edu",
+// "login-ip:203.0.113.7", "ai:<userId>", "lecture:<userId>".
+model RateLimitEvent {
+  id        String   @id @default(cuid())
+  key       String
+  createdAt DateTime @default(now())
+
+  @@index([key, createdAt])
+}

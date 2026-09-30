@@ -15,11 +15,12 @@ import type { LectureRow, ClassMaterialRow } from "@/components/classes/Lectures
 // this just needs to comfortably exceed it.
 export const maxDuration = 300;
 
-export default async function ClassPage({ params }: { params: { id: string } }) {
+export default async function ClassPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
+  const { id } = await params;
 
   const cls = await prisma.class.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       scheduleEvents: true,
       assignments: { include: { tasks: { orderBy: { order: "asc" } } }, orderBy: { dueAt: "asc" } },

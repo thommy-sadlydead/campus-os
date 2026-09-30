@@ -12,7 +12,7 @@ export async function GET(request: Request) {
   await requireUser(); // redirects to /login if not authenticated
 
   const state = crypto.randomBytes(24).toString("hex");
-  cookies().set(OAUTH_STATE_COOKIE, state, {
+  (await cookies()).set(OAUTH_STATE_COOKIE, state, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",

@@ -6,7 +6,8 @@ import { z } from "zod";
 import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
-import { getAssemblyAIClient } from "@/lib/assemblyai";
+import { deleteAssemblyAITranscripts, getAssemblyAIClient } from "@/lib/assemblyai";
+import { LECTURE_LIMIT_MESSAGE, RATE_LIMITS, consumeRateLimit, isRateLimited } from "@/lib/rate-limit";
 import { getAnthropicClient, askClaudeForJson, MODEL } from "@/lib/anthropic";
 import {
   buildLectureNotesPrompt,
@@ -169,16 +170,33 @@ const createLectureSchema = z.object({
 });
 
 /**
+ * Lets the Lectures tab refuse an audio upload up front when the user is
+ * already at the daily lecture limit, instead of uploading the whole file
+ * and only then being told no. The create actions below enforce the limit
+ * for real; this is the courtesy check.
+ */
+export async function checkLectureLimitAction(): Promise<{ error?: string }> {
+  const user = await requireUser();
+  return (await isRateLimited(`lecture:${user.id}`, RATE_LIMITS.lecture)) ? { error: LECTURE_LIMIT_MESSAGE } : {};
+}
+
+/**
  * Called by the client right after its direct-to-Blob upload resolves (see
  * src/app/api/lecture-audio/upload/route.ts) — NOT from Vercel Blob's
  * onUploadCompleted webhook, which needs a publicly reachable callback URL
  * that `next dev` doesn't have. Creates the row, then submits the
  * transcription job immediately so the panel can start polling right away.
  */
-export async function createLectureAction(classId: string, input: { title: string; audioUrl: string }) {
+export async function createLectureAction(
+  classId: string,
+  input: { title: string; audioUrl: string }
+): Promise<{ error?: string }> {
   const user = await requireUser();
   await requireOwnedClass(classId, user.id);
   const parsed = createLectureSchema.parse(input);
+  if (!(await consumeRateLimit(`lecture:${user.id}`, RATE_LIMITS.lecture))) {
+    return { error: LECTURE_LIMIT_MESSAGE };
+  }
 
   const lecture = await prisma.lecture.create({
     data: { classId, title: parsed.title, audioUrl: parsed.audioUrl, status: "UPLOADED" },
@@ -207,6 +225,7 @@ export async function createLectureAction(classId: string, input: { title: strin
   }
 
   revalidatePath(`/classes/${classId}`);
+  return {};
 }
 
 /**
@@ -253,6 +272,9 @@ export async function pollLectureStatusAction(lectureId: string) {
         where: { id: lecture.id },
         data: { status: "GENERATING_NOTES", transcriptText },
       });
+      // The row now holds the transcript, which is all note generation and
+      // retries ever read, so AssemblyAI's copy can go.
+      await deleteAssemblyAITranscripts([lecture.assemblyaiId]);
       await generateNotes(lecture.id, transcriptText, lecture.classId);
     }
     // "queued" / "processing": no-op, poll again later.
@@ -320,6 +342,9 @@ export async function deleteLectureAction(lectureId: string) {
       console.error("Lecture audio blob delete failed:", err);
     }
   }
+  // Normally already gone (deleted once the transcript was saved), but
+  // lectures transcribed before that cleanup existed still have one.
+  await deleteAssemblyAITranscripts([lecture.assemblyaiId]);
 
   await prisma.lecture.delete({ where: { id: lecture.id } });
   revalidatePath(`/classes/${lecture.classId}`);
@@ -339,10 +364,13 @@ const createLectureFromTranscriptSchema = z.object({
 export async function createLectureFromTranscriptAction(
   classId: string,
   input: { title: string; transcriptText: string }
-) {
+): Promise<{ error?: string }> {
   const user = await requireUser();
   await requireOwnedClass(classId, user.id);
   const parsed = createLectureFromTranscriptSchema.parse(input);
+  if (!(await consumeRateLimit(`lecture:${user.id}`, RATE_LIMITS.lecture))) {
+    return { error: LECTURE_LIMIT_MESSAGE };
+  }
 
   const lecture = await prisma.lecture.create({
     data: {
@@ -355,6 +383,7 @@ export async function createLectureFromTranscriptAction(
 
   await generateNotes(lecture.id, parsed.transcriptText, classId);
   revalidatePath(`/classes/${classId}`);
+  return {};
 }
 
 // ---------------------------------------------------------------------------

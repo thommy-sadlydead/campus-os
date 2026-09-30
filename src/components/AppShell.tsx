@@ -46,6 +46,14 @@ export function AppShell({
           </div>
           <div className="flex flex-none items-center gap-3">
             <span className="hidden text-sm text-ink-soft sm:inline">{userName}</span>
+            <Link
+              href="/account"
+              className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                active === "/account" ? "bg-ink text-surface" : "text-ink-soft hover:bg-surface-2"
+              }`}
+            >
+              Account
+            </Link>
             <form action={logoutAction}>
               <button className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-ink-soft hover:bg-surface-2">
                 Log out

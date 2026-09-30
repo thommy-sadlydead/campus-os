@@ -123,7 +123,15 @@ npm run dev
 
 Open http://localhost:3000 and log in with the demo account printed by the
 seed script (`student@example.com` / `campusos-demo` — **change this
-password** if you keep using the seeded account for anything real).
+password** if you keep using the seeded account for anything real). The
+login page shows these credentials only under `npm run dev`; they're public
+in this repo, so **never run the seed script against the production
+database**.
+
+Sign-up is invite-only: new accounts need the code in `SIGNUP_INVITE_CODE`,
+and with that variable empty, sign-up is closed (existing accounts can
+still log in). Signed-in users can change their password or delete their
+account under **Account**.
 
 To pull your *own* live Canvas data instead of the seeded snapshot, the
 easiest way is right in the app:
@@ -484,7 +492,7 @@ Not built — one deliberately flagged gap, unrelated to the phase plan:
 
 ## Verification
 
-- `npm test` — 165 unit tests as of the 2026-09 Canvas materials sync
+- `npm test` — 176 unit tests as of the 2026-09 security pass (165 as of the Canvas materials sync)
   update (12 test files; the newest cover Canvas resource
   classification/dedup/incremental-diff logic, retry/pagination against a
   stubbed Canvas API, and the PDF OCR fallback — see CLAUDE.md for where
@@ -600,11 +608,32 @@ Not built — one deliberately flagged gap, unrelated to the phase plan:
   in plaintext. `connectCanvasAction` verifies a token actually works
   against the real Canvas API before saving it, so a typo'd or already-bad
   token never gets persisted in the first place.
-- `npm audit` currently reports 2 high-severity advisories, both in
-  Next.js 14.2.x itself (the latest 14.x patch as of this build) — Next 15
-  resolves them but is a larger migration. The app sits entirely behind
-  auth, which limits exposure, but please re-run `npm audit` and consider
-  the Next 15 upgrade path before any public deployment.
+- Next.js 15.5.27 and React 19. `npm audit` reports 0 vulnerabilities as
+  of the 2026-09 upgrade (14.2.35 had 23 open Next.js advisories). The
+  `overrides` entry in `package.json` keeps Next's bundled PostCSS on a
+  patched version.
+- Sign-up is invite-only (`SIGNUP_INVITE_CODE`; closed when unset), and the
+  code is checked before revealing whether an email already has an account.
+- Rate limits live in Postgres (`RateLimitEvent`, `src/lib/rate-limit.ts`)
+  so they hold across serverless instances: failed logins per email (10 per
+  15 minutes) and per IP (30), sign-up attempts per IP (10 an hour), AI
+  requests per user (200 a day), new lectures per user (15 a day) and audio
+  upload tokens per user (20 a day).
+- Account → Delete account removes the user and every row that belongs to
+  them (schema cascades), deletes their lecture audio from Blob and their
+  transcripts from AssemblyAI, and revokes the Gmail grant at Google.
+  Disconnecting Gmail revokes the grant too. AssemblyAI transcripts are also
+  deleted as soon as a lecture's transcript text is saved.
+- Gmail sync keeps the preview and full text only for school-related
+  messages; anything else is stored as sender, subject and date so the
+  next sync can skip it.
+- Every response carries `X-Frame-Options: DENY`, a CSP limited to
+  `frame-ancestors`/`base-uri`/`form-action`/`object-src`, `nosniff`, a
+  strict referrer policy and a `Permissions-Policy` (see `next.config.mjs`).
+  A script-level CSP would need per-request nonces and isn't set.
+- The public privacy policy is at `/privacy` (`src/app/privacy/page.tsx`).
+  Keep it in step with what the code stores and sends. Set `CONTACT_EMAIL`
+  to show a contact address there.
 - The AI-extraction path for emails is given an explicit allowlist of
   fields it's permitted to propose changes to (enforced twice — once when
   building the prompt, once again in `pending-changes.ts` regardless of

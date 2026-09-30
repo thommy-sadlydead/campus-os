@@ -16,8 +16,9 @@ export async function GET(request: Request) {
   const state = url.searchParams.get("state");
   const oauthError = url.searchParams.get("error");
 
-  const expectedState = cookies().get(OAUTH_STATE_COOKIE)?.value;
-  cookies().delete(OAUTH_STATE_COOKIE);
+  const cookieStore = await cookies();
+  const expectedState = cookieStore.get(OAUTH_STATE_COOKIE)?.value;
+  cookieStore.delete(OAUTH_STATE_COOKIE);
 
   if (oauthError) {
     return errorRedirect(request, oauthError === "access_denied" ? "Gmail connection was cancelled." : oauthError);

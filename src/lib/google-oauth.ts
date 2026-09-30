@@ -80,6 +80,19 @@ export async function refreshAccessToken(refreshToken: string): Promise<{ access
   return res.json();
 }
 
+// Revoking the refresh token ends the whole grant: Campus OS disappears from
+// the user's Google account permissions and its access tokens stop working.
+export async function revokeGoogleToken(token: string): Promise<void> {
+  const res = await fetch("https://oauth2.googleapis.com/revoke", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ token }),
+  });
+  if (!res.ok) {
+    throw new Error(`Google token revoke failed: ${res.status} ${await res.text().catch(() => "")}`);
+  }
+}
+
 export async function fetchGmailProfileEmail(accessToken: string): Promise<string> {
   const res = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/profile", {
     headers: { Authorization: `Bearer ${accessToken}` },

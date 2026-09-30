@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { getCurrentUser } from "@/lib/auth";
 import { getAnthropicClient, MODEL } from "@/lib/anthropic";
+import { AI_LIMIT_MESSAGE, allowAiRequest } from "@/lib/rate-limit";
 import {
   MAX_AUDIENCE_LENGTH,
   MAX_PROMPT_LENGTH,
@@ -103,6 +104,10 @@ export async function POST(request: Request) {
       : undefined;
 
   const system = buildSystemPrompt({ tone, length, audience, styleSample });
+
+  if (!(await allowAiRequest(user.id))) {
+    return errorResponse(AI_LIMIT_MESSAGE, 429);
+  }
 
   try {
     const message = await anthropic.messages.create(

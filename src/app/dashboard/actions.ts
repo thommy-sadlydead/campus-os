@@ -8,6 +8,7 @@ import { loadWorkItemsForUser, getAvailableMinutesToday } from "@/lib/workload";
 import { findBestFitForMinutes, whatShouldIDoRightNow, rankWorkItems, computeWorkloadSummary } from "@/lib/priority-engine";
 import { assessRisk } from "@/lib/risk-engine";
 import { askClaude } from "@/lib/anthropic";
+import { AI_LIMIT_MESSAGE, allowAiRequest } from "@/lib/rate-limit";
 import { startOfTzDay } from "@/lib/time";
 import { buildCrossAppPrompt } from "@/lib/cross-app-context";
 
@@ -109,13 +110,16 @@ export async function whatShouldIDoRightNowAction(): Promise<WhatNowResult> {
   const availableMinutes = await getAvailableMinutesToday(user.id, now, user.timezone);
 
   // AI narrative is a polish layer over the deterministic pick — the pick
-  // itself never depends on the model being available or working.
-  const aiMessage = await askClaude({
-    system:
-      "You are a calm, direct academic productivity assistant. Given one recommended task and light context, write 1-2 sentences telling the student what to do right now and why. No fluff, no emoji, no bullet points — plain sentences. Never invent facts (deadlines, minutes, class names) beyond what's given.",
-    prompt: `Recommended task: "${top.item.title}" for ${top.item.className}.\nUrgency: ${top.bucket}.\nDeterministic reason: ${top.reason}.\nEstimated time: ${top.item.estimatedMinutes ?? "unknown"} minutes.\n${availableMinutes != null ? `Student has ${availableMinutes} minutes of free time logged today.` : "No free-time data logged today."}`,
-    maxTokens: 150,
-  });
+  // itself never depends on the model being available or working (or on
+  // the daily AI limit; past it, the deterministic reason shows instead).
+  const aiMessage = (await allowAiRequest(user.id))
+    ? await askClaude({
+        system:
+          "You are a calm, direct academic productivity assistant. Given one recommended task and light context, write 1-2 sentences telling the student what to do right now and why. No fluff, no emoji, no bullet points — plain sentences. Never invent facts (deadlines, minutes, class names) beyond what's given.",
+        prompt: `Recommended task: "${top.item.title}" for ${top.item.className}.\nUrgency: ${top.bucket}.\nDeterministic reason: ${top.reason}.\nEstimated time: ${top.item.estimatedMinutes ?? "unknown"} minutes.\n${availableMinutes != null ? `Student has ${availableMinutes} minutes of free time logged today.` : "No free-time data logged today."}`,
+        maxTokens: 150,
+      })
+    : null;
 
   return {
     found: true,
@@ -188,6 +192,9 @@ export async function askCrossAppAction(question: string): Promise<AskResult> {
   if (!trimmed) return { answer: "Ask a question first.", usedAi: false };
 
   const { system, deterministicSummary } = await buildCrossAppPrompt(user.id, user.timezone);
+  if (!(await allowAiRequest(user.id))) {
+    return { answer: `${AI_LIMIT_MESSAGE} Here's what's on your plate: ${deterministicSummary}`, usedAi: false };
+  }
   const aiAnswer = await askClaude({ system, prompt: trimmed, maxTokens: 700 });
 
   if (aiAnswer) return { answer: aiAnswer, usedAi: true };
@@ -230,6 +237,9 @@ export async function explainRiskAction(): Promise<ExplainRiskResult> {
   const risk = assessRisk(ranked, summary, now, user.timezone);
 
   const fallback = [risk.headline, ...risk.reasons, ...risk.recommendations].join(" ");
+  if (!(await allowAiRequest(user.id))) {
+    return { narrative: `${fallback} (${AI_LIMIT_MESSAGE})`, usedAi: false };
+  }
 
   const aiNarrative = await askClaude({
     system:

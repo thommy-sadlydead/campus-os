@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { loadClassContext, classSystemPrompt } from "@/lib/class-context";
 import { askClaude } from "@/lib/anthropic";
+import { AI_LIMIT_MESSAGE, allowAiRequest } from "@/lib/rate-limit";
 import { formatDueLabel } from "@/lib/time";
 
 export interface ClassAssistantResult {
@@ -71,6 +72,10 @@ export async function askClassAssistantAction(
   if (input.quickAction === "whats-due-next") {
     const deterministic = await whatsDueNextDeterministic(classId, user.timezone);
     return { answer: deterministic, usedAi: false };
+  }
+
+  if (!(await allowAiRequest(user.id))) {
+    return { answer: AI_LIMIT_MESSAGE, usedAi: false };
   }
 
   const ctx = await loadClassContext(classId, user.id, user.timezone);

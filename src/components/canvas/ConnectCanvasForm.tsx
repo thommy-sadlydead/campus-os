@@ -1,6 +1,7 @@
 "use client";
 
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
 import { connectCanvasAction, type ConnectCanvasState } from "@/app/canvas/actions";
 
 function SubmitButton() {
@@ -17,7 +18,7 @@ function SubmitButton() {
 }
 
 export function ConnectCanvasForm({ defaultBaseUrl }: { defaultBaseUrl: string }) {
-  const [state, formAction] = useFormState<ConnectCanvasState, FormData>(connectCanvasAction, undefined);
+  const [state, formAction] = useActionState<ConnectCanvasState, FormData>(connectCanvasAction, undefined);
 
   return (
     <form action={formAction} className="mt-3 flex flex-col gap-3">
@@ -30,7 +31,7 @@ export function ConnectCanvasForm({ defaultBaseUrl }: { defaultBaseUrl: string }
           name="baseUrl"
           type="url"
           required
-          defaultValue={defaultBaseUrl}
+          defaultValue={state?.baseUrl ?? defaultBaseUrl}
           className="rounded-lg border border-border bg-bg px-3 py-2 text-sm text-ink outline-none focus:border-accent"
         />
       </div>

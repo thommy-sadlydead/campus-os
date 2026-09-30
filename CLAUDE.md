@@ -31,7 +31,7 @@ about any new unique constraint).
 
 ## Tech stack
 
-Next.js 14.2.35 (App Router, Server Actions), React 18, Prisma 5.22 +
+Next.js 15.5.27 (App Router, Server Actions), React 19, Prisma 5.22 +
 PostgreSQL, Zod, Tailwind (no typography plugin — manual `[&_x]:`
 child-selector utilities in `src/lib/markdown.ts`'s `MARKDOWN_CLASSNAME`),
 Vitest (`environment: "node"`). `@anthropic-ai/sdk@0.32.1` — notably old
@@ -60,6 +60,16 @@ session cookies, no third-party auth.
   reach the user — Next.js redacts thrown Server Action error messages in
   production (this is only reproducible under `next start`, never `next
   dev`, which cost real debugging time to find once already).
+- **React 19 resets a `<form action={…}>` after its action finishes, even
+  when the action returns an error.** Uncontrolled inputs go back to their
+  `defaultValue`, so an action that fails validation should echo back what
+  the user typed (see `AuthActionState.email` in `src/app/login/actions.ts`
+  and `ConnectCanvasState.baseUrl`) and the form should use it as
+  `defaultValue`. Forms driven by `onSubmit` + `useState` aren't affected.
+- **Anything that costs money per call goes through `src/lib/rate-limit.ts`**
+  (AI requests, new lectures, audio upload tokens), and failed password
+  checks count toward the login limit. The limits are Postgres rows, not
+  memory, because serverless instances don't share memory.
 - **Client-side "is this done yet?" polling is a self-scheduling
   `setTimeout` loop, never `setInterval`.** `setInterval` can fire the next
   poll before the previous one's request resolves, stacking up concurrent
@@ -117,7 +127,7 @@ session cookies, no third-party auth.
 ## Verifying a change before calling it done
 
 1. `npx tsc --noEmit` (after `npx prisma generate` if the schema changed)
-2. `npx vitest run` — 165 tests as of this writing across 12 files
+2. `npx vitest run` — 176 tests as of this writing across 13 files
 3. Clean build: `rm -rf .next && npx next build` (use `next build` directly
    to skip the `db push` the `npm run build` script triggers, if you're not
    ready to push schema changes yet)

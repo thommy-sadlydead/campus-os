@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { decryptSecret } from "@/lib/crypto";
+import { revokeGoogleToken } from "@/lib/google-oauth";
 import { getValidAccessToken, listRecentMessageIds, getMessage } from "@/lib/gmail";
 import { classifyEmail, type ExtractedFact } from "@/lib/email-intelligence";
 import { proposeChange, resolvePendingChange, type EntityType } from "@/lib/pending-changes";
@@ -132,8 +134,11 @@ export async function syncEmailAction(): Promise<SyncEmailResult> {
         fromAddress: msg.fromAddress,
         fromName: msg.fromName,
         subject: msg.subject,
-        snippet: result.summary || msg.snippet,
-        bodyText: msg.bodyText,
+        // Only school-related mail keeps its preview and full text. Anything
+        // else keeps just its sender, subject and date (enough to skip it on
+        // the next sync), so the contents of personal email aren't stored.
+        snippet: result.relevant ? result.summary || msg.snippet : null,
+        bodyText: result.relevant ? msg.bodyText : null,
         receivedAt: msg.receivedAt,
         category: result.relevant ? result.category : "IRRELEVANT",
         extractedJson: JSON.stringify({ facts: result.facts, confidence: result.confidence, usedAi: result.usedAi }),
@@ -173,6 +178,17 @@ export async function syncEmailAction(): Promise<SyncEmailResult> {
 
 export async function disconnectEmailAction(): Promise<void> {
   const user = await requireUser();
+  const account = await prisma.emailAccount.findUnique({ where: { userId: user.id } });
+  if (account) {
+    // Revoke at Google too, so Campus OS no longer shows up as having access
+    // in the user's Google account. Best effort: the local token is deleted
+    // either way.
+    try {
+      await revokeGoogleToken(decryptSecret(account.refreshTokenEnc));
+    } catch (err) {
+      console.error("Gmail revoke on disconnect failed:", err);
+    }
+  }
   await prisma.emailAccount.delete({ where: { userId: user.id } }).catch(() => {});
   revalidatePath("/email");
 }

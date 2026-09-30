@@ -43,7 +43,7 @@ export async function createSession(userId: string): Promise<void> {
     data: { userId, tokenHash: hashToken(token), expiresAt },
   });
 
-  cookies().set(SESSION_COOKIE, token, {
+  (await cookies()).set(SESSION_COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
@@ -53,15 +53,24 @@ export async function createSession(userId: string): Promise<void> {
 }
 
 export async function destroySession(): Promise<void> {
-  const token = cookies().get(SESSION_COOKIE)?.value;
+  const cookieStore = await cookies();
+  const token = cookieStore.get(SESSION_COOKIE)?.value;
   if (token) {
     await prisma.session.deleteMany({ where: { tokenHash: hashToken(token) } });
   }
-  cookies().delete(SESSION_COOKIE);
+  cookieStore.delete(SESSION_COOKIE);
+}
+
+// After a password change: signs out every other device, keeping this one.
+export async function destroyOtherSessions(userId: string): Promise<void> {
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
+  await prisma.session.deleteMany({
+    where: { userId, ...(token ? { NOT: { tokenHash: hashToken(token) } } : {}) },
+  });
 }
 
 export async function getCurrentUser() {
-  const token = cookies().get(SESSION_COOKIE)?.value;
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token) return null;
 
   const session = await prisma.session.findUnique({

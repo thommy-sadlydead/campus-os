@@ -15,3 +15,22 @@ export function getAssemblyAIClient(): AssemblyAI | null {
   client = apiKey ? new AssemblyAI({ apiKey }) : null;
   return client;
 }
+
+/**
+ * Asks AssemblyAI to delete finished transcripts, best effort. Once a
+ * lecture's transcript text is saved on its row, nothing here reads
+ * AssemblyAI's copy again, and AssemblyAI would otherwise keep it for about
+ * 30 days. AssemblyAI only deletes completed transcripts, so a failure is
+ * logged and ignored rather than blocking whatever called this.
+ */
+export async function deleteAssemblyAITranscripts(ids: Array<string | null | undefined>): Promise<void> {
+  const assemblyai = getAssemblyAIClient();
+  if (!assemblyai) return;
+  await Promise.all(
+    ids
+      .filter((id): id is string => Boolean(id))
+      .map((id) =>
+        assemblyai.transcripts.delete(id).catch((err) => console.error(`AssemblyAI transcript ${id} delete failed:`, err))
+      )
+  );
+}

@@ -1,9 +1,29 @@
+// Baseline security headers on every response. There's deliberately no
+// script-src/style-src Content-Security-Policy: Next.js inlines scripts for
+// hydration, which a strict CSP would only allow with per-request nonces
+// (middleware). What's here blocks other sites from framing the app
+// (clickjacking), MIME sniffing, and cross-site referrer leaks, and turns
+// off browser features the app never uses. HSTS is left to Vercel, which
+// already sends it.
+const securityHeaders = [
+  { key: "Content-Security-Policy", value: "frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'" },
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  // The microphone stays off until the app records audio itself; switch it
+  // to microphone=(self) then.
+  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=(), usb=()" },
+];
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
     serverActions: {
       bodySizeLimit: '30mb',
     },
+  },
+  async headers() {
+    return [{ source: "/:path*", headers: securityHeaders }];
   },
 };
 

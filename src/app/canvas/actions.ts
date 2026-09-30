@@ -18,7 +18,9 @@ function revalidateSyncedPages() {
   revalidatePath("/schedule");
 }
 
-export type ConnectCanvasState = { error?: string } | undefined;
+// `baseUrl` is echoed back so the form keeps it after an error: React 19
+// resets a form once its action finishes, even when the action fails.
+export type ConnectCanvasState = { error?: string; baseUrl?: string } | undefined;
 
 export async function connectCanvasAction(
   _prev: ConnectCanvasState,
@@ -30,10 +32,10 @@ export async function connectCanvasAction(
   const token = String(formData.get("accessToken") ?? "").trim();
 
   if (!baseUrl || !/^https?:\/\/.+/.test(baseUrl)) {
-    return { error: "Enter your school's full Canvas URL, e.g. https://cedarville.instructure.com" };
+    return { error: "Enter your school's full Canvas URL, e.g. https://cedarville.instructure.com", baseUrl };
   }
   if (!token) {
-    return { error: "Paste the access token you generated in Canvas." };
+    return { error: "Paste the access token you generated in Canvas.", baseUrl };
   }
 
   const cfg: CanvasConfig = { baseUrl, token };
@@ -49,6 +51,7 @@ export async function connectCanvasAction(
         err instanceof Error
           ? `Couldn't connect to Canvas: ${err.message}`
           : "Couldn't connect to Canvas — double check the URL and token.",
+      baseUrl,
     };
   }
 

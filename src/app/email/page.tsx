@@ -6,8 +6,13 @@ import { PendingChangesQueue } from "@/components/email/PendingChangesQueue";
 import { InboxFeed } from "@/components/email/InboxFeed";
 import { disconnectEmailAction } from "@/app/email/actions";
 
-export default async function EmailPage({ searchParams }: { searchParams: { connected?: string; error?: string } }) {
+export default async function EmailPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ connected?: string; error?: string }>;
+}) {
   const user = await requireUser();
+  const { error } = await searchParams;
 
   const account = await prisma.emailAccount.findUnique({ where: { userId: user.id } });
 
@@ -20,9 +25,9 @@ export default async function EmailPage({ searchParams }: { searchParams: { conn
           professor instructions — automatically, without ever handing this app your password.
         </p>
 
-        {searchParams.error && (
+        {error && (
           <div className="mb-4 rounded-xl2 border border-danger bg-danger-soft p-3 text-sm text-danger">
-            {searchParams.error}
+            {error}
           </div>
         )}
 

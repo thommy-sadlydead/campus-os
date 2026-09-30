@@ -10,6 +10,7 @@ import {
   addClassMaterialAction,
   addClassMaterialFromFileAction,
   addClassMaterialFromUrlAction,
+  checkLectureLimitAction,
   createLectureAction,
   createLectureFromTranscriptAction,
   deleteClassMaterialAction,
@@ -201,13 +202,23 @@ function UploadCard({ classId, onDone }: { classId: string; onDone: () => void }
     setUploadError(null);
 
     try {
+      const limit = await checkLectureLimitAction();
+      if (limit.error) {
+        setUploadError(limit.error);
+        return;
+      }
+
       const blob = await upload(`lectures/${classId}/${file.name}`, file, {
         access: "public",
         handleUploadUrl: "/api/lecture-audio/upload",
         onUploadProgress: (event) => setUploadProgress(Math.round(event.percentage)),
       });
 
-      await createLectureAction(classId, { title: lectureTitle, audioUrl: blob.url });
+      const result = await createLectureAction(classId, { title: lectureTitle, audioUrl: blob.url });
+      if (result.error) {
+        setUploadError(result.error);
+        return;
+      }
       setTitle("");
       if (fileInputRef.current) fileInputRef.current.value = "";
       onDone();
@@ -231,7 +242,11 @@ function UploadCard({ classId, onDone }: { classId: string; onDone: () => void }
     setUploadError(null);
 
     try {
-      await createLectureFromTranscriptAction(classId, { title: lectureTitle, transcriptText: trimmed });
+      const result = await createLectureFromTranscriptAction(classId, { title: lectureTitle, transcriptText: trimmed });
+      if (result.error) {
+        setUploadError(result.error);
+        return;
+      }
       setTitle("");
       setTranscriptText("");
       onDone();
