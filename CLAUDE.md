@@ -70,6 +70,18 @@ session cookies, no third-party auth.
   (AI requests, new lectures, audio upload tokens), and failed password
   checks count toward the login limit. The limits are Postgres rows, not
   memory, because serverless instances don't share memory.
+- **The service worker (`public/sw.js`) caches static files only.** Never
+  let it answer Next.js page-data (RSC) requests or pages: v1 did, and
+  `router.refresh()` kept showing the previous copy after every change.
+  Bump `CACHE_VERSION` whenever what it caches changes.
+- **Don't call `history.replaceState`/`pushState` to sync UI state (like the
+  class page's tab) into the URL.** Next.js treats it as a navigation, and a
+  navigation discards any refresh still in flight, so the page shows stale
+  data. `?tab=` on the class page is read once, for links into a tab.
+- **Requests to the app are capped at 4.5 MB on Vercel**, whatever
+  `serverActions.bodySizeLimit` says. Anything bigger (lecture audio, large
+  book/slide files) goes browser → Blob with a client token, then a Server
+  Action reads it from Blob.
 - **Client-side "is this done yet?" polling is a self-scheduling
   `setTimeout` loop, never `setInterval`.** `setInterval` can fire the next
   poll before the previous one's request resolves, stacking up concurrent
@@ -83,7 +95,10 @@ session cookies, no third-party auth.
   (`PENDING → DISCOVERING → DOWNLOADING → READY/PARTIAL/FAILED`) follow
   this shape: a server action advances the state by one small bounded chunk
   and returns immediately; the client re-invokes it on an interval until
-  every tracked item reaches a terminal state.
+  every tracked item reaches a terminal state. Lectures also advance
+  without a page open: AssemblyAI's webhook (production only) and
+  `after()` from `next/server`, which runs note generation after the
+  response instead of holding a request open for minutes.
 - **Secrets encrypted at rest with one shared helper**
   (`src/lib/crypto.ts`, AES-256-GCM, key derived from `AUTH_SECRET`) — used
   for `CanvasAccount.accessTokenEnc` and `EmailAccount.accessTokenEnc`/
@@ -114,8 +129,19 @@ session cookies, no third-party auth.
   to Claude as a native `document` content block; **do not** reintroduce
   per-page image rendering, see Known limitations below for why).
 - **Lectures**: `lecture-notes.ts` (pure prompt-building/formatting logic)
-  + `src/app/classes/[id]/lecture-actions.ts` (AssemblyAI transcription,
-  Claude note generation, all the Server Actions for the Lectures tab).
+  + `lecture-pipeline.ts` (submit to AssemblyAI, `advanceLecture`, note
+  generation; shared by the Server Actions and the AssemblyAI webhook at
+  `/api/lecture-audio/transcribed`) + `src/app/classes/[id]/lecture-actions.ts`
+  (the Server Actions for the Lectures tab) + `lecture-notes-sync.ts` (each
+  lecture's notes as a linked Note in the Notes tab). Recording and upload
+  UI is in `src/components/lectures/`; `record-class.ts` picks the class
+  from the schedule for `/record`.
+  - Never put pipeline helpers in `lecture-actions.ts`: every export of a
+    `"use server"` file is a public endpoint that anyone can call with any
+    arguments, and `generateNotes` does no ownership check.
+  - Each step is claimed with a conditional `updateMany` (status in the
+    `where`), because the webhook and the page's polling can both try to
+    move the same lecture at once. Only the claimer writes the notes.
 - **Priority/workload**: `priority-engine.ts`, `workload.ts`,
   `risk-engine.ts`, `breakdown-heuristics.ts` — all pure, dependency-free,
   heavily unit-tested; this is the oldest and most stable part of the app.
@@ -127,7 +153,7 @@ session cookies, no third-party auth.
 ## Verifying a change before calling it done
 
 1. `npx tsc --noEmit` (after `npx prisma generate` if the schema changed)
-2. `npx vitest run` — 176 tests as of this writing across 13 files
+2. `npx vitest run` — 193 tests as of this writing across 14 files
 3. Clean build: `rm -rf .next && npx next build` (use `next build` directly
    to skip the `db push` the `npm run build` script triggers, if you're not
    ready to push schema changes yet)

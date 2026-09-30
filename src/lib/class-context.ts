@@ -1,4 +1,5 @@
 import "server-only";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { formatDueLabel } from "@/lib/time";
 import { classMaterialTypeLabel, joinWithBudget } from "@/lib/lecture-notes";
@@ -33,6 +34,17 @@ export interface ClassContext {
 const MAX_LECTURES_CHARS = 100_000;
 const MAX_MATERIALS_CHARS = 100_000;
 
+/**
+ * Materials with real text in them, for anything that sends materials to
+ * the AI (this file, and note generation in lecture-actions.ts). Hand-added
+ * materials have no syncStatus. SKIPPED_* and MISSING rows are placeholders
+ * and FAILED rows hold an error message: the Resources tab lists those, but
+ * they'd only be noise (and cost) in a prompt.
+ */
+export const MATERIALS_WITH_TEXT = {
+  OR: [{ syncStatus: null }, { syncStatus: { in: ["READY", "EXTERNAL"] } }],
+} satisfies Prisma.ClassMaterialWhereInput;
+
 export async function loadClassContext(classId: string, userId: string, tz: string): Promise<ClassContext> {
   const cls = await prisma.class.findUnique({
     where: { id: classId },
@@ -41,8 +53,12 @@ export async function loadClassContext(classId: string, userId: string, tz: stri
       assignments: { include: { tasks: true }, orderBy: { dueAt: "asc" } },
       exams: { orderBy: { examAt: "asc" } },
       resources: true,
-      lectures: { where: { status: "READY" }, orderBy: { createdAt: "desc" } },
-      materials: { orderBy: { createdAt: "asc" } },
+      lectures: {
+        where: { status: "READY" },
+        orderBy: { createdAt: "desc" },
+        include: { notes: { select: { bodyMarkdown: true }, orderBy: { createdAt: "asc" }, take: 1 } },
+      },
+      materials: { where: MATERIALS_WITH_TEXT, orderBy: { createdAt: "asc" } },
       emails: {
         where: { category: { notIn: ["IRRELEVANT", "UNCLASSIFIED"] } },
         orderBy: { receivedAt: "desc" },
@@ -56,10 +72,13 @@ export async function loadClassContext(classId: string, userId: string, tz: stri
 
   const now = new Date();
 
+  // A lecture's note (Note.lectureId) goes in with the lecture notes below,
+  // in full, rather than twice.
   const notesText = cls.noteSections
     .map((s) => {
-      if (s.notes.length === 0) return null;
-      const body = s.notes
+      const ownNotes = s.notes.filter((n) => !n.lectureId);
+      if (ownNotes.length === 0) return null;
+      const body = ownNotes
         .map((n) => `  - ${n.title}${n.pinned ? " (pinned)" : ""}: ${n.bodyMarkdown.slice(0, 1500)}`)
         .join("\n");
       return `## ${s.name}\n${body}`;
@@ -88,7 +107,8 @@ export async function loadClassContext(classId: string, userId: string, tz: stri
 
   const lecturesText =
     joinWithBudget(
-      cls.lectures.map((l) => `## ${l.title}\n${l.notesMarkdown ?? ""}`),
+      // The student's edited copy in the Notes tab, when there is one.
+      cls.lectures.map((l) => `## ${l.title}\n${l.notes[0]?.bodyMarkdown ?? l.notesMarkdown ?? ""}`),
       MAX_LECTURES_CHARS
     ) || "(no lecture notes yet)";
 

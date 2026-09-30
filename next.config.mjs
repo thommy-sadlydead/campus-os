@@ -10,9 +10,9 @@ const securityHeaders = [
   { key: "X-Frame-Options", value: "DENY" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-  // The microphone stays off until the app records audio itself; switch it
-  // to microphone=(self) then.
-  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=(), usb=()" },
+  // The microphone is allowed for this site only, for recording lectures
+  // (src/components/lectures/LectureRecorder.tsx).
+  { key: "Permissions-Policy", value: "camera=(), microphone=(self), geolocation=(), payment=(), usb=()" },
 ];
 
 /** @type {import('next').NextConfig} */

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  audioTypeForFile,
   isAllowedAudioType,
   isLectureInProgress,
   lectureStatusLabel,
@@ -133,5 +134,22 @@ describe("joinWithBudget", () => {
 
   it("supports a custom separator", () => {
     expect(joinWithBudget(["a", "b"], 1000, " | ")).toBe("a | b");
+  });
+});
+
+describe("audioTypeForFile", () => {
+  it("keeps a type the browser already reported as audio", () => {
+    expect(audioTypeForFile("New Recording.m4a", "audio/x-m4a")).toBe("audio/x-m4a");
+  });
+
+  it("works out Voice Memos files the browser reports as blank or video", () => {
+    expect(audioTypeForFile("New Recording 12.m4a", "")).toBe("audio/mp4");
+    expect(audioTypeForFile("New Recording 12.M4A", "video/mp4")).toBe("audio/mp4");
+    expect(audioTypeForFile("lecture.webm", "")).toBe("audio/webm");
+  });
+
+  it("rejects files that aren't audio", () => {
+    expect(audioTypeForFile("slides.pdf", "application/pdf")).toBeNull();
+    expect(audioTypeForFile("no-extension", "")).toBeNull();
   });
 });

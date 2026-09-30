@@ -4,6 +4,7 @@
 // only" since the standalone sync script isn't part of the Next.js
 // request lifecycle.
 import { extractDocumentText } from "./office-text";
+import { MAX_DOCUMENT_FILE_BYTES } from "./lecture-notes";
 
 export interface CanvasCourse {
   id: number;
@@ -283,11 +284,9 @@ export async function fetchCourseSyllabus(cfg: CanvasConfig, courseId: number): 
 // even needed) without paying for a download+extraction it might skip.
 // ---------------------------------------------------------------------------
 
-// Document files can be genuinely large (slide decks with embedded
-// images), so this is more generous than a plain-webpage fetch cap — but
-// still bounded, since only the extracted *text* matters and that's capped
-// separately at MAX_MATERIAL_CONTENT_LENGTH regardless.
-export const MAX_DOCUMENT_FILE_BYTES = 25 * 1024 * 1024;
+// Defined in lecture-notes.ts (a dependency-free module) so the upload-token
+// route can use it without pulling this file's PDF parsing into its bundle.
+export { MAX_DOCUMENT_FILE_BYTES };
 
 export async function fetchCanvasFileMeta(cfg: CanvasConfig, fileId: string): Promise<CanvasFile> {
   const res = await canvasFetchWithRetry(`${cfg.baseUrl.replace(/\/$/, "")}/api/v1/files/${fileId}`, cfg.token);

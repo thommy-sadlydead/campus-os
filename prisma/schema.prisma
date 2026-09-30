@@ -181,6 +181,13 @@ model NoteSection {
   @@index([classId])
 }
 
+// lectureId is set on the note that holds a lecture's generated notes (see
+// src/lib/lecture-notes-sync.ts). That one note is what both the Notes tab
+// and the Lectures tab show, so an edit in either place shows up in both.
+// Deleting the lecture keeps the note (SetNull). There's deliberately no
+// unique constraint: adding one makes `prisma db push` stop for a
+// data-loss prompt, which fails the non-interactive build. One note per
+// lecture is enforced in lecture-notes-sync.ts instead.
 model Note {
   id            String   @id @default(cuid())
   sectionId     String
@@ -190,10 +197,13 @@ model Note {
   order         Int      @default(0)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  lectureId     String?
 
   section NoteSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  lecture Lecture?    @relation(fields: [lectureId], references: [id], onDelete: SetNull)
 
   @@index([sectionId])
+  @@index([lectureId])
 }
 
 model Resource {
@@ -302,12 +312,16 @@ model Lecture {
   status           String    @default("UPLOADED")
   assemblyaiId     String? // transcript id at AssemblyAI, used to poll status
   transcriptText   String?
-  notesMarkdown    String?
+  notesMarkdown    String? // the generated notes as first written; the linked Note (below) is the copy the student edits
   errorMessage     String?
+  // When the notes were first copied into the Notes tab. Stays set if the
+  // student later deletes that note, so it isn't quietly added back.
+  noteSyncedAt     DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
   class Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+  notes Note[]
 
   @@index([classId])
 }

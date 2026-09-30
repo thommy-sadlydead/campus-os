@@ -52,13 +52,22 @@ export default async function DashboardPage() {
 
   return (
     <AppShell active="/dashboard" userName={user.name ?? user.email}>
-      <div className="mb-6">
-        <h1 className="font-display text-2xl font-semibold">What should I do right now?</h1>
-        <p className="mt-1 text-sm text-ink-soft">
-          {ranked.length === 0
-            ? "Nothing on your plate right now — you're fully caught up."
-            : `${ranked.length} open item${ranked.length === 1 ? "" : "s"} across your classes.`}
-        </p>
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="font-display text-2xl font-semibold">What should I do right now?</h1>
+          <p className="mt-1 text-sm text-ink-soft">
+            {ranked.length === 0
+              ? "Nothing on your plate right now — you're fully caught up."
+              : `${ranked.length} open item${ranked.length === 1 ? "" : "s"} across your classes.`}
+          </p>
+        </div>
+        <Link
+          href="/record"
+          className="flex flex-none items-center gap-2 rounded-lg bg-danger px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"
+        >
+          <span aria-hidden className="block h-2.5 w-2.5 rounded-full bg-white" />
+          Record a lecture
+        </Link>
       </div>
 
       <RiskStatusCard risk={risk} />

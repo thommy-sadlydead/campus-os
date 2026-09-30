@@ -19,6 +19,32 @@ export function isAllowedAudioType(contentType: string): boolean {
   return contentType.startsWith("audio/");
 }
 
+const AUDIO_TYPES_BY_EXTENSION: Record<string, string> = {
+  m4a: "audio/mp4",
+  mp4: "audio/mp4",
+  aac: "audio/aac",
+  mp3: "audio/mpeg",
+  wav: "audio/wav",
+  webm: "audio/webm",
+  ogg: "audio/ogg",
+  oga: "audio/ogg",
+  opus: "audio/ogg",
+  flac: "audio/flac",
+  caf: "audio/x-caf",
+};
+
+/**
+ * The audio MIME type to upload a file as, or null if it isn't audio.
+ * Browsers sometimes report a Voice Memos .m4a as "" or "video/mp4", which
+ * the upload's audio/* check would reject, so the file extension decides
+ * in those cases.
+ */
+export function audioTypeForFile(fileName: string, reportedType: string): string | null {
+  if (isAllowedAudioType(reportedType)) return reportedType;
+  const extension = fileName.split(".").pop()?.toLowerCase() ?? "";
+  return AUDIO_TYPES_BY_EXTENSION[extension] ?? null;
+}
+
 const STATUS_LABELS: Record<LectureStatus, string> = {
   UPLOADED: "Uploaded",
   TRANSCRIBING: "Transcribing…",
@@ -69,6 +95,28 @@ export type ClassMaterialType = "BOOK" | "SLIDES" | "SYLLABUS" | "NOTES";
 
 export const MAX_MATERIAL_TITLE_LENGTH = 160;
 export const MAX_MATERIAL_CONTENT_LENGTH = 20_000;
+
+// Document files can be genuinely large (slide decks with embedded
+// images), so this is more generous than a plain-webpage fetch cap — but
+// still bounded, since only the extracted *text* matters and that's capped
+// separately at MAX_MATERIAL_CONTENT_LENGTH regardless.
+export const MAX_DOCUMENT_FILE_BYTES = 25 * 1024 * 1024;
+
+// Vercel rejects any request to the app over 4.5 MB, so book and slide
+// files above this go straight from the browser to Blob storage instead of
+// through a Server Action (see /api/material-upload).
+export const DIRECT_MATERIAL_UPLOAD_MAX_BYTES = 4 * 1024 * 1024;
+
+// What /api/material-upload accepts: the formats extractDocumentText
+// (src/lib/office-text.ts) can read.
+export const MATERIAL_UPLOAD_CONTENT_TYPES = [
+  "application/pdf",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/epub+zip",
+  "text/plain",
+  "text/html",
+];
 
 const MATERIAL_TYPE_LABELS: Record<ClassMaterialType, string> = {
   BOOK: "Book",

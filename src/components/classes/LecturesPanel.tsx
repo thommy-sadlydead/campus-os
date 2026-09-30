@@ -1,31 +1,20 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition, type FormEvent } from "react";
+import { useEffect, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { upload } from "@vercel/blob/client";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { MARKDOWN_CLASSNAME } from "@/lib/markdown";
 import {
-  addClassMaterialAction,
-  addClassMaterialFromFileAction,
-  addClassMaterialFromUrlAction,
-  checkLectureLimitAction,
-  createLectureAction,
+  addLectureNotesToNotesAction,
   createLectureFromTranscriptAction,
-  deleteClassMaterialAction,
   deleteLectureAction,
   pollLectureStatusAction,
   retryLectureAction,
 } from "@/app/classes/[id]/lecture-actions";
-import {
-  classMaterialTypeLabel,
-  isAllowedAudioType,
-  isLectureInProgress,
-  lectureStatusLabel,
-  type ClassMaterialType,
-  type LectureStatus,
-} from "@/lib/lecture-notes";
+import { isLectureInProgress, lectureStatusLabel, type LectureStatus } from "@/lib/lecture-notes";
+import { LectureRecorder } from "@/components/lectures/LectureRecorder";
+import { AudioUpload } from "@/components/lectures/AudioUpload";
 
 export interface LectureRow {
   id: string;
@@ -35,19 +24,9 @@ export interface LectureRow {
   notesMarkdown: string | null;
   errorMessage: string | null;
   createdAt: string; // ISO
-}
-
-export interface ClassMaterialRow {
-  id: string;
-  type: ClassMaterialType;
-  title: string;
-  content: string;
-  sourceUrl: string | null;
-  createdAt: string; // ISO
-  // Canvas-synced materials only (see canvas-materials-sync.ts) — null for
-  // anything added by hand (paste/link/upload), which is always READY.
-  provider: string | null;
-  syncStatus: string | null;
+  // The lecture's note in the Notes tab (src/lib/lecture-notes-sync.ts),
+  // shown here instead of notesMarkdown so edits there show up here too.
+  note: { id: string; bodyMarkdown: string } | null;
 }
 
 const STATUS_TONE: Record<LectureStatus, string> = {
@@ -60,35 +39,32 @@ const STATUS_TONE: Record<LectureStatus, string> = {
 
 const POLL_INTERVAL_MS = 4000;
 
-// Only Canvas-synced materials (provider === "canvas") ever carry a
-// non-READY syncStatus — a manually added one (paste/link/upload) is
-// always fully usable, so this intentionally returns null for those
-// rather than a "Ready" badge nobody needs to see.
-const SYNC_STATUS_NOTE: Record<string, string> = {
-  EXTERNAL: "External link — open to view",
-  SKIPPED_TOO_LARGE: "Too large to import automatically",
-  SKIPPED_UNSUPPORTED: "Found in Canvas, but couldn't read this file",
-  FAILED: "Import failed",
-  MISSING: "No longer found in Canvas",
-};
-
-function materialSyncNote(m: ClassMaterialRow): string | null {
-  if (m.provider !== "canvas" || !m.syncStatus) return null;
-  return SYNC_STATUS_NOTE[m.syncStatus] ?? null;
-}
-
 export function LecturesPanel({
   classId,
   lectures,
-  materials,
+  defaultTitle,
+  materialCount,
+  focusLectureId,
+  onOpenNote,
+  onOpenResources,
 }: {
   classId: string;
   lectures: LectureRow[];
-  materials: ClassMaterialRow[];
+  defaultTitle: string;
+  materialCount: number;
+  focusLectureId: string | null;
+  onOpenNote: (noteId: string) => void;
+  onOpenResources: () => void;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [openLectureId, setOpenLectureId] = useState<string | null>(null);
+  const [openLectureId, setOpenLectureId] = useState<string | null>(focusLectureId);
+
+  useEffect(() => {
+    if (!focusLectureId) return;
+    setOpenLectureId(focusLectureId);
+    document.getElementById(`lecture-${focusLectureId}`)?.scrollIntoView({ block: "start", behavior: "smooth" });
+  }, [focusLectureId]);
 
   // Only lecture ids, joined into one primitive string — using the
   // lectures/objects themselves as a dependency would re-arm this effect
@@ -132,13 +108,19 @@ export function LecturesPanel({
 
   return (
     <div className="flex flex-col gap-4">
-      <UploadCard classId={classId} onDone={() => router.refresh()} />
+      <AddLectureCard classId={classId} defaultTitle={defaultTitle} onDone={() => router.refresh()} />
 
-      <ClassMaterialsSection classId={classId} materials={materials} />
+      <p className="text-xs text-ink-faint">
+        Notes are written from the recording, using{" "}
+        <button onClick={onOpenResources} className="font-medium text-ink-soft underline hover:text-ink">
+          {materialCount > 0 ? `this class's ${materialCount} books and slides` : "any books and slides you add"}
+        </button>{" "}
+        for extra detail. They also show up in the Notes tab.
+      </p>
 
       {lectures.length === 0 ? (
         <div className="rounded-xl2 border border-dashed border-border p-8 text-center text-sm text-ink-soft">
-          No lectures uploaded yet — upload a recording above to get a transcript and AI-generated notes.
+          No lectures yet. Record one above, or upload a recording you already have.
         </div>
       ) : (
         <ul className="flex flex-col gap-2">
@@ -149,7 +131,10 @@ export function LecturesPanel({
               isOpen={openLectureId === lecture.id}
               onToggleOpen={() => setOpenLectureId(openLectureId === lecture.id ? null : lecture.id)}
               onDelete={() => {
-                if (!confirm(`Delete "${lecture.title}"? This also deletes the uploaded audio.`)) return;
+                const keepsNotes = lecture.note
+                  ? " Its notes stay in the Notes tab."
+                  : " Its notes are deleted too.";
+                if (!confirm(`Delete "${lecture.title}"? This deletes the recording and transcript.${keepsNotes}`)) return;
                 startTransition(async () => {
                   await deleteLectureAction(lecture.id);
                   router.refresh();
@@ -159,6 +144,14 @@ export function LecturesPanel({
                 startTransition(async () => {
                   await retryLectureAction(lecture.id);
                   router.refresh();
+                });
+              }}
+              onOpenNote={onOpenNote}
+              onAddToNotes={() => {
+                startTransition(async () => {
+                  const { noteId } = await addLectureNotesToNotesAction(lecture.id);
+                  router.refresh();
+                  if (noteId) onOpenNote(noteId);
                 });
               }}
               pending={pending}
@@ -171,435 +164,116 @@ export function LecturesPanel({
 }
 
 // ---------------------------------------------------------------------------
-// Upload — audio (direct-to-Blob, transcribed via AssemblyAI) or a transcript
-// pasted directly, which skips straight to note generation.
+// Adding a lecture: record it here, upload a recording (Voice Memos and so
+// on), or paste a transcript, which skips straight to note generation.
 // ---------------------------------------------------------------------------
 
-function UploadCard({ classId, onDone }: { classId: string; onDone: () => void }) {
-  const [mode, setMode] = useState<"audio" | "transcript">("audio");
-  const [title, setTitle] = useState("");
+function AddLectureCard({
+  classId,
+  defaultTitle,
+  onDone,
+}: {
+  classId: string;
+  defaultTitle: string;
+  onDone: () => void;
+}) {
+  const [mode, setMode] = useState<"record" | "upload" | "transcript">("record");
+  const [busy, setBusy] = useState(false);
+
+  const tab = (value: typeof mode, label: string) => (
+    <button
+      type="button"
+      onClick={() => setMode(value)}
+      disabled={busy}
+      className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50 sm:flex-none ${
+        mode === value ? "bg-ink text-surface" : "text-ink-soft hover:text-ink"
+      }`}
+    >
+      {label}
+    </button>
+  );
+
+  return (
+    <div className="rounded-xl2 border border-border-soft bg-surface p-4 shadow-card">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h4 className="font-display text-base font-semibold">Add a lecture</h4>
+        <div className="flex w-full rounded-lg border border-border p-0.5 sm:w-auto">
+          {tab("record", "Record")}
+          {tab("upload", "Upload")}
+          {tab("transcript", "Paste transcript")}
+        </div>
+      </div>
+      <div className="mt-3">
+        {mode === "record" && (
+          <LectureRecorder classId={classId} defaultTitle={defaultTitle} onSaved={onDone} onBusyChange={setBusy} />
+        )}
+        {mode === "upload" && <AudioUpload classId={classId} onSaved={onDone} />}
+        {mode === "transcript" && <TranscriptForm classId={classId} defaultTitle={defaultTitle} onDone={onDone} />}
+      </div>
+    </div>
+  );
+}
+
+function TranscriptForm({ classId, defaultTitle, onDone }: { classId: string; defaultTitle: string; onDone: () => void }) {
+  const [title, setTitle] = useState(defaultTitle);
   const [transcriptText, setTranscriptText] = useState("");
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  async function handleAudioSubmit(e: FormEvent) {
-    e.preventDefault();
-    const file = fileInputRef.current?.files?.[0];
-    if (!file) {
-      setUploadError("Choose an audio file first.");
-      return;
-    }
-    if (!isAllowedAudioType(file.type)) {
-      setUploadError("That doesn't look like an audio file.");
-      return;
-    }
-
-    const lectureTitle = title.trim() || file.name.replace(/\.[^.]+$/, "");
-    setIsUploading(true);
-    setUploadProgress(0);
-    setUploadError(null);
-
-    try {
-      const limit = await checkLectureLimitAction();
-      if (limit.error) {
-        setUploadError(limit.error);
-        return;
-      }
-
-      const blob = await upload(`lectures/${classId}/${file.name}`, file, {
-        access: "public",
-        handleUploadUrl: "/api/lecture-audio/upload",
-        onUploadProgress: (event) => setUploadProgress(Math.round(event.percentage)),
-      });
-
-      const result = await createLectureAction(classId, { title: lectureTitle, audioUrl: blob.url });
-      if (result.error) {
-        setUploadError(result.error);
-        return;
-      }
-      setTitle("");
-      if (fileInputRef.current) fileInputRef.current.value = "";
-      onDone();
-    } catch (err) {
-      setUploadError(err instanceof Error ? err.message : "Upload failed. Please try again.");
-    } finally {
-      setIsUploading(false);
-    }
-  }
-
-  async function handleTranscriptSubmit(e: FormEvent) {
+  async function submit(e: FormEvent) {
     e.preventDefault();
     const trimmed = transcriptText.trim();
     if (!trimmed) {
-      setUploadError("Paste a transcript first.");
+      setError("Paste a transcript first.");
       return;
     }
-
-    const lectureTitle = title.trim() || "Untitled lecture";
-    setIsUploading(true);
-    setUploadError(null);
-
+    setSaving(true);
+    setError(null);
     try {
-      const result = await createLectureFromTranscriptAction(classId, { title: lectureTitle, transcriptText: trimmed });
+      const result = await createLectureFromTranscriptAction(classId, {
+        title: title.trim() || defaultTitle,
+        transcriptText: trimmed,
+      });
       if (result.error) {
-        setUploadError(result.error);
+        setError(result.error);
         return;
       }
-      setTitle("");
       setTranscriptText("");
       onDone();
-    } catch (err) {
-      setUploadError(err instanceof Error ? err.message : "Couldn't generate notes. Please try again.");
+    } catch {
+      setError("Couldn't make notes from that. Please try again.");
     } finally {
-      setIsUploading(false);
+      setSaving(false);
     }
   }
 
   return (
-    <form
-      onSubmit={mode === "audio" ? handleAudioSubmit : handleTranscriptSubmit}
-      className="rounded-xl2 border border-border-soft bg-surface p-4 shadow-card"
-    >
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <h4 className="text-sm font-semibold">Add a lecture</h4>
-        <div className="inline-flex rounded-lg border border-border p-0.5">
-          <button
-            type="button"
-            onClick={() => setMode("audio")}
-            className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-              mode === "audio" ? "bg-ink text-surface" : "text-ink-soft hover:text-ink"
-            }`}
-          >
-            Upload audio
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode("transcript")}
-            className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-              mode === "transcript" ? "bg-ink text-surface" : "text-ink-soft hover:text-ink"
-            }`}
-          >
-            Paste transcript
-          </button>
-        </div>
-      </div>
-
+    <form onSubmit={submit} className="flex flex-col gap-2">
       <input
         type="text"
         value={title}
         onChange={(e) => setTitle(e.target.value)}
-        placeholder={mode === "audio" ? "Title (optional — defaults to the filename)" : "Title (optional)"}
-        className="w-full rounded-lg border border-border bg-bg px-2.5 py-1.5 text-sm outline-none focus:border-accent"
+        aria-label="Lecture title"
+        className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm outline-none focus:border-accent"
       />
-
-      {mode === "audio" ? (
-        <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="audio/*"
-            className="flex-1 rounded-lg border border-border bg-bg px-2.5 py-1.5 text-sm outline-none file:mr-2 file:rounded-md file:border-0 file:bg-surface-2 file:px-2 file:py-1 file:text-xs file:font-medium focus:border-accent"
-          />
-          <button
-            type="submit"
-            disabled={isUploading}
-            className="flex-none rounded-lg bg-ink px-3 py-1.5 text-sm font-medium text-surface hover:opacity-90 disabled:opacity-60"
-          >
-            {isUploading ? `Uploading… ${uploadProgress}%` : "Upload"}
-          </button>
-        </div>
-      ) : (
-        <div className="mt-2 flex flex-col gap-2">
-          <textarea
-            value={transcriptText}
-            onChange={(e) => setTranscriptText(e.target.value)}
-            rows={5}
-            placeholder="Paste the lecture transcript here…"
-            className="w-full rounded-lg border border-border bg-bg px-2.5 py-1.5 text-sm outline-none focus:border-accent"
-          />
-          <button
-            type="submit"
-            disabled={isUploading}
-            className="flex-none self-end rounded-lg bg-ink px-3 py-1.5 text-sm font-medium text-surface hover:opacity-90 disabled:opacity-60"
-          >
-            {isUploading ? "Generating notes…" : "Generate notes"}
-          </button>
-        </div>
-      )}
-
-      {uploadError && <p className="mt-2 text-xs text-danger">{uploadError}</p>}
-    </form>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Class materials — books/slides that inform every lecture's notes in this
-// class (see ClassMaterial in schema.prisma and generateNotes in
-// lecture-actions.ts). Pasted text only for now, no file upload/parsing.
-// ---------------------------------------------------------------------------
-
-function ClassMaterialsSection({ classId, materials }: { classId: string; materials: ClassMaterialRow[] }) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
-  const [mode, setMode] = useState<"text" | "link" | "file">("text");
-  const [type, setType] = useState<ClassMaterialType>("BOOK");
-  const [materialTitle, setMaterialTitle] = useState("");
-  const [content, setContent] = useState("");
-  const [url, setUrl] = useState("");
-  const [isFetching, setIsFetching] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const materialFileInputRef = useRef<HTMLInputElement>(null);
-
-  async function handleAddText(e: FormEvent) {
-    e.preventDefault();
-    if (!materialTitle.trim() || !content.trim()) {
-      setError("Enter a title and some content.");
-      return;
-    }
-    setError(null);
-
-    const fd = new FormData();
-    fd.set("type", type);
-    fd.set("title", materialTitle.trim());
-    fd.set("content", content.trim());
-
-    startTransition(async () => {
-      try {
-        await addClassMaterialAction(classId, fd);
-        setMaterialTitle("");
-        setContent("");
-        router.refresh();
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Couldn't add that. Please try again.");
-      }
-    });
-  }
-
-  async function handleAddFromUrl(e: FormEvent) {
-    e.preventDefault();
-    if (!url.trim()) {
-      setError("Enter a link first.");
-      return;
-    }
-    setError(null);
-
-    const fd = new FormData();
-    fd.set("type", type);
-    if (materialTitle.trim()) fd.set("title", materialTitle.trim());
-    fd.set("url", url.trim());
-
-    setIsFetching(true);
-    try {
-      const result = await addClassMaterialFromUrlAction(classId, fd);
-      if (result?.error) {
-        setError(result.error);
-        return;
-      }
-      setMaterialTitle("");
-      setUrl("");
-      router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Couldn't fetch that link. Please try again.");
-    } finally {
-      setIsFetching(false);
-    }
-  }
-
-  async function handleAddFromFile(e: FormEvent) {
-    e.preventDefault();
-    const file = materialFileInputRef.current?.files?.[0];
-    if (!file) {
-      setError("Choose a file first.");
-      return;
-    }
-    setError(null);
-
-    const fd = new FormData();
-    fd.set("type", type);
-    if (materialTitle.trim()) fd.set("title", materialTitle.trim());
-    fd.set("file", file);
-
-    setIsFetching(true);
-    try {
-      const result = await addClassMaterialFromFileAction(classId, fd);
-      if (result?.error) {
-        setError(result.error);
-        return;
-      }
-      setMaterialTitle("");
-      if (materialFileInputRef.current) materialFileInputRef.current.value = "";
-      router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Couldn't read that file. Please try again.");
-    } finally {
-      setIsFetching(false);
-    }
-  }
-
-  return (
-    <div className="rounded-xl2 border border-border-soft bg-surface p-4 shadow-card">
-      <h4 className="text-sm font-semibold">Class materials</h4>
-      <p className="mt-0.5 text-xs text-ink-faint">
-        Textbook excerpts and slide content, used as extra context every time notes are generated for a lecture in
-        this class.
-      </p>
-
-      {materials.length > 0 && (
-        <ul className="mt-3 flex flex-col gap-2">
-          {materials.map((m) => (
-            <li key={m.id} className="flex items-start gap-3 rounded-lg border border-border-soft bg-bg p-2.5">
-              <span className="flex-none rounded-full bg-surface-2 px-2 py-0.5 text-xs font-medium text-ink-soft">
-                {classMaterialTypeLabel(m.type)}
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <div className="truncate text-sm font-medium">{m.title}</div>
-                  {materialSyncNote(m) && (
-                    <span className="flex-none rounded-full bg-warn-soft px-2 py-0.5 text-[11px] font-medium text-warn">
-                      {materialSyncNote(m)}
-                    </span>
-                  )}
-                </div>
-                {m.sourceUrl && (
-                  <a
-                    href={m.sourceUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="block truncate text-xs text-ink-faint hover:text-accent hover:underline"
-                  >
-                    {m.sourceUrl}
-                  </a>
-                )}
-                <p className="mt-0.5 line-clamp-2 text-xs text-ink-faint">{m.content}</p>
-              </div>
-              <button
-                onClick={() => {
-                  if (!confirm(`Remove "${m.title}"?`)) return;
-                  startTransition(async () => {
-                    await deleteClassMaterialAction(m.id);
-                    router.refresh();
-                  });
-                }}
-                disabled={pending}
-                className="flex-none text-xs text-ink-faint hover:text-danger disabled:opacity-60"
-              >
-                Remove
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <form
-        onSubmit={mode === "text" ? handleAddText : mode === "link" ? handleAddFromUrl : handleAddFromFile}
-        className="mt-3 flex flex-col gap-2 border-t border-border-soft pt-3"
-      >
-        <div className="flex items-center justify-between gap-2">
-          <div className="inline-flex rounded-lg border border-border p-0.5">
-            <button
-              type="button"
-              onClick={() => setMode("text")}
-              className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-                mode === "text" ? "bg-ink text-surface" : "text-ink-soft hover:text-ink"
-              }`}
-            >
-              Paste text
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode("link")}
-              className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-                mode === "link" ? "bg-ink text-surface" : "text-ink-soft hover:text-ink"
-              }`}
-            >
-              Add a link
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode("file")}
-              className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-                mode === "file" ? "bg-ink text-surface" : "text-ink-soft hover:text-ink"
-              }`}
-            >
-              Upload a file
-            </button>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <select
-            value={type}
-            onChange={(e) => setType(e.target.value as ClassMaterialType)}
-            className="flex-none rounded-lg border border-border bg-bg px-2.5 py-1.5 text-sm outline-none focus:border-accent"
-          >
-            <option value="BOOK">Book</option>
-            <option value="SLIDES">Slides</option>
-          </select>
-          <input
-            type="text"
-            value={materialTitle}
-            onChange={(e) => setMaterialTitle(e.target.value)}
-            placeholder={
-              mode === "text"
-                ? "Title (e.g. the textbook name, or “Week 3 slides”)"
-                : mode === "link"
-                  ? "Title (optional — defaults to the page title)"
-                  : "Title (optional — defaults to the filename)"
-            }
-            className="flex-1 rounded-lg border border-border bg-bg px-2.5 py-1.5 text-sm outline-none focus:border-accent"
-          />
-        </div>
-
-        {mode === "text" && (
-          <textarea
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            rows={3}
-            placeholder="Paste an excerpt, outline, or key points…"
-            className="w-full rounded-lg border border-border bg-bg px-2.5 py-1.5 text-sm outline-none focus:border-accent"
-          />
-        )}
-
-        {mode === "link" && (
-          <>
-            <p className="text-xs text-ink-faint">
-              Works with Canvas file links (PDF, PPTX, DOCX) and regular webpages. Fetched once when added — the text
-              is saved as-is and never looked at again, so it won't change if the source does later.
-            </p>
-            <input
-              type="url"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://…"
-              className="w-full rounded-lg border border-border bg-bg px-2.5 py-1.5 text-sm outline-none focus:border-accent"
-            />
-          </>
-        )}
-
-        {mode === "file" && (
-          <>
-            <p className="text-xs text-ink-faint">PDF, PPTX, DOCX, or plain text — up to 25MB.</p>
-            <input
-              ref={materialFileInputRef}
-              type="file"
-              accept=".pdf,.pptx,.docx,.txt,.html,.htm"
-              className="w-full rounded-lg border border-border bg-bg px-2.5 py-1.5 text-sm outline-none file:mr-2 file:rounded-md file:border-0 file:bg-surface-2 file:px-2 file:py-1 file:text-xs file:font-medium focus:border-accent"
-            />
-          </>
-        )}
-
+      <textarea
+        value={transcriptText}
+        onChange={(e) => setTranscriptText(e.target.value)}
+        rows={6}
+        placeholder="Paste the lecture transcript here…"
+        className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm outline-none focus:border-accent"
+      />
+      <div className="flex items-center justify-end gap-3">
+        {error && <p className="mr-auto text-sm text-danger">{error}</p>}
         <button
           type="submit"
-          disabled={mode === "text" ? pending : isFetching}
-          className="flex-none self-end rounded-lg border border-border px-3 py-1.5 text-sm font-medium hover:bg-surface-2 disabled:opacity-60"
+          disabled={saving}
+          className="rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-surface hover:opacity-90 disabled:opacity-60"
         >
-          {mode === "text" ? "Add" : isFetching ? (mode === "link" ? "Fetching…" : "Reading…") : mode === "link" ? "Fetch & add" : "Upload & add"}
+          {saving ? "Writing notes… (about a minute)" : "Make notes"}
         </button>
-        {error && <p className="text-xs text-danger">{error}</p>}
-      </form>
-    </div>
+      </div>
+    </form>
   );
 }
 
@@ -609,6 +283,8 @@ function LectureCard({
   onToggleOpen,
   onDelete,
   onRetry,
+  onOpenNote,
+  onAddToNotes,
   pending,
 }: {
   lecture: LectureRow;
@@ -616,57 +292,86 @@ function LectureCard({
   onToggleOpen: () => void;
   onDelete: () => void;
   onRetry: () => void;
+  onOpenNote: (noteId: string) => void;
+  onAddToNotes: () => void;
   pending: boolean;
 }) {
   const date = new Date(lecture.createdAt);
+  const notes = lecture.note?.bodyMarkdown ?? lecture.notesMarkdown;
 
   return (
-    <li className="rounded-xl2 border border-border-soft bg-surface p-4 shadow-card">
+    <li id={`lecture-${lecture.id}`} className="scroll-mt-4 rounded-xl2 border border-border-soft bg-surface p-4 shadow-card">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <button onClick={onToggleOpen} className="min-w-0 flex-1 text-left">
+        <button onClick={onToggleOpen} className="min-w-0 flex-1 text-left" aria-expanded={isOpen}>
           <span className="font-medium">{lecture.title}</span>
+          <span className="mt-0.5 block text-xs text-ink-faint">
+            {date.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
+          </span>
         </button>
-        <div className="flex flex-none items-center gap-2">
+        <div className="flex flex-none items-center gap-3">
           <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_TONE[lecture.status]}`}>
             {lectureStatusLabel(lecture.status)}
           </span>
           <button onClick={onDelete} className="text-xs text-ink-faint hover:text-danger">
-            Remove
+            Delete
           </button>
         </div>
-      </div>
-      <div className="mt-1 text-xs text-ink-faint">
-        {date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
       </div>
 
       {lecture.status === "FAILED" && lecture.errorMessage && (
         <div className="mt-2 flex items-center justify-between gap-2 rounded-lg bg-danger-soft p-2.5 text-xs text-danger">
           <span>{lecture.errorMessage}</span>
           <button onClick={onRetry} disabled={pending} className="flex-none font-medium underline disabled:opacity-60">
-            Retry
+            Try again
           </button>
         </div>
       )}
 
+      {isLectureInProgress(lecture.status) && (
+        <p className="mt-2 text-xs text-ink-faint">
+          Transcribing and writing notes. This usually takes a few minutes; you can leave this page.
+        </p>
+      )}
+
       {isOpen && (
         <div className="mt-3 flex flex-col gap-3 border-t border-border-soft pt-3">
-          {lecture.notesMarkdown && (
+          {notes && (
             <div>
-              <h5 className="mb-1 text-xs font-semibold uppercase tracking-wider text-ink-faint">Notes</h5>
+              <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+                <h5 className="text-xs font-semibold uppercase tracking-wider text-ink-faint">Notes</h5>
+                {lecture.note ? (
+                  <button
+                    onClick={() => onOpenNote(lecture.note!.id)}
+                    className="text-xs font-medium text-accent-ink hover:underline"
+                  >
+                    Edit in Notes
+                  </button>
+                ) : (
+                  <button
+                    onClick={onAddToNotes}
+                    disabled={pending}
+                    className="text-xs font-medium text-accent-ink hover:underline disabled:opacity-60"
+                  >
+                    Add to Notes tab
+                  </button>
+                )}
+              </div>
               <div className={MARKDOWN_CLASSNAME}>
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{lecture.notesMarkdown}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{notes}</ReactMarkdown>
               </div>
             </div>
           )}
           {lecture.transcriptText && (
-            <div>
-              <h5 className="mb-1 text-xs font-semibold uppercase tracking-wider text-ink-faint">Transcript</h5>
-              <p className="max-h-64 overflow-y-auto whitespace-pre-wrap rounded-lg bg-surface-2 p-2.5 text-xs leading-relaxed text-ink-soft">
+            <details>
+              <summary className="cursor-pointer select-none text-xs font-semibold uppercase tracking-wider text-ink-faint">
+                Transcript
+              </summary>
+              <p className="mt-2 max-h-64 overflow-y-auto whitespace-pre-wrap rounded-lg bg-surface-2 p-2.5 text-xs leading-relaxed text-ink-soft">
                 {lecture.transcriptText}
               </p>
-            </div>
+            </details>
           )}
-          {!lecture.notesMarkdown && !lecture.transcriptText && (
+          {!notes && !lecture.transcriptText && (
             <p className="text-xs text-ink-faint">
               {lecture.status === "FAILED" ? "Nothing to show yet." : "Still working on this one…"}
             </p>

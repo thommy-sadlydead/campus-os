@@ -1,7 +1,10 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { MARKDOWN_CLASSNAME, markdownPreview } from "@/lib/markdown";
 import {
   createSectionAction,
   renameSectionAction,
@@ -21,6 +24,8 @@ export interface NotesBoardNote {
   pinned: boolean;
   order: number;
   updatedAt: string; // ISO
+  // Set when this note holds a lecture's notes (src/lib/lecture-notes-sync.ts).
+  lecture: { id: string; createdAt: string } | null;
 }
 
 export interface NotesBoardSection {
@@ -34,14 +39,34 @@ export interface NotesBoardSection {
  * Freeform per-class notes: create/rename/delete/reorder sections, create/
  * edit/delete/pin/reorder notes inside them, and a search box that filters
  * across everything. No forced structure — sections and notes are exactly
- * what the student names them, in whatever order they choose.
+ * what the student names them, in whatever order they choose. Lecture
+ * notes arrive here on their own, in a "Lecture notes" section.
  */
-export function NotesBoard({ classId, sections }: { classId: string; sections: NotesBoardSection[] }) {
+export function NotesBoard({
+  classId,
+  sections,
+  focusNoteId,
+  onViewLecture,
+}: {
+  classId: string;
+  sections: NotesBoardSection[];
+  focusNoteId?: string | null;
+  onViewLecture?: (lectureId: string) => void;
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [query, setQuery] = useState("");
   const [newSectionName, setNewSectionName] = useState("");
-  const [openNoteId, setOpenNoteId] = useState<string | null>(null);
+  const [openNoteId, setOpenNoteId] = useState<string | null>(focusNoteId ?? null);
+
+  // Arriving from a lecture's "Edit in Notes": open that note and bring it into view.
+  useEffect(() => {
+    if (!focusNoteId) return;
+    setOpenNoteId(focusNoteId);
+    requestAnimationFrame(() =>
+      document.getElementById(`note-${focusNoteId}`)?.scrollIntoView({ block: "start", behavior: "smooth" })
+    );
+  }, [focusNoteId]);
 
   function afterMutate() {
     startTransition(() => router.refresh());
@@ -117,8 +142,16 @@ export function NotesBoard({ classId, sections }: { classId: string; sections: N
             if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
             return a.order - b.order;
           });
+          // A note open for reading takes the full width, so long lecture
+          // notes aren't squeezed into one narrow column.
+          const hasOpenNote = section.notes.some((n) => n.id === openNoteId);
           return (
-            <div key={section.id} className="rounded-xl2 border border-border-soft bg-surface p-4 shadow-card">
+            <div
+              key={section.id}
+              className={`rounded-xl2 border border-border-soft bg-surface p-4 shadow-card ${
+                hasOpenNote ? "md:col-span-2 xl:col-span-3" : ""
+              }`}
+            >
               <SectionHeader
                 name={section.name}
                 onRename={(name) => {
@@ -149,8 +182,8 @@ export function NotesBoard({ classId, sections }: { classId: string; sections: N
                         await updateNoteAction(note.id, fd);
                         router.refresh();
                       });
-                      setOpenNoteId(null);
                     }}
+                    onViewLecture={onViewLecture}
                     onDelete={() => {
                       startTransition(async () => {
                         await deleteNoteAction(note.id);
@@ -284,6 +317,7 @@ function NoteCard({
   onTogglePin,
   onMoveUp,
   onMoveDown,
+  onViewLecture,
 }: {
   note: NotesBoardNote;
   isOpen: boolean;
@@ -293,13 +327,25 @@ function NoteCard({
   onTogglePin: () => void;
   onMoveUp?: () => void;
   onMoveDown?: () => void;
+  onViewLecture?: (lectureId: string) => void;
 }) {
+  const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(note.title);
   const [body, setBody] = useState(note.bodyMarkdown);
 
-  if (isOpen) {
+  const lectureLink = note.lecture && onViewLecture && (
+    <button
+      type="button"
+      onClick={() => onViewLecture(note.lecture!.id)}
+      className="text-xs font-medium text-accent-ink hover:underline"
+    >
+      From lecture · {new Date(note.lecture.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+    </button>
+  );
+
+  if (isOpen && editing) {
     return (
-      <li className="rounded-lg border border-accent bg-bg p-2.5">
+      <li id={`note-${note.id}`} className="scroll-mt-4 rounded-lg border border-accent bg-bg p-2.5">
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -307,33 +353,36 @@ function NoteCard({
             fd.set("title", title);
             fd.set("bodyMarkdown", body);
             onSave(fd);
+            setEditing(false);
           }}
           className="flex flex-col gap-2"
         >
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
+            aria-label="Note title"
             className="rounded-md border border-border bg-surface px-2 py-1 text-sm font-medium outline-none focus:border-accent"
           />
           <textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
-            rows={6}
-            placeholder="Write your note…"
-            className="rounded-md border border-border bg-surface px-2 py-1.5 text-sm outline-none focus:border-accent"
+            rows={note.lecture ? 16 : 8}
+            placeholder="Write your note… (**bold**, - lists and # headings work)"
+            className="rounded-md border border-border bg-surface px-2 py-1.5 font-mono text-xs leading-relaxed outline-none focus:border-accent"
           />
           <div className="flex justify-end gap-2">
             <button
               type="button"
-              onClick={onToggleOpen}
+              onClick={() => {
+                setTitle(note.title);
+                setBody(note.bodyMarkdown);
+                setEditing(false);
+              }}
               className="rounded-lg px-2.5 py-1 text-xs text-ink-soft hover:bg-surface-2"
             >
               Cancel
             </button>
-            <button
-              type="submit"
-              className="rounded-lg bg-ink px-2.5 py-1 text-xs font-medium text-surface hover:opacity-90"
-            >
+            <button type="submit" className="rounded-lg bg-ink px-2.5 py-1 text-xs font-medium text-surface hover:opacity-90">
               Save
             </button>
           </div>
@@ -342,41 +391,66 @@ function NoteCard({
     );
   }
 
+  if (isOpen) {
+    return (
+      <li id={`note-${note.id}`} className="scroll-mt-4 rounded-lg border border-border bg-bg p-3">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <button onClick={onToggleOpen} className="min-w-0 flex-1 text-left" aria-expanded="true">
+            <span className="text-sm font-semibold">
+              {note.pinned && <span aria-hidden>📌 </span>}
+              {note.title}
+            </span>
+          </button>
+          <div className="flex flex-none items-center gap-3 text-xs">
+            <button onClick={() => setEditing(true)} className="font-medium text-accent-ink hover:underline">
+              Edit
+            </button>
+            <button onClick={onTogglePin} className="text-ink-soft hover:text-ink">
+              {note.pinned ? "Unpin" : "Pin"}
+            </button>
+            <button
+              onClick={() => confirm(`Delete "${note.title}"?`) && onDelete()}
+              className="text-ink-faint hover:text-danger"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+        {lectureLink && <div className="mt-1">{lectureLink}</div>}
+        {note.bodyMarkdown.trim() ? (
+          <div className={`mt-2 ${MARKDOWN_CLASSNAME}`}>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{note.bodyMarkdown}</ReactMarkdown>
+          </div>
+        ) : (
+          <button onClick={() => setEditing(true)} className="mt-2 text-sm text-ink-faint hover:text-ink">
+            Empty note. Tap Edit to start writing.
+          </button>
+        )}
+      </li>
+    );
+  }
+
+  const preview = markdownPreview(note.bodyMarkdown);
   return (
-    <li className="group rounded-lg border border-border-soft bg-bg p-2.5">
+    <li id={`note-${note.id}`} className="group scroll-mt-4 rounded-lg border border-border-soft bg-bg p-2.5">
       <div className="flex items-start gap-1.5">
-        <button onClick={onToggleOpen} className="min-w-0 flex-1 text-left">
+        <button onClick={onToggleOpen} className="min-w-0 flex-1 text-left" aria-expanded="false">
           <div className="flex items-center gap-1.5">
             {note.pinned && <span aria-hidden title="Pinned">📌</span>}
             <span className="truncate text-sm font-medium">{note.title}</span>
           </div>
-          {note.bodyMarkdown && (
-            <p className="mt-0.5 line-clamp-2 whitespace-pre-wrap text-xs text-ink-faint">{note.bodyMarkdown}</p>
-          )}
+          {preview && <p className="mt-0.5 line-clamp-2 text-xs text-ink-faint">{preview}</p>}
         </button>
-        <div className="flex flex-none items-center gap-0.5 text-ink-faint opacity-0 transition-opacity group-hover:opacity-100">
+        <div className="flex flex-none items-center gap-0.5 text-ink-faint opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
           {onMoveUp && (
             <button onClick={onMoveUp} aria-label="Move note up" className="rounded p-1 hover:bg-surface-2 hover:text-ink">↑</button>
           )}
           {onMoveDown && (
             <button onClick={onMoveDown} aria-label="Move note down" className="rounded p-1 hover:bg-surface-2 hover:text-ink">↓</button>
           )}
-          <button
-            onClick={onTogglePin}
-            aria-label={note.pinned ? "Unpin note" : "Pin note"}
-            className="rounded p-1 hover:bg-surface-2 hover:text-ink"
-          >
-            📌
-          </button>
-          <button
-            onClick={() => confirm(`Delete "${note.title}"?`) && onDelete()}
-            aria-label="Delete note"
-            className="rounded p-1 hover:bg-danger-soft hover:text-danger"
-          >
-            ×
-          </button>
         </div>
       </div>
+      {lectureLink && <div className="mt-1">{lectureLink}</div>}
     </li>
   );
 }

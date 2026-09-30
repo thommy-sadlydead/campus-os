@@ -91,6 +91,15 @@ export async function syncEmailAction(): Promise<SyncEmailResult> {
   const account = await prisma.emailAccount.findUnique({ where: { userId: user.id } });
   if (!account) return { ok: false, message: "No Gmail account connected." };
 
+  // Non-school email saved before the sync stopped keeping its text (see
+  // the create below) still has it; clear it, as the privacy page promises.
+  // Only rows that still have text match, so after the first sync this is
+  // a no-op.
+  await prisma.email.updateMany({
+    where: { userId: user.id, category: "IRRELEVANT", OR: [{ bodyText: { not: null } }, { snippet: { not: null } }] },
+    data: { bodyText: null, snippet: null },
+  });
+
   let accessToken: string;
   try {
     accessToken = await getValidAccessToken(user.id);

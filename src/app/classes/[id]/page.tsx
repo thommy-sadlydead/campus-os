@@ -3,9 +3,13 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { AppShell } from "@/components/AppShell";
 import { ClassTabs } from "@/components/classes/ClassTabs";
+import { classTabFromParam } from "@/components/classes/class-tabs";
 import { canvasAssignmentUrl } from "@/lib/canvas";
+import { addMissingLectureNotes } from "@/lib/lecture-notes-sync";
+import { defaultLectureTitle } from "@/lib/record-class";
 import type { AssignmentRowStatus } from "@/components/assignments/AssignmentRow";
-import type { LectureRow, ClassMaterialRow } from "@/components/classes/LecturesPanel";
+import type { LectureRow } from "@/components/classes/LecturesPanel";
+import type { ClassMaterialRow } from "@/components/classes/ResourcesPanel";
 
 // Server Actions invoked from this page (notably generateNotes, via
 // pollLectureStatusAction/retryLectureAction in lecture-actions.ts) can now
@@ -15,9 +19,28 @@ import type { LectureRow, ClassMaterialRow } from "@/components/classes/Lectures
 // this just needs to comfortably exceed it.
 export const maxDuration = 300;
 
-export default async function ClassPage({ params }: { params: Promise<{ id: string }> }) {
+// How much of each book/slide file's text the page sends to the browser.
+// The list only shows a line of it, and a big class can have hundreds of
+// files, each up to 20,000 characters; the AI reads the full text on the
+// server.
+const MATERIAL_PREVIEW_CHARS = 280;
+
+export default async function ClassPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string }>;
+}) {
   const user = await requireUser();
   const { id } = await params;
+  const { tab } = await searchParams;
+
+  const owned = await prisma.class.findFirst({ where: { id, userId: user.id }, select: { id: true } });
+  if (!owned) notFound();
+  // Lectures from before lecture notes appeared in the Notes tab get their
+  // notes added there the first time the class is opened.
+  await addMissingLectureNotes(id);
 
   const cls = await prisma.class.findUnique({
     where: { id },
@@ -28,16 +51,29 @@ export default async function ClassPage({ params }: { params: Promise<{ id: stri
       resources: { orderBy: { addedAt: "desc" } },
       noteSections: {
         orderBy: { order: "asc" },
-        include: { notes: { orderBy: { order: "asc" } } },
+        include: {
+          notes: {
+            orderBy: { order: "asc" },
+            include: { lecture: { select: { id: true, createdAt: true } } },
+          },
+        },
       },
-      lectures: { orderBy: { createdAt: "desc" } },
+      lectures: {
+        orderBy: { createdAt: "desc" },
+        include: { notes: { select: { id: true, bodyMarkdown: true }, orderBy: { createdAt: "asc" }, take: 1 } },
+      },
       // SKIPPED_NOISE is pure Canvas clutter (banner images, icons, etc.
       // discovered while scanning for real documents) that was never worth
       // showing a student — see canvas-materials-sync.ts. Everything else
       // (including FAILED/EXTERNAL/SKIPPED_TOO_LARGE/SKIPPED_UNSUPPORTED)
       // stays visible since each of those says something genuinely useful
-      // ("we found this but couldn't read it").
-      materials: { where: { syncStatus: { not: "SKIPPED_NOISE" } }, orderBy: { createdAt: "asc" } },
+      // ("we found this but couldn't read it"). The explicit null case is
+      // needed because `not` alone also drops rows where syncStatus is
+      // null, which is every material added by hand.
+      materials: {
+        where: { OR: [{ syncStatus: null }, { syncStatus: { not: "SKIPPED_NOISE" } }] },
+        orderBy: { createdAt: "asc" },
+      },
       emails: {
         where: { category: { notIn: ["IRRELEVANT", "UNCLASSIFIED"] } },
         orderBy: { receivedAt: "desc" },
@@ -65,6 +101,7 @@ export default async function ClassPage({ params }: { params: Promise<{ id: stri
       </div>
 
       <ClassTabs
+        initialTab={classTabFromParam(tab)}
         classInfo={{
           id: cls.id,
           code: cls.code,
@@ -110,6 +147,7 @@ export default async function ClassPage({ params }: { params: Promise<{ id: stri
             pinned: n.pinned,
             order: n.order,
             updatedAt: n.updatedAt.toISOString(),
+            lecture: n.lecture ? { id: n.lecture.id, createdAt: n.lecture.createdAt.toISOString() } : null,
           })),
         }))}
         lectures={cls.lectures.map((l) => ({
@@ -120,12 +158,14 @@ export default async function ClassPage({ params }: { params: Promise<{ id: stri
           notesMarkdown: l.notesMarkdown,
           errorMessage: l.errorMessage,
           createdAt: l.createdAt.toISOString(),
+          note: l.notes[0] ? { id: l.notes[0].id, bodyMarkdown: l.notes[0].bodyMarkdown } : null,
         }))}
+        defaultLectureTitle={defaultLectureTitle(now, user.timezone)}
         materials={cls.materials.map((m) => ({
           id: m.id,
           type: m.type as ClassMaterialRow["type"],
           title: m.title,
-          content: m.content,
+          preview: m.content.slice(0, MATERIAL_PREVIEW_CHARS),
           sourceUrl: m.sourceUrl,
           createdAt: m.createdAt.toISOString(),
           provider: m.provider,

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import {
   continueCanvasMaterialSyncAction,
   startCanvasMaterialSyncAction,
@@ -92,6 +93,11 @@ export function MaterialSyncPanel() {
     setStarting(true);
     try {
       await startCanvasMaterialSyncAction();
+      // Show every course as queued right away. Otherwise the list keeps its
+      // old finished statuses (and the button reads "Go fetch materials"
+      // again) until the first chunk of work comes back, which looks like
+      // the click did nothing.
+      setCourses((prev) => prev?.map((c) => ({ ...c, status: "PENDING" })) ?? prev);
       setGeneration((g) => g + 1); // re-enters the effect above, restarting polling
     } finally {
       setStarting(false);
@@ -143,7 +149,14 @@ export function MaterialSyncPanel() {
                 {c.resourcesFound > 0 && c.status !== "PENDING" && c.status !== "DISCOVERING" && (
                   <p className="mt-0.5 text-xs text-ink-faint">
                     {c.resourcesDone} / {c.resourcesFound} materials
-                    {c.resourcesFailed > 0 ? ` (${c.resourcesFailed} failed)` : ""}
+                    {c.resourcesFailed > 0 && (
+                      <>
+                        {" · "}
+                        <Link href={`/classes/${c.classId}?tab=resources`} className="text-warn underline hover:opacity-80">
+                          {c.resourcesFailed} couldn&apos;t be imported
+                        </Link>
+                      </>
+                    )}
                   </p>
                 )}
 

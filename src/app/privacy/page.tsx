@@ -45,7 +45,8 @@ export default function PrivacyPage() {
             <li>
               <strong className="text-ink">Canvas, if you connect it:</strong> your Canvas address and access token
               (encrypted), your courses, assignments, due dates and submission status, and the text of course files,
-              pages and syllabi it imports.
+              pages and syllabi it imports. Files you upload yourself keep only their text; the file is deleted once
+              the text is read.
             </li>
             <li>
               <strong className="text-ink">Gmail, if you connect it:</strong> read-only access tokens (encrypted). Each
@@ -54,8 +55,9 @@ export default function PrivacyPage() {
               sender, subject and date, so it can skip that message next time.
             </li>
             <li>
-              <strong className="text-ink">Lectures:</strong> audio you upload, stored in Vercel Blob at a
-              hard-to-guess link, plus its transcript and the notes generated from it.
+              <strong className="text-ink">Lectures:</strong> audio you record in the app or upload, stored in Vercel
+              Blob at a hard-to-guess link, plus its transcript and the notes generated from it. Campus OS uses your
+              microphone only while you&apos;re recording, and only after you allow it.
             </li>
             <li>
               <strong className="text-ink">What you add yourself:</strong> notes, schedule, resources, exams and

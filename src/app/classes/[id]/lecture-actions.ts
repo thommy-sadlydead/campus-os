@@ -1,21 +1,16 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { del } from "@vercel/blob";
 import { z } from "zod";
-import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
-import { deleteAssemblyAITranscripts, getAssemblyAIClient } from "@/lib/assemblyai";
+import { deleteAssemblyAITranscripts } from "@/lib/assemblyai";
+import { addLectureToNotes } from "@/lib/lecture-notes-sync";
+import { advanceLecture, generateNotes, submitTranscription } from "@/lib/lecture-pipeline";
 import { LECTURE_LIMIT_MESSAGE, RATE_LIMITS, consumeRateLimit, isRateLimited } from "@/lib/rate-limit";
-import { getAnthropicClient, askClaudeForJson, MODEL } from "@/lib/anthropic";
-import {
-  buildLectureNotesPrompt,
-  MAX_MATERIAL_TITLE_LENGTH,
-  MAX_MATERIAL_CONTENT_LENGTH,
-  MAX_MATERIALS_CHARS,
-  type ClassMaterialInput,
-} from "@/lib/lecture-notes";
+import { MAX_MATERIAL_TITLE_LENGTH, MAX_MATERIAL_CONTENT_LENGTH } from "@/lib/lecture-notes";
 import { htmlToReadableText, extractHtmlTitle } from "@/lib/text";
 import { classifyCanvasUrl, fetchCanvasFileContent, MAX_DOCUMENT_FILE_BYTES, type CanvasConfig } from "@/lib/canvas";
 import { extractDocumentText } from "@/lib/office-text";
@@ -37,131 +32,6 @@ async function requireOwnedMaterial(materialId: string, userId: string) {
   const material = await prisma.classMaterial.findUnique({ where: { id: materialId }, include: { class: true } });
   if (!material || material.class.userId !== userId) throw new Error("Not found.");
   return material;
-}
-
-const NOT_CONFIGURED = {
-  assemblyai: "Transcription isn't configured yet. Add an ASSEMBLYAI_API_KEY to enable it.",
-  anthropic: "Note generation isn't configured yet. Add an ANTHROPIC_API_KEY to enable it.",
-};
-
-const MATERIAL_MATCH_SYSTEM = [
-  "You match a class lecture to the reference materials (textbook slides/excerpts) that actually cover its specific topic.",
-  "A class can have many materials covering many different chapters/topics — most are irrelevant to any single lecture.",
-  "Return ONLY a JSON array of exact material titles (copied verbatim from the list) that are directly relevant to THIS lecture's specific topic.",
-  "Prefer precision over recall: only include a title if you're confident it covers the same chapter/topic as the lecture. Return an empty array if nothing clearly matches — that's a normal, correct answer when the class doesn't have material for this lecture's topic yet.",
-].join(" ");
-
-// How much of the transcript to show the matching step. Lectures usually
-// establish their topic well before this point, and this is a
-// classification-style call (small output either way) so it doesn't need
-// the full transcript — keeping it well under MAX_TRANSCRIPT_CHARS keeps
-// this extra step fast and cheap.
-const MATERIAL_MATCH_TRANSCRIPT_CHARS = 30_000;
-
-/**
- * When a class has more material than fits in one prompt (see
- * MAX_MATERIALS_CHARS), formatMaterialsForPrompt's combined-budget slice
- * ends up using whichever materials were added earliest, in full, for
- * every lecture in the class regardless of topic — e.g. a class with a
- * full semester of slides would show every lecture the same first couple
- * of chapters. Below the budget, nothing needs to change: every material
- * already reaches every lecture's prompt as-is. Above it, ask the model
- * which materials actually match this lecture's topic and use only those,
- * so a lecture on chapter 9 gets chapter 9's slides instead of chapter 1's
- * because chapter 1 happened to be added first. Falls back to the full
- * list (and its existing slice-based truncation) if matching itself fails
- * for any reason — this is a refinement, not something that should ever
- * block note generation.
- */
-async function selectRelevantMaterials(
-  transcriptText: string,
-  materials: ClassMaterialInput[]
-): Promise<ClassMaterialInput[]> {
-  if (materials.length === 0) return materials;
-  const combinedLength = materials.reduce((sum, m) => sum + m.content.length, 0);
-  if (combinedLength <= MAX_MATERIALS_CHARS) return materials;
-
-  const titleList = materials.map((m) => m.title).join("\n");
-  const prompt = [
-    `Lecture transcript (excerpt):\n${transcriptText.slice(0, MATERIAL_MATCH_TRANSCRIPT_CHARS)}`,
-    `Available material titles:\n${titleList}`,
-    "Which titles are directly relevant to this lecture's specific topic?",
-  ].join("\n\n");
-
-  const matchedTitles = await askClaudeForJson<string[]>({
-    system: MATERIAL_MATCH_SYSTEM,
-    prompt,
-    maxTokens: 1024,
-  });
-
-  if (!Array.isArray(matchedTitles)) return materials; // matching failed — fall back to the existing behavior
-
-  return materials.filter((m) => matchedTitles.includes(m.title));
-}
-
-/**
- * Runs the note-generation step and saves the result. Like Voicewrite's
- * /api/voicewrite-generate, this calls the Anthropic SDK directly rather than
- * through askClaude() — askClaude() collapses every failure into a silent
- * null for features that have a deterministic fallback, but note generation
- * IS the feature here, so failures need to surface as a real FAILED status
- * with a real message instead.
- *
- * Pulls in the class's materials (books/slides — see ClassMaterial) as
- * extra context every time, so they inform every lecture in the class
- * without needing to be re-attached per lecture.
- */
-async function generateNotes(lectureId: string, transcriptText: string, classId: string) {
-  const anthropic = getAnthropicClient();
-  if (!anthropic) {
-    await prisma.lecture.update({
-      where: { id: lectureId },
-      data: { status: "FAILED", errorMessage: NOT_CONFIGURED.anthropic },
-    });
-    return;
-  }
-
-  const allMaterials = await prisma.classMaterial.findMany({
-    where: { classId },
-    orderBy: { createdAt: "asc" },
-  });
-  const materials = await selectRelevantMaterials(transcriptText, allMaterials);
-  const { system, prompt } = buildLectureNotesPrompt(transcriptText, materials);
-  try {
-    // 2000 was cutting notes off partway through anything longer than a
-    // few minutes of real lecture content (verified: real lecture notes
-    // were landing suspiciously uniformly around ~2000 tokens' worth,
-    // regardless of transcript length — a tell that generation was
-    // hitting the ceiling, not finishing naturally). 8192 matches the
-    // budget proven to let a comparably-sized request complete on its own
-    // (see askClassAssistantAction). The timeout is raised to match — more
-    // output tokens means generation can legitimately take longer, and
-    // this needs to stay under the route's maxDuration (see page.tsx).
-    const message = await anthropic.messages.create(
-      { model: MODEL, max_tokens: 8192, system, messages: [{ role: "user", content: prompt }] },
-      { timeout: 240_000 }
-    );
-    const text = message.content
-      .filter((block): block is Anthropic.TextBlock => block.type === "text")
-      .map((block) => block.text)
-      .join("\n")
-      .trim();
-
-    if (!text) {
-      await prisma.lecture.update({
-        where: { id: lectureId },
-        data: { status: "FAILED", errorMessage: "Note generation returned an empty response. Please try again." },
-      });
-      return;
-    }
-    await prisma.lecture.update({ where: { id: lectureId }, data: { status: "READY", notesMarkdown: text } });
-  } catch (err) {
-    console.error("Lecture note generation failed:", err);
-    await prisma.lecture.update({
-      where: { id: lectureId },
-      data: { status: "FAILED", errorMessage: "Note generation failed. Please try again." },
-    });
-  }
 }
 
 const createLectureSchema = z.object({
@@ -201,91 +71,23 @@ export async function createLectureAction(
   const lecture = await prisma.lecture.create({
     data: { classId, title: parsed.title, audioUrl: parsed.audioUrl, status: "UPLOADED" },
   });
-
-  const assemblyai = getAssemblyAIClient();
-  if (!assemblyai) {
-    await prisma.lecture.update({
-      where: { id: lecture.id },
-      data: { status: "FAILED", errorMessage: NOT_CONFIGURED.assemblyai },
-    });
-  } else {
-    try {
-      const transcript = await assemblyai.transcripts.submit({ audio_url: parsed.audioUrl });
-      await prisma.lecture.update({
-        where: { id: lecture.id },
-        data: { status: "TRANSCRIBING", assemblyaiId: transcript.id },
-      });
-    } catch (err) {
-      console.error("Lecture transcription submit failed:", err);
-      await prisma.lecture.update({
-        where: { id: lecture.id },
-        data: { status: "FAILED", errorMessage: "Couldn't submit the audio for transcription. Please try again." },
-      });
-    }
-  }
+  await submitTranscription(lecture.id, parsed.audioUrl);
 
   revalidatePath(`/classes/${classId}`);
   return {};
 }
 
 /**
- * Advances one lecture by one step: checks AssemblyAI if a transcript is in
- * flight, and kicks off note generation the moment it completes. The client
- * calls this on an interval for every non-terminal lecture (see
- * LecturesPanel) — there's no background worker, so polling IS how state
- * advances, same as the "async submit/poll" architecture AssemblyAI expects.
+ * Called on an interval by the Lectures tab for every lecture still in
+ * progress. The work runs after the response (see advanceLecture), so a
+ * long note-generation step never holds up the page; the next poll picks
+ * up the new status. In production AssemblyAI's webhook usually gets there
+ * first, and advanceLecture makes sure only one of them writes the notes.
  */
 export async function pollLectureStatusAction(lectureId: string) {
   const user = await requireUser();
   const lecture = await requireOwnedLecture(lectureId, user.id);
-
-  if (lecture.status === "TRANSCRIBING" && lecture.assemblyaiId) {
-    const assemblyai = getAssemblyAIClient();
-    if (!assemblyai) {
-      await prisma.lecture.update({
-        where: { id: lecture.id },
-        data: { status: "FAILED", errorMessage: NOT_CONFIGURED.assemblyai },
-      });
-      revalidatePath(`/classes/${lecture.classId}`);
-      return;
-    }
-
-    let transcript;
-    try {
-      transcript = await assemblyai.transcripts.get(lecture.assemblyaiId);
-    } catch (err) {
-      // Transient (network blip, rate limit) — leave status alone and let
-      // the next poll tick try again instead of failing the lecture outright.
-      console.error("Lecture transcript poll failed:", err);
-      revalidatePath(`/classes/${lecture.classId}`);
-      return;
-    }
-
-    if (transcript.status === "error") {
-      await prisma.lecture.update({
-        where: { id: lecture.id },
-        data: { status: "FAILED", errorMessage: transcript.error || "Transcription failed." },
-      });
-    } else if (transcript.status === "completed") {
-      const transcriptText = transcript.text || "";
-      await prisma.lecture.update({
-        where: { id: lecture.id },
-        data: { status: "GENERATING_NOTES", transcriptText },
-      });
-      // The row now holds the transcript, which is all note generation and
-      // retries ever read, so AssemblyAI's copy can go.
-      await deleteAssemblyAITranscripts([lecture.assemblyaiId]);
-      await generateNotes(lecture.id, transcriptText, lecture.classId);
-    }
-    // "queued" / "processing": no-op, poll again later.
-  } else if (lecture.status === "GENERATING_NOTES") {
-    // A previous poll started note generation but the row never advanced
-    // (e.g. the serverless function was killed mid-request) — retry from
-    // the transcript already saved on the row.
-    await generateNotes(lecture.id, lecture.transcriptText || "", lecture.classId);
-  }
-
-  revalidatePath(`/classes/${lecture.classId}`);
+  after(() => advanceLecture(lecture.id));
 }
 
 export async function retryLectureAction(lectureId: string) {
@@ -295,8 +97,11 @@ export async function retryLectureAction(lectureId: string) {
 
   if (lecture.transcriptText) {
     // Already have a transcript — the failure was in note generation, retry just that.
-    await prisma.lecture.update({ where: { id: lecture.id }, data: { status: "GENERATING_NOTES", errorMessage: null } });
-    await generateNotes(lecture.id, lecture.transcriptText, lecture.classId);
+    await prisma.lecture.update({
+      where: { id: lecture.id },
+      data: { status: "GENERATING_NOTES", errorMessage: null, updatedAt: new Date() },
+    });
+    after(() => generateNotes(lecture.id, lecture.transcriptText ?? "", lecture.classId));
   } else if (!lecture.audioUrl) {
     // No transcript and no audio — shouldn't happen (a pasted-transcript
     // lecture always has transcriptText, an audio one always has audioUrl),
@@ -305,27 +110,8 @@ export async function retryLectureAction(lectureId: string) {
       where: { id: lecture.id },
       data: { errorMessage: "This lecture has neither a transcript nor an audio file to retry from." },
     });
-    revalidatePath(`/classes/${lecture.classId}`);
   } else {
-    const assemblyai = getAssemblyAIClient();
-    if (!assemblyai) {
-      await prisma.lecture.update({ where: { id: lecture.id }, data: { errorMessage: NOT_CONFIGURED.assemblyai } });
-      revalidatePath(`/classes/${lecture.classId}`);
-      return;
-    }
-    try {
-      const transcript = await assemblyai.transcripts.submit({ audio_url: lecture.audioUrl });
-      await prisma.lecture.update({
-        where: { id: lecture.id },
-        data: { status: "TRANSCRIBING", assemblyaiId: transcript.id, errorMessage: null },
-      });
-    } catch (err) {
-      console.error("Lecture retry submit failed:", err);
-      await prisma.lecture.update({
-        where: { id: lecture.id },
-        data: { errorMessage: "Couldn't submit the audio for transcription. Please try again." },
-      });
-    }
+    await submitTranscription(lecture.id, lecture.audioUrl);
   }
   revalidatePath(`/classes/${lecture.classId}`);
 }
@@ -346,8 +132,18 @@ export async function deleteLectureAction(lectureId: string) {
   // lectures transcribed before that cleanup existed still have one.
   await deleteAssemblyAITranscripts([lecture.assemblyaiId]);
 
+  // Its note in the Notes tab, if any, stays (Note.lectureId is SetNull).
   await prisma.lecture.delete({ where: { id: lecture.id } });
   revalidatePath(`/classes/${lecture.classId}`);
+}
+
+/** Puts a lecture's notes back in the Notes tab after the student deleted that copy. */
+export async function addLectureNotesToNotesAction(lectureId: string): Promise<{ noteId: string | null }> {
+  const user = await requireUser();
+  const lecture = await requireOwnedLecture(lectureId, user.id);
+  const noteId = await addLectureToNotes(lecture.id);
+  revalidatePath(`/classes/${lecture.classId}`);
+  return { noteId };
 }
 
 const createLectureFromTranscriptSchema = z.object({
@@ -359,7 +155,9 @@ const createLectureFromTranscriptSchema = z.object({
  * Alternate path into the same pipeline as createLectureAction, for a
  * transcript the user already has (from elsewhere, or typed up themselves)
  * instead of an audio file — skips Blob upload and AssemblyAI entirely and
- * goes straight to note generation. audioUrl stays null on this row.
+ * goes straight to note generation. audioUrl stays null on this row. The
+ * notes are written after the response, so the student isn't left waiting
+ * on the button; the Lectures tab shows the lecture as in progress.
  */
 export async function createLectureFromTranscriptAction(
   classId: string,
@@ -381,7 +179,7 @@ export async function createLectureFromTranscriptAction(
     },
   });
 
-  await generateNotes(lecture.id, parsed.transcriptText, classId);
+  after(() => generateNotes(lecture.id, parsed.transcriptText, classId));
   revalidatePath(`/classes/${classId}`);
   return {};
 }
@@ -592,37 +390,98 @@ export async function addClassMaterialFromFileAction(
 
   try {
     const buffer = Buffer.from(await file.arrayBuffer());
-    const content = await extractDocumentText(buffer, file.type, file.name);
-
-    if (content === null) {
-      const ext = file.name.split(".").pop()?.toUpperCase();
-      return { error: `Can't read ${ext ? `${ext} files` : "that file"} yet — try pasting the text directly instead.` };
-    }
-    if (content.trim().length < 20) {
-      return {
-        error: "Couldn't find readable text in that file — it might be scanned images. Try pasting the text directly instead.",
-      };
-    }
-
-    const title = (parsed.data.title?.trim() || file.name.replace(/\.[^.]+$/, "") || "Untitled").slice(
-      0,
-      MAX_MATERIAL_TITLE_LENGTH
-    );
-
-    await prisma.classMaterial.create({
-      data: {
-        classId,
-        type: parsed.data.type,
-        title,
-        content: content.slice(0, MAX_MATERIAL_CONTENT_LENGTH),
-        sourceUrl: null,
-      },
-    });
-    revalidatePath(`/classes/${classId}`);
-    return undefined;
+    return await saveMaterialFromDocument(classId, buffer, file.type, file.name, parsed.data);
   } catch (err) {
     console.error("Class material file extraction failed:", err);
     return { error: "Couldn't read that file. Please try again." };
+  }
+}
+
+/** Shared by the direct and the Blob upload paths: pull the text out and save it as a material. */
+async function saveMaterialFromDocument(
+  classId: string,
+  buffer: Buffer,
+  contentType: string,
+  fileName: string,
+  options: { type: "BOOK" | "SLIDES"; title?: string }
+): Promise<{ error: string } | undefined> {
+  const content = await extractDocumentText(buffer, contentType, fileName);
+
+  if (content === null) {
+    const ext = fileName.split(".").pop()?.toUpperCase();
+    return { error: `Can't read ${ext ? `${ext} files` : "that file"} yet — try pasting the text directly instead.` };
+  }
+  if (content.trim().length < 20) {
+    return {
+      error: "Couldn't find readable text in that file — it might be scanned images. Try pasting the text directly instead.",
+    };
+  }
+
+  const title = (options.title?.trim() || fileName.replace(/\.[^.]+$/, "") || "Untitled").slice(0, MAX_MATERIAL_TITLE_LENGTH);
+
+  await prisma.classMaterial.create({
+    data: {
+      classId,
+      type: options.type,
+      title,
+      content: content.slice(0, MAX_MATERIAL_CONTENT_LENGTH),
+      sourceUrl: null,
+    },
+  });
+  revalidatePath(`/classes/${classId}`);
+  return undefined;
+}
+
+const classMaterialBlobSchema = z.object({
+  url: z.string().url(),
+  fileName: z.string().min(1).max(300),
+  type: z.enum(["BOOK", "SLIDES"]),
+  title: z.string().max(MAX_MATERIAL_TITLE_LENGTH).optional(),
+});
+
+/**
+ * Second half of a large book/slide upload: the browser has already put
+ * the file in Blob storage via /api/material-upload (Server Actions can't
+ * take more than 4.5 MB on Vercel). Reads the text out, saves the
+ * material, and always deletes the uploaded file; only the text is kept,
+ * same as the direct upload path.
+ */
+export async function addClassMaterialFromBlobAction(
+  classId: string,
+  input: { url: string; fileName: string; type: string; title?: string }
+): Promise<{ error: string } | undefined> {
+  const user = await requireUser();
+  await requireOwnedClass(classId, user.id);
+
+  const parsed = classMaterialBlobSchema.safeParse(input);
+  if (!parsed.success) return { error: "Something about that upload looked wrong. Please try again." };
+
+  const url = new URL(parsed.data.url);
+  // Only a file this class just uploaded to this app's own Blob storage;
+  // never an arbitrary URL, which would make this a server-side fetch of
+  // whatever the client asks for.
+  if (
+    url.protocol !== "https:" ||
+    !url.hostname.endsWith(".public.blob.vercel-storage.com") ||
+    !url.pathname.startsWith(`/materials/${classId}/`)
+  ) {
+    return { error: "That upload couldn't be found. Please try again." };
+  }
+
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(60_000) });
+    if (!res.ok) return { error: "Couldn't read the uploaded file. Please try again." };
+    const buffer = Buffer.from(await res.arrayBuffer());
+    if (buffer.length > MAX_DOCUMENT_FILE_BYTES) return { error: "That file is too large to read." };
+    return await saveMaterialFromDocument(classId, buffer, res.headers.get("content-type") ?? "", parsed.data.fileName, {
+      type: parsed.data.type,
+      title: parsed.data.title,
+    });
+  } catch (err) {
+    console.error("Class material extraction from Blob failed:", err);
+    return { error: "Couldn't read that file. Please try again." };
+  } finally {
+    await del(url.toString()).catch((err) => console.error("Deleting uploaded material file failed:", err));
   }
 }
 

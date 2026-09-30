@@ -111,9 +111,11 @@ export async function moveSectionAction(sectionId: string, direction: "up" | "do
   revalidatePath(`/classes/${section.classId}`);
 }
 
+// Lecture notes land here too (src/lib/lecture-notes-sync.ts), and a full
+// lecture's notes can run well past 20,000 characters.
 const noteSchema = z.object({
   title: z.string().max(160),
-  bodyMarkdown: z.string().max(20000),
+  bodyMarkdown: z.string().max(100_000),
 });
 
 export async function createNoteAction(sectionId: string, formData: FormData) {

@@ -79,18 +79,31 @@ as out of scope.
 - **Assignments** and **Classes** list views, both with an inline expandable
   subtask checklist per assignment, plus the assignment's real directions
   and a "See in Canvas" link.
-- **Lectures** (per class, `src/app/classes/[id]/lecture-actions.ts`):
-  upload a recording (direct-to-Blob) or paste a transcript directly, get
-  an AssemblyAI transcript and AI-generated study notes automatically.
-  Notes are regenerated on retry from the saved transcript if generation
-  itself fails, so a flaky AI call never means re-uploading audio.
+- **Lectures** (per class, `src/app/classes/[id]/lecture-actions.ts` and
+  `src/lib/lecture-pipeline.ts`): record in the app (**Record a lecture** on
+  the dashboard, or a class's Lectures tab), upload a recording such as a
+  Voice Memo (direct-to-Blob), or paste a transcript, and get an AssemblyAI
+  transcript and AI-generated study notes automatically. The Record page
+  picks the class from the Schedule when one is meeting. In production,
+  AssemblyAI's webhook (`/api/lecture-audio/transcribed`) moves a lecture
+  on when its transcript is ready, so notes get written with the app
+  closed; with the page open, polling does the same. Notes are regenerated
+  on retry from the saved transcript if generation itself fails, so a flaky
+  AI call never means re-uploading audio.
+- **Lecture notes in the Notes tab** (`src/lib/lecture-notes-sync.ts`):
+  each lecture's notes are also a real note (`Note.lectureId`) in a
+  "Lecture notes" section, and the Lectures tab shows that same note, so an
+  edit in either place shows in both. Deleting a lecture keeps its note.
 - **Class materials** (`ClassMaterial` model, shown on each class's
-  Lectures tab): reference content — textbook excerpts, slides, notes,
-  syllabi — that's folded into every lecture's note generation and the
-  class assistant's context for that class. Four ways in: paste text
-  directly, paste a link (Canvas file link or a regular webpage, fetched
-  once and stored — never re-fetched later), upload a file directly
-  (PDF/PPTX/DOCX/TXT/EPUB), or **automatic Canvas sync** (see next bullet).
+  Resources tab alongside saved links): reference content — textbook
+  excerpts, slides, notes, syllabi — that's folded into every lecture's
+  note generation and the class assistant's context for that class. Four
+  ways in: paste text directly, paste a link (Canvas file link or a regular
+  webpage, fetched once and stored — never re-fetched later), upload a file
+  directly (PDF/PPTX/DOCX/TXT/EPUB, up to 25 MB; files over 4 MB go
+  browser → Blob → `addClassMaterialFromBlobAction`, since Vercel caps
+  requests at 4.5 MB), or **automatic Canvas sync** (see next bullet).
+  Imports that failed are listed first, with the reason.
 - **Automatic Canvas course material sync** (`/canvas`, "Go fetch
   materials"): after connecting Canvas, discovers and imports each course's
   real documents on its own — scanning Files, Modules, Pages, Assignment
@@ -469,6 +482,21 @@ models. See CLAUDE.md for the operational details and known limitations
 signal an unlock the way it signals a content edit; two specific scanned
 files still can't be OCR'd because Anthropic's own content-filtering
 policy blocks the output, which isn't something to route around).
+
+**One connected class page (2026-10).** Lecture notes now also live in the
+Notes tab (one linked note per lecture, editable from either tab), and books
+and slides moved from the Lectures tab to Resources, next to saved links.
+Added in-app recording (`LectureRecorder`: keeps the screen awake, pauses,
+and keeps the recording for a retry or a download if the upload fails), a
+`/record` page that picks the class from the schedule, Voice Memos import
+help, and AssemblyAI's webhook so notes get written without the page open.
+Fixed along the way: materials added by hand never appeared on the class
+page (a `{ not: ... }` filter also drops NULL rows); uploads over 4.5 MB
+failed on Vercel; notes showed raw Markdown; and the service worker cached
+Next.js page-data requests, so `router.refresh()` showed the previous copy
+after changes (a deleted lecture stayed on screen until a reload). The
+service worker (v2) now caches static files only. Schema changes:
+`Note.lectureId` and `Lecture.noteSyncedAt`, both nullable.
 
 **Known limits, not gaps in this app:** Gmail (`GOOGLE_CLIENT_ID` etc.) and
 the AI assistants (`ANTHROPIC_API_KEY`) both require credentials you
