@@ -103,7 +103,34 @@ export async function syncCanvasForUser(
         examCount += 1;
       }
     }
+
+    await removeMisdetectedExams(prisma, cls.id);
   }
 
   return { courses: courses.length, assignmentsSynced: assignmentCount, examsSynced: examCount };
+}
+
+/**
+ * Removes Exams-tab entries an older name rule picked up that aren't
+ * exams: plain "final" used to count, so "Final Draft: Short Story" became
+ * one. Only rows that came from Canvas; an exam added from an email has no
+ * Canvas id and is left alone. The assignment itself stays; an email
+ * change still waiting on a removed entry is closed as rejected.
+ */
+export async function removeMisdetectedExams(prisma: PrismaClient, classId: string): Promise<number> {
+  const notExams = (
+    await prisma.exam.findMany({
+      where: { classId, canvasAssignmentId: { not: null } },
+      select: { id: true, name: true },
+    })
+  ).filter((e) => !isExamLikeName(e.name));
+  if (notExams.length === 0) return 0;
+
+  const ids = notExams.map((e) => e.id);
+  await prisma.pendingChange.updateMany({
+    where: { entityType: "Exam", entityId: { in: ids }, status: "PENDING" },
+    data: { status: "REJECTED", resolvedAt: new Date() },
+  });
+  await prisma.exam.deleteMany({ where: { id: { in: ids } } });
+  return ids.length;
 }

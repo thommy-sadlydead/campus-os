@@ -534,7 +534,7 @@ Not built — one deliberately flagged gap, unrelated to the phase plan:
 
 ## Verification
 
-- `npm test` — 221 unit tests in 17 files as of the 2026-09-30 data fixes (176 as of the 2026-09 security pass, 165 as of the Canvas materials sync)
+- `npm test` — 223 unit tests in 17 files as of the 2026-09-30 data fixes (176 as of the 2026-09 security pass, 165 as of the Canvas materials sync)
   update (12 test files; the newest cover Canvas resource
   classification/dedup/incremental-diff logic, retry/pagination against a
   stubbed Canvas API, and the PDF OCR fallback — see CLAUDE.md for where
