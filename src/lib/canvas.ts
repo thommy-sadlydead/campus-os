@@ -128,8 +128,16 @@ export async function fetchCourseAssignments(cfg: CanvasConfig, courseId: number
   );
 }
 
+/**
+ * Whether a Canvas assignment is an exam, from its name. Plain "final" used
+ * to count, which made "Final Draft: Rhetorical Analysis" and "Final
+ * Presentation" exams; now it takes "exam", "midterm" or "final exam"
+ * ("Final Exam" contains "exam"). Things about an exam that aren't the exam
+ * itself (a review, a practice exam, an exam wrapper) don't count.
+ */
 export function isExamLikeName(name: string): boolean {
-  return /\b(exam|midterm|final)\b/i.test(name);
+  if (!/\b(exams?|examination|midterms?|mid-terms?)\b/i.test(name)) return false;
+  return !/\b(review|prep|practice|study guide|wrapper|reflection|corrections?)\b/i.test(name);
 }
 
 /**

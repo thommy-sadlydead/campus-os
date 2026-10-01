@@ -16,8 +16,22 @@ export const ENTITY_MAP: Record<string, string> = {
   "&gt;": ">",
   "&quot;": '"',
   "&#39;": "'",
+  "&apos;": "'",
   "&nbsp;": " ",
 };
+
+/**
+ * Decodes HTML entities in text: the named ones above plus any numeric one
+ * ("&#8217;", "&#x2019;"). Gmail's snippets come back escaped this way, so
+ * "It's due Friday" arrives as "It&#39;s due Friday".
+ */
+export function decodeHtmlEntities(text: string): string {
+  return text.replace(/&(#x[0-9a-f]+|#[0-9]+|[a-z]+);/gi, (m, code: string) => {
+    if (code[0] !== "#") return ENTITY_MAP[m.toLowerCase()] ?? m;
+    const n = code[1] === "x" || code[1] === "X" ? parseInt(code.slice(2), 16) : parseInt(code.slice(1), 10);
+    return n > 0 && n <= 0x10ffff ? String.fromCodePoint(n) : m;
+  });
+}
 
 export function stripHtml(html: string): string {
   return html
@@ -27,7 +41,7 @@ export function stripHtml(html: string): string {
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<li[^>]*>/gi, "- ")
     .replace(/<[^>]+>/g, "")
-    .replace(/&[a-z#0-9]+;/gi, (m) => ENTITY_MAP[m.toLowerCase()] ?? m)
+    .replace(/&[a-z#0-9]+;/gi, decodeHtmlEntities)
     .replace(/[ \t]+/g, " ")
     .replace(/\n{3,}/g, "\n\n")
     .split("\n")
@@ -60,6 +74,6 @@ export function htmlToReadableText(html: string): string {
 export function extractHtmlTitle(html: string): string | null {
   const match = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
   if (!match) return null;
-  const decoded = match[1].replace(/&[a-z#0-9]+;/gi, (m) => ENTITY_MAP[m.toLowerCase()] ?? m).trim();
+  const decoded = decodeHtmlEntities(match[1]).trim();
   return decoded || null;
 }

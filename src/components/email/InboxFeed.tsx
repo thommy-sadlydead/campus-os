@@ -1,3 +1,5 @@
+import { decodeHtmlEntities } from "@/lib/text";
+
 export interface InboxEmailRow {
   id: string;
   subject: string;
@@ -52,7 +54,7 @@ export function InboxFeed({ emails }: { emails: InboxEmailRow[] }) {
                   )}
                   <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${badge.tone}`}>{badge.label}</span>
                 </div>
-                {e.snippet && <p className="mt-1 truncate text-sm text-ink-soft">{e.snippet}</p>}
+                {e.snippet && <p className="mt-1 truncate text-sm text-ink-soft">{decodeHtmlEntities(e.snippet)}</p>}
                 <div className="mt-1 text-xs text-ink-faint">
                   {e.fromName || e.fromAddress} · {new Date(e.receivedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                 </div>

@@ -8,7 +8,8 @@ const TZ = "America/New_York";
 function item(overrides: Partial<WorkItem>): WorkItem {
   return {
     id: "id-1",
-    assignmentId: "id-1",
+    // Like real data: a plain assignment's assignmentId is its own id.
+    assignmentId: overrides.id ?? "id-1",
     kind: "assignment",
     title: "Untitled",
     className: "Test Class",
@@ -83,6 +84,25 @@ describe("assessRisk — at-risk (red)", () => {
     expect(result.level).toBe("at-risk");
   });
 
+  it("doesn't count overdue work as due within 48 hours", () => {
+    const items = [
+      item({ id: "a", title: "Late 1", dueAt: new Date("2026-08-20T23:59:00-04:00") }),
+      item({ id: "b", title: "Late 2", dueAt: new Date("2026-08-19T23:59:00-04:00") }),
+      item({ id: "c", title: "Late 3", dueAt: new Date("2026-08-18T23:59:00-04:00") }),
+      item({ id: "d", title: "Tomorrow", dueAt: new Date("2026-08-22T10:00:00-04:00") }),
+    ];
+    const result = assess(items, null);
+    expect(result.level).toBe("at-risk");
+    expect(result.reasons).toContain("3 items are already overdue.");
+    expect(result.reasons).toContain("1 assignment due within the next 48 hours.");
+    expect(result.headline).toBe("You're falling behind — 3 items are overdue and 1 more is due within 48 hours.");
+  });
+
+  it("headlines the overdue count when nothing else is due soon", () => {
+    const items = [item({ id: "a", title: "Late", dueAt: new Date("2026-08-19T23:59:00-04:00") })];
+    expect(assess(items, null).headline).toBe("You're falling behind — 1 item is overdue.");
+  });
+
   it("goes red when logged free time is an hour or more behind today's workload — matches the spec's own example shape", () => {
     const items = [item({ id: "a", title: "Big project", dueAt: new Date("2026-08-21T20:00:00-04:00"), estimatedMinutes: 180 })];
     const result = assess(items, 0); // 180 min behind
@@ -141,5 +161,22 @@ describe("assessRisk — never fabricates availability", () => {
     const items = [item({ id: "a", title: "Something", dueAt: new Date("2026-08-22T10:00:00-04:00") })];
     const result = assess(items, null);
     expect(result.headline).not.toMatch(/behind your planned workload/i);
+  });
+});
+
+describe("assessRisk — counting assignments, not steps", () => {
+  it("counts an overdue assignment broken into steps once", () => {
+    const steps = ["Outline", "Draft", "Revise"].map((title, n) =>
+      item({ id: `t${n}`, assignmentId: "paper", kind: "task", title, dueAt: new Date("2026-08-20T23:59:00-04:00") })
+    );
+    const result = assess([...steps, item({ id: "quiz", assignmentId: "quiz", title: "Quiz", dueAt: new Date("2026-08-19T23:59:00-04:00") })], null);
+    expect(result.reasons).toContain("2 items are already overdue.");
+  });
+
+  it("counts steps due soon as one assignment", () => {
+    const steps = ["Read", "Write"].map((title, n) =>
+      item({ id: `s${n}`, assignmentId: "essay", kind: "task", title, dueAt: new Date("2026-08-22T10:00:00-04:00") })
+    );
+    expect(assess(steps, null).reasons).toContain("1 assignment due within the next 48 hours.");
   });
 });

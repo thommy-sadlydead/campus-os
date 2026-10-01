@@ -2,6 +2,7 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import { encryptSecret, decryptSecret } from "@/lib/crypto";
 import { refreshAccessToken } from "@/lib/google-oauth";
+import { decodeHtmlEntities } from "@/lib/text";
 
 const GMAIL_API = "https://gmail.googleapis.com/gmail/v1/users/me";
 
@@ -46,6 +47,8 @@ export interface GmailMessageSummary {
   snippet: string;
   bodyText: string;
   receivedAt: Date;
+  /** Sent to a mailing list: it has an unsubscribe or list header, or says it's bulk mail. */
+  isBulk: boolean;
 }
 
 interface GmailApiHeader {
@@ -83,9 +86,11 @@ function extractPlainText(part?: GmailApiPart): string {
   }
   // Fall back to text/html, stripped of tags, if no plain part exists.
   if (part.mimeType === "text/html" && part.body?.data) {
-    return decodeBase64Url(part.body.data)
-      .replace(/<style[\s\S]*?<\/style>/gi, "")
-      .replace(/<[^>]+>/g, " ")
+    return decodeHtmlEntities(
+      decodeBase64Url(part.body.data)
+        .replace(/<style[\s\S]*?<\/style>/gi, "")
+        .replace(/<[^>]+>/g, " ")
+    )
       .replace(/\s+/g, " ")
       .trim();
   }
@@ -111,15 +116,22 @@ async function gmailGet(accessToken: string, path: string): Promise<any> {
 }
 
 /**
- * IDs of recent messages, newest-ish first. `query` uses Gmail's normal
- * search syntax — we default to a window of recent mail rather than the
- * whole mailbox, since only recent mail is useful for "what did I just
- * miss," and it keeps each sync fast and cheap.
+ * IDs of the messages matching `query` (Gmail's normal search syntax),
+ * newest first, following Gmail's pages until `limit`. Listing is cheap
+ * (ids only); the caller skips the ones it already has, so a sync catches
+ * everything new instead of only the newest few.
  */
-export async function listRecentMessageIds(accessToken: string, query: string, maxResults = 40): Promise<string[]> {
-  const params = new URLSearchParams({ q: query, maxResults: String(maxResults) });
-  const data = await gmailGet(accessToken, `/messages?${params.toString()}`);
-  return (data.messages ?? []).map((m: { id: string }) => m.id);
+export async function listMessageIds(accessToken: string, query: string, limit: number): Promise<string[]> {
+  const ids: string[] = [];
+  let pageToken: string | undefined;
+  do {
+    const params = new URLSearchParams({ q: query, maxResults: String(Math.min(500, limit - ids.length)) });
+    if (pageToken) params.set("pageToken", pageToken);
+    const data = await gmailGet(accessToken, `/messages?${params.toString()}`);
+    for (const m of (data.messages ?? []) as Array<{ id: string }>) ids.push(m.id);
+    pageToken = data.nextPageToken;
+  } while (pageToken && ids.length < limit);
+  return ids;
 }
 
 export async function getMessage(accessToken: string, id: string): Promise<GmailMessageSummary> {
@@ -135,8 +147,10 @@ export async function getMessage(accessToken: string, id: string): Promise<Gmail
     fromAddress: address,
     fromName: name,
     subject: get("Subject") ?? "(no subject)",
-    snippet: data.snippet ?? "",
+    // Gmail escapes snippets ("It&#39;s"); store them as plain text.
+    snippet: decodeHtmlEntities(data.snippet ?? ""),
     bodyText,
     receivedAt: data.internalDate ? new Date(Number(data.internalDate)) : new Date(),
+    isBulk: !!(get("List-Unsubscribe") || get("List-Id")) || /^(bulk|list|junk)$/i.test(get("Precedence")?.trim() ?? ""),
   };
 }

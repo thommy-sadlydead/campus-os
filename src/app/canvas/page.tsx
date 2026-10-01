@@ -1,4 +1,5 @@
 import { requireUser } from "@/lib/auth";
+import { formatPastMoment } from "@/lib/time";
 import { prisma } from "@/lib/prisma";
 import { AppShell } from "@/components/AppShell";
 import { ConnectCanvasForm } from "@/components/canvas/ConnectCanvasForm";
@@ -64,7 +65,7 @@ export default async function CanvasPage() {
           <SyncButton
             lastSyncedLabel={
               account.lastSyncedAt
-                ? `Last synced ${new Date(account.lastSyncedAt).toLocaleString()}`
+                ? `Last synced ${formatPastMoment(account.lastSyncedAt, new Date(), user.timezone)}`
                 : "Never synced yet"
             }
           />

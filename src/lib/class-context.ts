@@ -2,6 +2,7 @@ import "server-only";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { formatDueLabel } from "@/lib/time";
+import { assignmentStatusLabel } from "@/lib/assignment-status";
 import { classMaterialTypeLabel, joinWithBudget } from "@/lib/lecture-notes";
 
 /**
@@ -93,7 +94,7 @@ export async function loadClassContext(classId: string, userId: string, tz: stri
         const steps = a.tasks.length
           ? ` [${a.tasks.filter((t) => !t.completed).length}/${a.tasks.length} steps remaining]`
           : "";
-        return `- ${a.name} — ${due} — status: ${a.status}${steps}`;
+        return `- ${a.name} — ${due} — status: ${assignmentStatusLabel(a.status).toLowerCase()}${steps}`;
       })
       .join("\n") || "(no assignments on file)";
 

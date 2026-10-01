@@ -223,10 +223,14 @@ export function computeWorkloadSummary(
   availableMinutesToday: number | null
 ): WorkloadSummary {
   const actionable = items.filter(isActionable);
-  const overdueCount = actionable.filter((i) => i.dueAt && i.dueAt.getTime() < now.getTime()).length;
-  const dueTodayCount = actionable.filter((i) => i.dueAt && isSameTzDay(i.dueAt, now, tz)).length;
+  // Counts are of assignments, not work items: an assignment broken into
+  // three steps is three items (each inherits the due date) but still one
+  // overdue assignment. Counting items made a breakdown raise the count.
+  const countAssignments = (list: WorkItem[]) => new Set(list.map((i) => i.assignmentId)).size;
+  const overdueCount = countAssignments(actionable.filter((i) => i.dueAt && i.dueAt.getTime() < now.getTime()));
+  const dueTodayCount = countAssignments(actionable.filter((i) => i.dueAt && isSameTzDay(i.dueAt, now, tz)));
   const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-  const dueTomorrowCount = actionable.filter((i) => i.dueAt && isSameTzDay(i.dueAt, tomorrow, tz)).length;
+  const dueTomorrowCount = countAssignments(actionable.filter((i) => i.dueAt && isSameTzDay(i.dueAt, tomorrow, tz)));
 
   const dueTodayOrOverdue = actionable.filter(
     (i) => i.dueAt && (i.dueAt.getTime() < now.getTime() || isSameTzDay(i.dueAt, now, tz))
@@ -270,7 +274,7 @@ export function heuristicEstimateMinutes(input: {
   description?: string | null;
 }): number {
   const name = input.name.toLowerCase();
-  if (/\b(final exam|final)\b/.test(name)) return 150;
+  if (/\bfinal exams?\b/.test(name)) return 150; // not plain "final": "Final Draft" is a paper
   if (/\bmidterm|\bexam\b/.test(name)) return 100;
   if (/\bquiz\b/.test(name)) return 25;
   if (/\battendance\b/.test(name)) return 2;

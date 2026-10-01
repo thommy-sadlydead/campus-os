@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { classifyCanvasUrl, fetchActiveCourses, fetchCourseFiles, CanvasApiError, type CanvasConfig } from "../src/lib/canvas";
+import { classifyCanvasUrl, fetchActiveCourses, fetchCourseFiles, isExamLikeName, CanvasApiError, type CanvasConfig } from "../src/lib/canvas";
 
 const CANVAS_BASE = "https://cedarville.instructure.com";
 
@@ -142,5 +142,25 @@ describe("Canvas API retry/backoff", () => {
 
     await expect(fetchActiveCourses(cfg)).rejects.toThrow(CanvasApiError);
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("isExamLikeName", () => {
+  it("recognizes exams, midterms and finals that say exam", () => {
+    for (const name of ["Final Exam", "Midterm 1", "Exam 2: Chapters 4-6", "Mid-term Exam", "Take-Home Exam", "Final Examination"]) {
+      expect(isExamLikeName(name), name).toBe(true);
+    }
+  });
+
+  it("doesn't treat other work named \"final\" as an exam", () => {
+    for (const name of ["Final Draft: Rhetorical Analysis", "Final Project", "Final Presentation", "Final Paper"]) {
+      expect(isExamLikeName(name), name).toBe(false);
+    }
+  });
+
+  it("doesn't treat work about an exam as the exam itself", () => {
+    for (const name of ["Exam 1 Review", "Practice Midterm", "Midterm Reflection", "Exam Corrections", "Final Exam Study Guide"]) {
+      expect(isExamLikeName(name), name).toBe(false);
+    }
   });
 });

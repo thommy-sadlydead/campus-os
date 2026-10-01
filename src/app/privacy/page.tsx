@@ -50,9 +50,9 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong className="text-ink">Gmail, if you connect it:</strong> read-only access tokens (encrypted). Each
-              sync reads up to 40 inbox messages from the last 60 days. For school-related messages it keeps the
-              sender, subject, date, a short summary and the message text. For everything else it keeps only the
-              sender, subject and date, so it can skip that message next time.
+              sync reads the inbox messages from the last 60 days that it hasn&apos;t seen yet. For school-related
+              messages it keeps the sender, subject, date, a short summary and the message text. For everything else it
+              keeps only the sender, subject and date, so it can skip that message next time.
             </li>
             <li>
               <strong className="text-ink">Lectures:</strong> audio you record in the app or upload, stored in Vercel

@@ -45,6 +45,11 @@ export default async function DashboardPage() {
   const summary = computeWorkloadSummary(items, now, user.timezone, availableMinutesToday);
   const risk = assessRisk(ranked, summary, now, user.timezone);
 
+  // Counts are of assignments: one broken into steps lists each step, but
+  // it's still one thing due (see computeWorkloadSummary).
+  const assignmentCount = (list: typeof ranked) => new Set(list.map((r) => r.item.assignmentId)).size;
+  const openCount = assignmentCount(ranked);
+
   const grouped = new Map<UrgencyBucket, typeof ranked>();
   for (const r of ranked) {
     const list = grouped.get(r.bucket) ?? [];
@@ -97,7 +102,7 @@ export default async function DashboardPage() {
           <p className="mt-1 text-sm text-ink-soft">
             {ranked.length === 0
               ? "Nothing on your plate right now — you're fully caught up."
-              : `${ranked.length} open item${ranked.length === 1 ? "" : "s"} across your classes.`}
+              : `${openCount} open item${openCount === 1 ? "" : "s"} across your classes.`}
           </p>
         </div>
         {/* Phones have Record in the bottom tab bar. */}
@@ -142,7 +147,7 @@ export default async function DashboardPage() {
             SECTION_ORDER.filter((b) => grouped.has(b)).map((bucket) => (
               <section key={bucket}>
                 <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-faint">
-                  {SECTION_TITLES[bucket]} <span className="font-normal">({grouped.get(bucket)!.length})</span>
+                  {SECTION_TITLES[bucket]} <span className="font-normal">({assignmentCount(grouped.get(bucket)!)})</span>
                 </h2>
                 <ul className="flex flex-col gap-2">
                   <ShowMore initial={5}>

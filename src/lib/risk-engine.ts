@@ -45,7 +45,19 @@ const DUE_SOON_WINDOW_HOURS = 48;
 const EXAM_SOON_WINDOW_HOURS = 72;
 
 export function assessRisk(ranked: PriorityResult[], summary: WorkloadSummary, now: Date, tz: string): RiskAssessment {
-  const dueSoon = ranked.filter((r) => r.item.dueAt && hoursUntil(r.item.dueAt, now) <= DUE_SOON_WINDOW_HOURS);
+  // Due soon means still ahead: an overdue item has negative hours left,
+  // which used to pass the <= 48 check and get counted twice (as overdue
+  // and as "due within 48 hours").
+  // One entry per assignment: its steps share its due date and shouldn't
+  // each count as another thing due (see computeWorkloadSummary).
+  const dueSoonAll = ranked.filter((r) => {
+    if (!r.item.dueAt) return false;
+    const hoursLeft = hoursUntil(r.item.dueAt, now);
+    return hoursLeft >= 0 && hoursLeft <= DUE_SOON_WINDOW_HOURS;
+  });
+  const dueSoon = dueSoonAll.filter(
+    (r, i) => dueSoonAll.findIndex((other) => other.item.assignmentId === r.item.assignmentId) === i
+  );
   const examsSoon = ranked.filter(
     (r) => r.item.isExamLinked && r.item.dueAt && hoursUntil(r.item.dueAt, now) <= EXAM_SOON_WINDOW_HOURS && hoursUntil(r.item.dueAt, now) >= 0
   );
@@ -93,6 +105,13 @@ export function assessRisk(ranked: PriorityResult[], summary: WorkloadSummary, n
   let headline: string;
   if (level === "at-risk" && behindMinutes >= RED_BEHIND_MINUTES) {
     headline = `You're currently about ${formatMinutes(behindMinutes)} behind your planned workload.`;
+  } else if (level === "at-risk" && summary.overdueCount > 0) {
+    // Lead with what actually tipped it to red, so the number matches the list below.
+    const overdue = `${summary.overdueCount} item${summary.overdueCount === 1 ? " is" : "s are"} overdue`;
+    headline =
+      dueSoon.length > 0
+        ? `You're falling behind — ${overdue} and ${dueSoon.length} more ${dueSoon.length === 1 ? "is" : "are"} due within 48 hours.`
+        : `You're falling behind — ${overdue}.`;
   } else if (level === "at-risk") {
     headline = `You're at risk of falling behind — ${dueSoon.length} things are due within 48 hours.`;
   } else if (level === "getting-behind") {

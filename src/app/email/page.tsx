@@ -1,10 +1,16 @@
 import { requireUser } from "@/lib/auth";
+import { formatPastMoment } from "@/lib/time";
 import { prisma } from "@/lib/prisma";
 import { AppShell } from "@/components/AppShell";
 import { SyncButton } from "@/components/email/SyncButton";
 import { PendingChangesQueue } from "@/components/email/PendingChangesQueue";
 import { InboxFeed } from "@/components/email/InboxFeed";
 import { disconnectEmailAction } from "@/app/email/actions";
+
+// syncEmailAction (run from SyncButton) reads and classifies up to 60
+// messages per run, a few seconds each, which can outlast Vercel's default
+// function duration. Same limit as the Canvas and class pages.
+export const maxDuration = 300;
 
 export default async function EmailPage({
   searchParams,
@@ -75,7 +81,9 @@ export default async function EmailPage({
         <div className="flex items-center gap-3">
           <SyncButton
             lastSyncedLabel={
-              account.lastSyncedAt ? `Last synced ${new Date(account.lastSyncedAt).toLocaleString()}` : "Never synced yet"
+              account.lastSyncedAt
+                ? `Last synced ${formatPastMoment(account.lastSyncedAt, new Date(), user.timezone)}`
+                : "Never synced yet"
             }
           />
           <form action={disconnectEmailAction}>

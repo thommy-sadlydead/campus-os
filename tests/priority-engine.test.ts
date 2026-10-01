@@ -175,6 +175,10 @@ describe("heuristicEstimateMinutes", () => {
   it("recognizes common assignment types", () => {
     expect(heuristicEstimateMinutes({ name: "Reading Quiz 3", pointsPossible: 10 })).toBe(25);
     expect(heuristicEstimateMinutes({ name: "Final Exam", pointsPossible: 150 })).toBe(150);
+    expect(heuristicEstimateMinutes({ name: "Midterm 2", pointsPossible: 100 })).toBe(100);
+    // "Final" alone isn't an exam: a final draft is a paper, a final project a project.
+    expect(heuristicEstimateMinutes({ name: "Final Draft: Short Story", pointsPossible: 100 })).toBe(90);
+    expect(heuristicEstimateMinutes({ name: "Final Project", pointsPossible: 200 })).toBe(120);
     expect(heuristicEstimateMinutes({ name: "Week 1 Attendance", pointsPossible: 1 })).toBe(2);
   });
 

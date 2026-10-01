@@ -255,8 +255,10 @@ Setup (Google Cloud, one-time, a few minutes):
 
 Only the read-only `gmail.readonly` scope is ever requested — this app can
 never send, delete, or modify anything in your inbox, and your password
-never touches it. Each sync scans your recent inbox (last ~60 days),
-classifies each message, and stores only what's academically relevant.
+never touches it. Each sync reads the messages from the last 60 days of
+your inbox that it hasn't seen yet (a busy inbox takes a few rounds, which
+the Sync button runs on its own), classifies each one, and keeps the text
+only of what's academically relevant.
 
 How a fact from an email actually reaches your schedule — this is the part
 of the spec worth being precise about ("don't blindly overwrite existing
@@ -532,7 +534,7 @@ Not built — one deliberately flagged gap, unrelated to the phase plan:
 
 ## Verification
 
-- `npm test` — 176 unit tests as of the 2026-09 security pass (165 as of the Canvas materials sync)
+- `npm test` — 221 unit tests in 17 files as of the 2026-09-30 data fixes (176 as of the 2026-09 security pass, 165 as of the Canvas materials sync)
   update (12 test files; the newest cover Canvas resource
   classification/dedup/incremental-diff logic, retry/pagination against a
   stubbed Canvas API, and the PDF OCR fallback — see CLAUDE.md for where

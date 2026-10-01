@@ -6,6 +6,7 @@ import { toggleWorkItemAction } from "@/app/dashboard/actions";
 import { breakdownAssignmentAction, deleteTaskAction } from "@/app/assignments/actions";
 import { formatDueLabel, formatMinutes } from "@/lib/time";
 import { stripHtml } from "@/lib/text";
+import { ASSIGNMENT_STATUS_LABEL, type AssignmentStatus } from "@/lib/assignment-status";
 import { assignmentGridColumns } from "./assignment-grid";
 
 export interface AssignmentRowTask {
@@ -15,7 +16,7 @@ export interface AssignmentRowTask {
   completed: boolean;
 }
 
-export type AssignmentRowStatus = "NOT_STARTED" | "IN_PROGRESS" | "SUBMITTED" | "GRADED";
+export type AssignmentRowStatus = AssignmentStatus;
 
 export interface AssignmentRowData {
   id: string;
@@ -29,13 +30,6 @@ export interface AssignmentRowData {
   /** "See in Canvas" link, or null when this assignment has no known Canvas id. */
   canvasUrl: string | null;
 }
-
-export const ASSIGNMENT_STATUS_LABEL: Record<AssignmentRowStatus, string> = {
-  NOT_STARTED: "Not started",
-  IN_PROGRESS: "In progress",
-  SUBMITTED: "Submitted",
-  GRADED: "Graded",
-};
 
 export const ASSIGNMENT_STATUS_TONE: Record<AssignmentRowStatus, string> = {
   NOT_STARTED: "bg-surface-2 text-ink-soft",

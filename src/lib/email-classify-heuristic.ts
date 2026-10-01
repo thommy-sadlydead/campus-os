@@ -31,6 +31,9 @@ export interface HeuristicEmailInput {
   subject: string;
   snippet: string;
   bodyText: string;
+  fromName?: string | null;
+  /** Sent to a mailing list (see GmailMessageSummary.isBulk). */
+  isBulk?: boolean;
 }
 
 export interface HeuristicClassificationResult {
@@ -65,8 +68,13 @@ function codeVariants(code: string): string[] {
   return variants;
 }
 
-/** Best-effort: scores each of the student's classes against free text and returns the clear winner, or null. */
-export function matchClassId(text: string, classes: ClassLite[]): string | null {
+/**
+ * Best-effort: scores each of the student's classes against free text and
+ * returns the clear winner, or null. A course code scores 3-5 and the
+ * professor's name 4, but a class-name word only 1, so a `minScore` of
+ * STRONG_CLASS_MATCH ignores a word like "workshop" mentioned in passing.
+ */
+export function matchClassId(text: string, classes: ClassLite[], minScore = 1): string | null {
   const haystack = normalize(text);
   const haystackCompact = text.toLowerCase().replace(/[^a-z0-9]/g, "");
 
@@ -87,8 +95,27 @@ export function matchClassId(text: string, classes: ClassLite[]): string | null 
     }
     if (score > 0 && (!best || score > best.score)) best = { id: cls.id, score };
   }
-  return best ? best.id : null;
+  return best && best.score >= minScore ? best.id : null;
 }
+
+export const STRONG_CLASS_MATCH = 3;
+
+// Newsletters, digests and automated summaries mention exams, assignments
+// and deadlines in passing without being about one, so the keyword rules
+// below filed a campus newsletter as an Assignment and Canvas's weekly
+// report as an Exam. The evidence: the subject or sender says so, or it
+// went to a mailing list and doesn't name one of the student's classes (a
+// class's own list would give its course code or professor).
+const NEWSLETTER_SUBJECT = /\b(newsletters?|digest|recent canvas notifications)\b/i;
+const NEWSLETTER_SENDER = /\b(newsletters?|digest|daily|weekly|monthly|bulletin)\b/i;
+
+export function looksLikeNewsletter(email: HeuristicEmailInput, strongClassId: string | null): boolean {
+  if (NEWSLETTER_SUBJECT.test(email.subject) || NEWSLETTER_SENDER.test(email.fromName ?? "")) return true;
+  return !!email.isBulk && !strongClassId;
+}
+
+/** Categories that say an email is about one exam, assignment or class change. A newsletter never is. */
+export const SPECIFIC_CATEGORIES: ReadonlySet<EmailCategory> = new Set(["EXAM", "ASSIGNMENT", "SCHEDULE_CHANGE", "SYLLABUS"]);
 
 const CATEGORY_KEYWORDS: Array<[EmailCategory, RegExp]> = [
   ["EXAM", /\b(exam|midterm|final exam)\b/i],
@@ -102,6 +129,22 @@ const ACADEMIC_HINTS = /\b(class|course|professor|prof\.?|lecture|section|grade|
 
 export function classifyHeuristic(email: HeuristicEmailInput, classes: ClassLite[]): HeuristicClassificationResult {
   const text = `${email.subject} ${email.snippet} ${email.bodyText}`;
+  const summary = email.snippet || email.subject;
+
+  if (looksLikeNewsletter(email, matchClassId(text, classes, STRONG_CLASS_MATCH))) {
+    // Judged by its subject, not a body that mentions a bit of everything:
+    // an announcement if it's academic, otherwise not school mail at all.
+    const classId = matchClassId(email.subject, classes, STRONG_CLASS_MATCH);
+    const academic = !!classId || ACADEMIC_HINTS.test(email.subject);
+    return {
+      relevant: academic,
+      classId,
+      category: academic ? "ANNOUNCEMENT" : "IRRELEVANT",
+      summary,
+      confidence: academic ? 0.4 : 0.6,
+    };
+  }
+
   const classId = matchClassId(text, classes);
 
   let category: EmailCategory = "IRRELEVANT";
@@ -120,7 +163,7 @@ export function classifyHeuristic(email: HeuristicEmailInput, classes: ClassLite
     relevant,
     classId,
     category,
-    summary: email.snippet || email.subject,
+    summary,
     confidence: relevant ? 0.4 : 0.6,
   };
 }

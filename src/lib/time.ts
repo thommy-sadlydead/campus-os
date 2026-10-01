@@ -49,6 +49,20 @@ export function formatTzTime(d: Date, tz: string): string {
   return formatInTimeZone(d, tz, "h:mm a");
 }
 
+/**
+ * A moment that already happened, like a last sync, in the student's
+ * timezone: "today at 9:41 PM", "yesterday at 9:41 PM", "Sep 28 at 9:41 PM"
+ * (with the year when it isn't this year). Never the server's clock.
+ */
+export function formatPastMoment(d: Date, now: Date, tz: string): string {
+  const time = formatTzTime(d, tz);
+  if (isSameTzDay(d, now, tz)) return `today at ${time}`;
+  const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  if (isSameTzDay(d, yesterday, tz)) return `yesterday at ${time}`;
+  const sameYear = formatInTimeZone(d, tz, "yyyy") === formatInTimeZone(now, tz, "yyyy");
+  return `${formatInTimeZone(d, tz, sameYear ? "MMM d" : "MMM d, yyyy")} at ${time}`;
+}
+
 export function formatMinutes(min: number): string {
   if (min < 60) return `${Math.round(min)} min`;
   const h = Math.floor(min / 60);

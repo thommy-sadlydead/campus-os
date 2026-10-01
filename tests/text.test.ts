@@ -1,5 +1,27 @@
 import { describe, it, expect } from "vitest";
-import { htmlToReadableText, extractHtmlTitle } from "../src/lib/text";
+import { htmlToReadableText, extractHtmlTitle, decodeHtmlEntities, stripHtml } from "../src/lib/text";
+
+describe("decodeHtmlEntities", () => {
+  it("decodes the escapes Gmail puts in snippets", () => {
+    expect(decodeHtmlEntities("It&#39;s due Friday &amp; don&#x27;t forget &quot;Chapter 3&quot;")).toBe(
+      "It's due Friday & don't forget \"Chapter 3\""
+    );
+  });
+
+  it("decodes numeric entities for curly quotes and dashes", () => {
+    expect(decodeHtmlEntities("Professor&#8217;s notes &#8212; week 2")).toBe("Professor\u2019s notes \u2014 week 2");
+  });
+
+  it("leaves unknown or invalid entities alone", () => {
+    expect(decodeHtmlEntities("&bogus; &#0; &#x110000; AT&T")).toBe("&bogus; &#0; &#x110000; AT&T");
+  });
+});
+
+describe("stripHtml entities", () => {
+  it("decodes numeric entities in Canvas descriptions too", () => {
+    expect(stripHtml("<p>Read the author&#8217;s intro</p>")).toBe("Read the author\u2019s intro");
+  });
+});
 
 describe("htmlToReadableText", () => {
   it("strips tags and keeps the readable text", () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { matchClassId, classifyHeuristic, type ClassLite } from "../src/lib/email-classify-heuristic";
+import { matchClassId, classifyHeuristic, looksLikeNewsletter, STRONG_CLASS_MATCH, type ClassLite } from "../src/lib/email-classify-heuristic";
 
 const CLASSES: ClassLite[] = [
   { id: "econ", code: "ECON-2330-03", name: "Microeconomics", professor: "Jane Smith" },
@@ -81,5 +81,56 @@ describe("classifyHeuristic", () => {
     expect(result.classId).toBe("econ");
     expect(result.category).toBe("OTHER_ACADEMIC");
     expect(result.relevant).toBe(true);
+  });
+});
+
+describe("newsletters and digests", () => {
+  it("doesn't file a campus newsletter as an assignment because it mentions one", () => {
+    const result = classifyHeuristic(
+      {
+        subject: "Western Wednesday, Theatre Ushers, and Annual Bonfire",
+        fromName: "The Daily Buzz",
+        snippet: "Chapel at 10, theatre ushers needed. Professor talks. Submit your project to the art show.",
+        bodyText: "",
+        isBulk: true,
+      },
+      CLASSES
+    );
+    expect(result.category).toBe("IRRELEVANT");
+    expect(result.classId).toBeNull();
+  });
+
+  it("files Canvas's weekly report as an announcement, not an exam", () => {
+    const result = classifyHeuristic(
+      {
+        subject: "Recent Canvas Notifications",
+        fromName: "Instructure Canvas",
+        snippet: "You're signed up to receive a weekly report. Exam 2 graded. Microeconomics assignment due.",
+        bodyText: "",
+      },
+      CLASSES
+    );
+    expect(result.category).toBe("ANNOUNCEMENT");
+    expect(result.classId).toBeNull();
+  });
+
+  it("keeps a class's own mailing list email about an exam as an exam", () => {
+    const result = classifyHeuristic(
+      { subject: "ECON 2330: exam moved to Friday", fromName: "Prof. Smith", snippet: "", bodyText: "", isBulk: true },
+      CLASSES
+    );
+    expect(result.category).toBe("EXAM");
+    expect(result.classId).toBe("econ");
+  });
+
+  it("treats bulk mail that names none of the student's classes as a newsletter", () => {
+    expect(looksLikeNewsletter({ subject: "Finals week tips", snippet: "", bodyText: "", isBulk: true }, null)).toBe(true);
+    expect(looksLikeNewsletter({ subject: "Finals week tips", snippet: "", bodyText: "", isBulk: false }, null)).toBe(false);
+  });
+
+  it("needs more than one class-name word for a strong class match", () => {
+    expect(matchClassId("Your Microeconomics homework is graded", CLASSES)).toBe("econ");
+    expect(matchClassId("Your Microeconomics homework is graded", CLASSES, STRONG_CLASS_MATCH)).toBeNull();
+    expect(matchClassId("ECON 2330 homework", CLASSES, STRONG_CLASS_MATCH)).toBe("econ");
   });
 });
