@@ -34,10 +34,10 @@ export default async function EmailPage({
         <div className="rounded-xl2 border border-border-soft bg-surface p-6 shadow-card">
           <h3 className="font-display text-base font-semibold">How this works</h3>
           <ul className="mt-3 flex flex-col gap-2 text-sm text-ink-soft">
-            <li>• Sign-in uses Google's own OAuth screen — your password never touches this app.</li>
-            <li>• Only the read-only <code className="font-mono">gmail.readonly</code> scope is requested — nothing can be sent, deleted, or modified in your inbox.</li>
-            <li>• Only recent inbox mail is scanned, and only academically-relevant messages are kept and shown here.</li>
-            <li>• Anything an email suggests changing about your schedule always asks first if it conflicts with what's already on file — never a silent overwrite.</li>
+            <li>• You sign in on Google&apos;s own screen, so Campus OS never sees your password.</li>
+            <li>• Campus OS can only read email. It can&apos;t send, delete or change anything in your inbox.</li>
+            <li>• It looks at your recent inbox and keeps only school-related messages.</li>
+            <li>• If an email changes a due date or room, Campus OS asks you before updating anything.</li>
           </ul>
           <a
             href="/api/email/oauth/start"
@@ -45,10 +45,6 @@ export default async function EmailPage({
           >
             Connect Gmail
           </a>
-          <p className="mt-3 text-xs text-ink-faint">
-            Requires a Google Cloud OAuth client — see <code className="font-mono">GOOGLE_CLIENT_ID</code> /{" "}
-            <code className="font-mono">GOOGLE_CLIENT_SECRET</code> in <code className="font-mono">.env.example</code>.
-          </p>
         </div>
       </AppShell>
     );

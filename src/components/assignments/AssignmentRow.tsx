@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { toggleWorkItemAction } from "@/app/dashboard/actions";
-import { breakdownAssignmentAction } from "@/app/assignments/actions";
+import { breakdownAssignmentAction, deleteTaskAction } from "@/app/assignments/actions";
 import { formatDueLabel, formatMinutes } from "@/lib/time";
 import { stripHtml } from "@/lib/text";
+import { assignmentGridColumns } from "./assignment-grid";
 
 export interface AssignmentRowTask {
   id: string;
@@ -43,68 +45,81 @@ export const ASSIGNMENT_STATUS_TONE: Record<AssignmentRowStatus, string> = {
 };
 
 /**
- * One assignment table row, interactive. Shared by the global Assignments
- * page and the per-class Assignments panel — pass `classLabel` to render an
- * extra "Class" column (global page only) and `columnCount` so the
- * expanded subtask row's colSpan matches whichever table it's in.
+ * One assignment: a card on phones, a table-style row on wide screens.
+ * Shared by the Assignments page and each class's Assignments tab (pass
+ * `classLabel` on the former to show which class it's for).
  *
- * Things that live here beyond a static table row:
- *  - Clicking the assignment name expands a details panel: the real
- *    Canvas description (stripped to plain text — see stripHtml) with a
- *    "No description on Canvas" fallback when there isn't one, a "See in
- *    Canvas ↗" link when we know the Canvas assignment id, and — if any
- *    subtasks exist — the checklist below.
- *  - "Break down with AI" — calls breakdownAssignmentAction (Phase 3),
- *    which either creates real Task rows (revalidated from the server, so
- *    this row picks them up automatically) or reports back that the
- *    assignment was too small to bother splitting.
- *  - The subtask checklist reuses the same toggleWorkItemAction the
- *    dashboard's priority list already uses, so checking a step off here
- *    and checking it off from the dashboard are the same action.
+ * Opening it shows the real Canvas directions, a "See in Canvas" link,
+ * Mark as done, and its steps. "Break down with AI" creates steps
+ * (breakdownAssignmentAction); checking one off is the same
+ * toggleWorkItemAction the dashboard uses, and steps can be deleted.
  */
 export function AssignmentRow({
   assignment,
   tz,
   classLabel,
-  columnCount,
 }: {
   assignment: AssignmentRowData;
   tz: string;
   classLabel?: string;
-  columnCount: number;
 }) {
+  const router = useRouter();
   const now = new Date();
-  const [tasks, setTasks] = useState(assignment.tasks);
   const [expanded, setExpanded] = useState(false);
   const [breakdownMessage, setBreakdownMessage] = useState<string | null>(null);
+  // Optimistic overrides on top of the server's copy, which stays the
+  // source of truth: new steps from a breakdown arrive through props.
+  const [checked, setChecked] = useState<Record<string, boolean>>({});
+  const [removed, setRemoved] = useState<Set<string>>(new Set());
   const [pending, startTransition] = useTransition();
 
+  const tasks = assignment.tasks
+    .filter((t) => !removed.has(t.id))
+    .map((t) => ({ ...t, completed: checked[t.id] ?? t.completed }));
   const remaining = tasks.filter((t) => !t.completed).length;
+  const done = assignment.status === "SUBMITTED" || assignment.status === "GRADED";
 
   function runBreakdown() {
     startTransition(async () => {
       const result = await breakdownAssignmentAction(assignment.id);
       setBreakdownMessage(result.message);
       if (result.stepCount > 0) setExpanded(true);
+      router.refresh();
     });
   }
 
-  function toggleTask(taskId: string) {
-    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, completed: !t.completed } : t)));
+  function toggleTask(taskId: string, completed: boolean) {
+    setChecked((prev) => ({ ...prev, [taskId]: !completed }));
     startTransition(() => toggleWorkItemAction("task", taskId));
   }
 
+  function removeTask(taskId: string, title: string) {
+    if (!confirm(`Delete the step "${title}"?`)) return;
+    setRemoved((prev) => new Set(prev).add(taskId));
+    startTransition(async () => {
+      await deleteTaskAction(taskId);
+      router.refresh();
+    });
+  }
+
+  function toggleDone() {
+    startTransition(async () => {
+      await toggleWorkItemAction("assignment", assignment.id);
+      router.refresh();
+    });
+  }
+
   const description = assignment.description ? stripHtml(assignment.description) : "";
+  const dueLabel = formatDueLabel(assignment.dueAt ? new Date(assignment.dueAt) : null, now, tz);
 
   return (
-    <>
-      <tr className="border-b border-border-soft last:border-0">
-        <td className="px-4 py-3">
-          <button
-            onClick={() => setExpanded((v) => !v)}
-            className="text-left font-medium hover:underline"
-          >
-            <span aria-hidden className="mr-1 text-ink-faint">{expanded ? "▾" : "▸"}</span>
+    <li className="border-b border-border-soft last:border-0">
+      <div className={`grid gap-y-1.5 px-4 py-3 lg:items-center lg:gap-x-4 ${assignmentGridColumns(classLabel != null)}`}>
+        <div className="min-w-0">
+          <button onClick={() => setExpanded((v) => !v)} className="text-left font-medium hover:underline" aria-expanded={expanded}>
+            <span aria-hidden className="mr-1 text-ink-faint">
+              {expanded ? "▾" : "▸"}
+            </span>
             {assignment.name}
           </button>
           {tasks.length > 0 ? (
@@ -114,72 +129,93 @@ export function AssignmentRow({
           ) : breakdownMessage ? (
             <div className="mt-0.5 text-xs text-ink-faint">{breakdownMessage}</div>
           ) : (
-            <button
-              onClick={runBreakdown}
-              disabled={pending}
-              className="mt-0.5 text-xs font-medium text-accent hover:underline disabled:opacity-60"
-            >
-              {pending ? "Breaking down…" : "Break down with AI"}
-            </button>
+            !done && (
+              <button
+                onClick={runBreakdown}
+                disabled={pending}
+                className="mt-0.5 block text-xs font-medium text-accent hover:underline disabled:opacity-60"
+              >
+                {pending ? "Breaking down…" : "Break down with AI"}
+              </button>
+            )
           )}
-        </td>
-        {classLabel != null && <td className="px-4 py-3 text-ink-soft">{classLabel}</td>}
-        <td className="px-4 py-3 text-ink-soft">
-          {formatDueLabel(assignment.dueAt ? new Date(assignment.dueAt) : null, now, tz)}
-        </td>
-        <td className="px-4 py-3 font-mono text-ink-soft">
-          {assignment.estimatedMinutes != null ? formatMinutes(assignment.estimatedMinutes) : "—"}
-        </td>
-        <td className="px-4 py-3">
-          <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${ASSIGNMENT_STATUS_TONE[assignment.status]}`}>
-            {ASSIGNMENT_STATUS_LABEL[assignment.status]}
+        </div>
+        {/* A wrapped line of details on phones; separate columns on wide screens. */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-soft lg:contents lg:text-sm">
+          {classLabel != null && <span className="truncate">{classLabel}</span>}
+          <span>{dueLabel}</span>
+          {/* Without an estimate there's nothing to say on a phone, but the
+              wide-screen grid still needs the cell to keep its columns. */}
+          <span className={`font-mono ${assignment.estimatedMinutes == null ? "hidden lg:block" : ""}`}>
+            {assignment.estimatedMinutes != null ? formatMinutes(assignment.estimatedMinutes) : "—"}
           </span>
-        </td>
-      </tr>
+          <span>
+            <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${ASSIGNMENT_STATUS_TONE[assignment.status]}`}>
+              {ASSIGNMENT_STATUS_LABEL[assignment.status]}
+            </span>
+          </span>
+        </div>
+      </div>
+
       {expanded && (
-        <tr className="border-b border-border-soft bg-surface-2/40 last:border-0">
-          <td colSpan={columnCount} className="px-4 py-4">
-            <div className="mb-3">
-              <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-faint">Directions</div>
-              <p className="whitespace-pre-wrap text-sm text-ink-soft">
-                {description || "No description on file for this assignment — Canvas didn't provide one, or it hasn't synced yet."}
-              </p>
+        <div className="border-t border-border-soft bg-surface-2 px-4 py-4">
+          <div className="mb-3">
+            <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-faint">Directions</div>
+            <p className="whitespace-pre-wrap text-sm text-ink-soft">
+              {description || "No directions for this assignment in Canvas."}
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
               {assignment.canvasUrl && (
                 <a
                   href={assignment.canvasUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-2 inline-block text-sm font-medium text-accent hover:underline"
+                  className="text-sm font-medium text-accent hover:underline"
                 >
                   See in Canvas ↗
                 </a>
               )}
+              <button
+                onClick={toggleDone}
+                disabled={pending}
+                className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium hover:bg-bg disabled:opacity-60"
+              >
+                {done ? "Mark as not done" : "Mark as done"}
+              </button>
             </div>
-            {tasks.length > 0 && (
-              <ul className="space-y-1.5">
-                {tasks.map((t) => (
-                  <li key={t.id} className="flex items-center gap-2.5 text-sm">
-                    <button
-                      aria-label={t.completed ? "Mark step incomplete" : "Mark step complete"}
-                      disabled={pending}
-                      onClick={() => toggleTask(t.id)}
-                      className={`flex h-4 w-4 flex-none items-center justify-center rounded border-2 text-[10px] leading-none transition-colors ${
-                        t.completed ? "border-ok bg-ok text-surface" : "border-border text-transparent hover:border-ok"
-                      }`}
-                    >
-                      ✓
-                    </button>
-                    <span className={t.completed ? "flex-1 text-ink-faint line-through" : "flex-1"}>{t.title}</span>
-                    {t.estimatedMinutes != null && (
-                      <span className="font-mono text-xs text-ink-faint">{formatMinutes(t.estimatedMinutes)}</span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </td>
-        </tr>
+          </div>
+          {tasks.length > 0 && (
+            <ul className="space-y-1.5">
+              {tasks.map((t) => (
+                <li key={t.id} className="flex items-center gap-2.5 text-sm">
+                  <button
+                    aria-label={t.completed ? "Mark step incomplete" : "Mark step complete"}
+                    disabled={pending}
+                    onClick={() => toggleTask(t.id, t.completed)}
+                    className={`flex h-5 w-5 flex-none items-center justify-center rounded border-2 text-[11px] leading-none transition-colors ${
+                      t.completed ? "border-ok bg-ok text-surface" : "border-border text-transparent hover:border-ok"
+                    }`}
+                  >
+                    ✓
+                  </button>
+                  <span className={t.completed ? "flex-1 text-ink-faint line-through" : "flex-1"}>{t.title}</span>
+                  {t.estimatedMinutes != null && (
+                    <span className="font-mono text-xs text-ink-faint">{formatMinutes(t.estimatedMinutes)}</span>
+                  )}
+                  <button
+                    onClick={() => removeTask(t.id, t.title)}
+                    disabled={pending}
+                    aria-label={`Delete step: ${t.title}`}
+                    className="flex-none rounded px-1.5 text-ink-faint hover:bg-danger-soft hover:text-danger disabled:opacity-60"
+                  >
+                    ×
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       )}
-    </>
+    </li>
   );
 }

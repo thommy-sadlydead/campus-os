@@ -7,7 +7,7 @@ import { requireUser } from "@/lib/auth";
 import { loadWorkItemsForUser, getAvailableMinutesToday } from "@/lib/workload";
 import { findBestFitForMinutes, whatShouldIDoRightNow, rankWorkItems, computeWorkloadSummary } from "@/lib/priority-engine";
 import { assessRisk } from "@/lib/risk-engine";
-import { askClaude } from "@/lib/anthropic";
+import { askClaude, getAnthropicClient } from "@/lib/anthropic";
 import { AI_LIMIT_MESSAGE, allowAiRequest } from "@/lib/rate-limit";
 import { startOfTzDay } from "@/lib/time";
 import { buildCrossAppPrompt } from "@/lib/cross-app-context";
@@ -199,7 +199,9 @@ export async function askCrossAppAction(question: string): Promise<AskResult> {
 
   if (aiAnswer) return { answer: aiAnswer, usedAi: true };
   return {
-    answer: `AI features need an ANTHROPIC_API_KEY to answer that directly — here's what's actually on your plate: ${deterministicSummary}`,
+    answer: getAnthropicClient()
+      ? `The assistant didn't answer just now. Try again in a moment. Here's what's on your plate meanwhile: ${deterministicSummary}`
+      : `The AI assistant isn't set up on this site. Here's what's on your plate: ${deterministicSummary}`,
     usedAi: false,
   };
 }
@@ -248,9 +250,8 @@ export async function explainRiskAction(): Promise<ExplainRiskResult> {
     maxTokens: 200,
   });
 
+  // The plain version says the same thing; no need to call out that the
+  // rewording step didn't happen.
   if (aiNarrative) return { narrative: aiNarrative, usedAi: true };
-  return {
-    narrative: `${fallback} (AI narrative needs an ANTHROPIC_API_KEY — showing the deterministic version.)`,
-    usedAi: false,
-  };
+  return { narrative: fallback, usedAi: false };
 }

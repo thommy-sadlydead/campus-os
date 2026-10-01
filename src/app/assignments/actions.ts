@@ -100,3 +100,21 @@ Rules:
     usedAi,
   };
 }
+
+/**
+ * Removes one step from an assignment's breakdown. Steps were previously
+ * permanent: a wrong or unhelpful AI step could only be checked off, never
+ * cleared.
+ */
+export async function deleteTaskAction(taskId: string): Promise<void> {
+  const user = await requireUser();
+  const task = await prisma.task.findUnique({
+    where: { id: taskId },
+    include: { assignment: { include: { class: true } } },
+  });
+  if (!task || task.assignment.class.userId !== user.id) throw new Error("Not found.");
+  await prisma.task.delete({ where: { id: taskId } });
+  revalidatePath("/assignments");
+  revalidatePath(`/classes/${task.assignment.classId}`);
+  revalidatePath("/dashboard");
+}

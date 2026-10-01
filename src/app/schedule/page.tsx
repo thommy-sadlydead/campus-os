@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { formatInTimeZone } from "date-fns-tz";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -161,8 +162,11 @@ export default async function SchedulePage() {
 
       {classes.length === 0 ? (
         <div className="rounded-xl2 border border-dashed border-border p-8 text-center text-sm text-ink-soft">
-          Add a class first. Run <code className="font-mono">npm run db:seed</code> or{" "}
-          <code className="font-mono">npm run canvas:sync</code>.
+          No classes yet.{" "}
+          <Link href="/canvas" className="font-medium text-accent-ink underline">
+            Connect Canvas
+          </Link>{" "}
+          to bring in your courses, then add their meeting times here.
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_300px]">

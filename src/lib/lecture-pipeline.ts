@@ -20,9 +20,11 @@ import { buildLectureNotesPrompt, MAX_MATERIALS_CHARS, type ClassMaterialInput }
 // polling while it's open. Both go through advanceLecture, which claims
 // each step with a conditional update so the notes are only written once.
 
+// Shown on the lecture. The missing keys are ASSEMBLYAI_API_KEY and
+// ANTHROPIC_API_KEY (see .env.example); students don't need those names.
 export const NOT_CONFIGURED = {
-  assemblyai: "Transcription isn't configured yet. Add an ASSEMBLYAI_API_KEY to enable it.",
-  anthropic: "Note generation isn't configured yet. Add an ANTHROPIC_API_KEY to enable it.",
+  assemblyai: "Transcription isn't set up on this site yet.",
+  anthropic: "Note writing isn't set up on this site yet.",
 };
 
 // Note generation times out after 4 minutes and runs inside a function

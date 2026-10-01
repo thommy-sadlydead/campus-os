@@ -60,7 +60,7 @@ export async function POST(request: Request) {
   const anthropic = getAnthropicClient();
   if (!anthropic) {
     return errorResponse(
-      "The writing service isn't configured yet. Add an ANTHROPIC_API_KEY to enable it.",
+      "The writing service isn't set up on this site yet.",
       500
     );
   }

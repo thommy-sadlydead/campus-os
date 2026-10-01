@@ -9,6 +9,7 @@ import { AvailabilityCard } from "@/components/dashboard/AvailabilityCard";
 import { AskPanel } from "@/components/dashboard/AskPanel";
 import { RiskStatusCard } from "@/components/dashboard/RiskStatusCard";
 import Link from "next/link";
+import { ShowMore } from "@/components/ShowMore";
 import { loadWorkItemsForUser, getAvailableMinutesToday } from "@/lib/workload";
 import { rankWorkItems, computeWorkloadSummary, type UrgencyBucket } from "@/lib/priority-engine";
 import { assessRisk } from "@/lib/risk-engine";
@@ -29,7 +30,7 @@ export default async function DashboardPage() {
   const user = await requireUser();
   const now = new Date();
 
-  const [items, availableMinutesToday, availabilityBlocks, pendingChangeCount] = await Promise.all([
+  const [items, availableMinutesToday, availabilityBlocks, pendingChangeCount, classCount] = await Promise.all([
     loadWorkItemsForUser(user.id),
     getAvailableMinutesToday(user.id, now, user.timezone),
     prisma.availabilityBlock.findMany({
@@ -37,6 +38,7 @@ export default async function DashboardPage() {
       orderBy: { startMinute: "asc" },
     }),
     prisma.pendingChange.count({ where: { userId: user.id, status: "PENDING" } }),
+    prisma.class.count({ where: { userId: user.id, archived: false } }),
   ]);
 
   const ranked = rankWorkItems(items, now, user.timezone);
@@ -50,6 +52,43 @@ export default async function DashboardPage() {
     grouped.set(r.bucket, list);
   }
 
+  // A brand-new account has nothing to rank yet; a green "on track" status
+  // would be wrong, so it gets a welcome with the first step instead.
+  if (classCount === 0) {
+    return (
+      <AppShell active="/dashboard" userName={user.name ?? user.email}>
+        <div className="mx-auto max-w-xl rounded-xl2 border border-border-soft bg-surface p-6 shadow-card">
+          <p className="text-xs font-semibold uppercase tracking-wider text-ink-faint">Welcome to Campus OS</p>
+          <h1 className="mt-1 font-display text-2xl font-semibold">Let&apos;s bring in your classes</h1>
+          <p className="mt-2 text-sm text-ink-soft">
+            Your dashboard is built from Canvas: classes, assignments, due dates and course files. Setting it up
+            takes about a minute.
+          </p>
+          <ol className="mt-5 flex list-decimal flex-col gap-3 pl-5 text-sm text-ink-soft">
+            <li>
+              <strong className="text-ink">Connect Canvas.</strong> You&apos;ll paste an access token from your Canvas
+              settings; the Canvas page shows you where to find it.
+            </li>
+            <li>
+              <strong className="text-ink">Add your class times</strong> on the Schedule page, so Record knows which
+              class you&apos;re in.
+            </li>
+            <li>
+              <strong className="text-ink">Optional: connect your school email</strong> to catch due-date and room
+              changes your professors send.
+            </li>
+          </ol>
+          <Link
+            href="/canvas"
+            className="mt-6 inline-block rounded-lg bg-ink px-5 py-2.5 text-sm font-semibold text-surface hover:opacity-90"
+          >
+            Connect Canvas
+          </Link>
+        </div>
+      </AppShell>
+    );
+  }
+
   return (
     <AppShell active="/dashboard" userName={user.name ?? user.email}>
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
@@ -61,9 +100,10 @@ export default async function DashboardPage() {
               : `${ranked.length} open item${ranked.length === 1 ? "" : "s"} across your classes.`}
           </p>
         </div>
+        {/* Phones have Record in the bottom tab bar. */}
         <Link
           href="/record"
-          className="flex flex-none items-center gap-2 rounded-lg bg-danger px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"
+          className="hidden flex-none items-center gap-2 rounded-lg bg-danger px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90 lg:flex"
         >
           <span aria-hidden className="block h-2.5 w-2.5 rounded-full bg-white" />
           Record a lecture
@@ -75,7 +115,7 @@ export default async function DashboardPage() {
       {pendingChangeCount > 0 && (
         <Link
           href="/email"
-          className="mb-6 flex items-center justify-between rounded-xl2 border border-warn bg-warn-soft/40 px-4 py-3 text-sm hover:brightness-95"
+          className="mb-6 flex items-center justify-between rounded-xl2 border border-warn bg-warn-soft px-4 py-3 text-sm hover:brightness-95"
         >
           <span>
             <strong>{pendingChangeCount}</strong> email-derived change{pendingChangeCount === 1 ? "" : "s"} waiting on your decision
@@ -84,44 +124,51 @@ export default async function DashboardPage() {
         </Link>
       )}
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
-        <div className="flex flex-col gap-6">
+      {/* One column on phones, in the order that matters there: the "what
+          now" answer first, then the list, then the rest. Two columns on
+          wide screens, with the list on the left. */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px] lg:grid-rows-[auto_1fr]">
+        <div className="flex flex-col gap-6 lg:col-start-2 lg:row-start-1">
+          <WhatNowPanel />
+          <MinutesMode />
+        </div>
+
+        <div className="flex flex-col gap-6 lg:col-start-1 lg:row-span-2 lg:row-start-1">
           {ranked.length === 0 ? (
             <div className="rounded-xl2 border border-dashed border-border p-8 text-center text-sm text-ink-soft">
-              No open assignments yet. Run <code className="font-mono">npm run canvas:sync</code> to pull
-              in your real coursework, or add one manually from the Assignments tab.
+              Nothing open right now. New assignments show up here after a Canvas sync.
             </div>
           ) : (
             SECTION_ORDER.filter((b) => grouped.has(b)).map((bucket) => (
               <section key={bucket}>
                 <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-faint">
-                  {SECTION_TITLES[bucket]}
+                  {SECTION_TITLES[bucket]} <span className="font-normal">({grouped.get(bucket)!.length})</span>
                 </h2>
                 <ul className="flex flex-col gap-2">
-                  {grouped.get(bucket)!.map((r) => (
-                    <TaskRow
-                      key={r.item.id}
-                      id={r.item.id}
-                      kind={r.item.kind}
-                      title={r.item.title}
-                      className={r.item.className}
-                      color={r.color}
-                      dueLabel={formatDueLabel(r.item.dueAt, now, user.timezone)}
-                      estimatedMinutes={r.item.estimatedMinutes}
-                      reason={r.reason}
-                      description={r.item.description}
-                      canvasUrl={r.item.canvasUrl}
-                    />
-                  ))}
+                  <ShowMore initial={5}>
+                    {grouped.get(bucket)!.map((r) => (
+                      <TaskRow
+                        key={r.item.id}
+                        id={r.item.id}
+                        kind={r.item.kind}
+                        title={r.item.title}
+                        className={r.item.className}
+                        color={r.color}
+                        dueLabel={formatDueLabel(r.item.dueAt, now, user.timezone)}
+                        estimatedMinutes={r.item.estimatedMinutes}
+                        reason={r.reason}
+                        description={r.item.description}
+                        canvasUrl={r.item.canvasUrl}
+                      />
+                    ))}
+                  </ShowMore>
                 </ul>
               </section>
             ))
           )}
         </div>
 
-        <div className="flex flex-col gap-6">
-          <WhatNowPanel />
-          <MinutesMode />
+        <div className="flex flex-col gap-6 lg:col-start-2 lg:row-start-2">
           <WorkloadSummaryCard summary={summary} now={now} tz={user.timezone} />
           <AvailabilityCard blocks={availabilityBlocks} />
           <AskPanel />

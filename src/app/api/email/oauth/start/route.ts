@@ -23,7 +23,9 @@ export async function GET(request: Request) {
   try {
     return NextResponse.redirect(buildGoogleAuthUrl(state));
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Google OAuth isn't configured yet.";
+    // The detail (which GOOGLE_* setting is missing) is for the logs, not the student.
+    console.error("Gmail connect isn't configured:", err);
+    const message = "Connecting Gmail isn't set up on this site yet.";
     return NextResponse.redirect(new URL(`/email?error=${encodeURIComponent(message)}`, request.url));
   }
 }

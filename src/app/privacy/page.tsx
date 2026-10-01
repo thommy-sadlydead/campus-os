@@ -21,7 +21,7 @@ export default function PrivacyPage() {
   const contactEmail = process.env.CONTACT_EMAIL?.trim();
 
   return (
-    <div className="min-h-screen bg-bg px-4 py-10 text-ink">
+    <div className="min-h-screen bg-bg px-4 pb-10 pt-[calc(2.5rem+env(safe-area-inset-top))] text-ink">
       <article className="mx-auto flex max-w-2xl flex-col gap-7 text-sm leading-relaxed text-ink-soft">
         <header>
           <Link href="/" className="text-xs font-semibold uppercase tracking-wider text-ink-faint hover:text-ink">

@@ -36,6 +36,11 @@ export const metadata: Metadata = {
 // Tints the mobile browser chrome (and iOS status bar area) to match the
 // app's own light/dark surface color instead of the browser's default.
 export const viewport: Viewport = {
+  // Lets the page use the whole iPhone screen in the installed app (the
+  // status bar is translucent, above). The header and the bottom tab bar
+  // pad themselves with env(safe-area-inset-*) to stay clear of the notch
+  // and the home indicator.
+  viewportFit: "cover",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#ffffff" },
     { media: "(prefers-color-scheme: dark)", color: "#1c1f29" },

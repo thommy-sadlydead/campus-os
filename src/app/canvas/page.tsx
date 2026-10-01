@@ -22,8 +22,8 @@ export default async function CanvasPage() {
       <AppShell active="/canvas" userName={user.name ?? user.email}>
         <h1 className="mb-1 font-display text-2xl font-semibold">Canvas</h1>
         <p className="mb-6 text-sm text-ink-soft">
-          Connect Canvas to pull in your real courses and assignments — no more relying on the seeded
-          demo data.
+          Connect Canvas to bring in your courses, assignments, due dates and course files. Campus OS only
+          reads from Canvas; it can&apos;t submit, change or delete anything there.
         </p>
 
         <div className="grid gap-6 sm:grid-cols-2">
@@ -44,9 +44,8 @@ export default async function CanvasPage() {
               <li>Copy it now — Canvas only shows it once.</li>
             </ol>
             <p className="mt-4 text-xs leading-relaxed text-ink-faint">
-              The token is encrypted before it's stored, the same way Gmail's connection is (see
-              Security notes in the README), and is only ever used to read your courses and
-              assignments — this app can't submit, edit, or delete anything in Canvas on your behalf.
+              Your token is encrypted before it&apos;s stored and is only used to read your courses. You can
+              disconnect any time, and delete the token in Canvas under Approved Integrations.
             </p>
           </div>
         </div>

@@ -4,7 +4,7 @@ import { useState, useTransition, type FormEvent } from "react";
 import { findTaskForMinutesAction, type MinutesModeResult } from "@/app/dashboard/actions";
 
 export function MinutesMode() {
-  const [minutes, setMinutes] = useState("");
+  const [minutes, setMinutes] = useState("30");
   const [result, setResult] = useState<MinutesModeResult | null>(null);
   const [pending, startTransition] = useTransition();
 

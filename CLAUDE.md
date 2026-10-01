@@ -78,6 +78,16 @@ session cookies, no third-party auth.
   class page's tab) into the URL.** Next.js treats it as a navigation, and a
   navigation discards any refresh still in flight, so the page shows stale
   data. `?tab=` on the class page is read once, for links into a tab.
+- **A server component can't call a function or read a value exported
+  from a `"use client"` file** (it gets a client reference, and calling it
+  throws at render). Shared helpers used on both sides go in a plain module:
+  see `src/components/classes/class-tabs.ts` and
+  `src/components/assignments/assignment-grid.ts`.
+- **Phones get a bottom tab bar** (`src/components/MobileNav.tsx`, below
+  `lg`); the top menu in `AppShell` is for wide screens. The viewport uses
+  `viewport-fit=cover`, so anything fixed to the top or bottom pads itself
+  with `env(safe-area-inset-*)`, and floating UI near the bottom (toasts)
+  sits above the tab bar on phones.
 - **Requests to the app are capped at 4.5 MB on Vercel**, whatever
   `serverActions.bodySizeLimit` says. Anything bigger (lecture audio, large
   book/slide files) goes browser → Blob with a client token, then a Server
@@ -153,7 +163,7 @@ session cookies, no third-party auth.
 ## Verifying a change before calling it done
 
 1. `npx tsc --noEmit` (after `npx prisma generate` if the schema changed)
-2. `npx vitest run` — 193 tests as of this writing across 14 files
+2. `npx vitest run` — 197 tests as of this writing across 15 files
 3. Clean build: `rm -rf .next && npx next build` (use `next build` directly
    to skip the `db push` the `npm run build` script triggers, if you're not
    ready to push schema changes yet)

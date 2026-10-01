@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { NotesBoard, type NotesBoardSection } from "@/components/notes/NotesBoard";
 import { OverviewPanel, type OverviewClassInfo, type OverviewScheduleEvent, type OverviewEmail } from "@/components/classes/OverviewPanel";
 import { ClassAssignmentsPanel, type ClassAssignmentRow } from "@/components/classes/ClassAssignmentsPanel";
@@ -38,6 +38,20 @@ export function ClassTabs({
   tz: string;
 }) {
   const [tab, setTab] = useState<ClassTab>(initialTab);
+  const tabRowRef = useRef<HTMLDivElement>(null);
+
+  // On a phone the tab row scrolls sideways; keep the selected tab in view
+  // (say, Lectures when arriving from Record). Scrolls only the row, never
+  // the page.
+  useEffect(() => {
+    const row = tabRowRef.current;
+    const selected = row?.querySelector<HTMLElement>("[data-selected]");
+    if (!row || !selected) return;
+    const left = selected.offsetLeft - row.offsetLeft;
+    if (left < row.scrollLeft || left + selected.offsetWidth > row.scrollLeft + row.clientWidth) {
+      row.scrollTo({ left: Math.max(0, left - 16) });
+    }
+  }, [tab]);
   // Set when one tab sends you to a specific item in another: a lecture's
   // "Edit in Notes", or a lecture note's "From lecture" link.
   const [focusNoteId, setFocusNoteId] = useState<string | null>(null);
@@ -70,10 +84,11 @@ export function ClassTabs({
 
   return (
     <div>
-      <div className="mb-5 flex gap-1 overflow-x-auto border-b border-border-soft">
+      <div ref={tabRowRef} className="mb-5 flex gap-1 overflow-x-auto border-b border-border-soft">
         {CLASS_TABS.map((t) => (
           <button
             key={t}
+            data-selected={tab === t || undefined}
             onClick={() => go(t)}
             className={`flex-none whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
               tab === t ? "border-ink text-ink" : "border-transparent text-ink-soft hover:text-ink"

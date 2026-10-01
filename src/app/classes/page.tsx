@@ -20,7 +20,15 @@ export default async function ClassesPage() {
     prisma.class.findMany({
       where: { userId: user.id, archived: false },
       include: {
-        _count: { select: { assignments: true, exams: true, resources: true } },
+        _count: {
+          select: {
+            assignments: true,
+            exams: true,
+            resources: true,
+            // Same rule as the class page: everything but Canvas clutter.
+            materials: { where: { OR: [{ syncStatus: null }, { syncStatus: { not: "SKIPPED_NOISE" } }] } },
+          },
+        },
       },
       orderBy: { name: "asc" },
     }),
@@ -56,8 +64,11 @@ export default async function ClassesPage() {
 
       {classRows.length === 0 ? (
         <div className="rounded-xl2 border border-dashed border-border p-8 text-center text-sm text-ink-soft">
-          No classes yet. Run <code className="font-mono">npm run db:seed</code> for demo data, or{" "}
-          <code className="font-mono">npm run canvas:sync</code> for your real courses.
+          No classes yet.{" "}
+          <Link href="/canvas" className="font-medium text-accent-ink underline">
+            Connect Canvas
+          </Link>{" "}
+          to bring in your courses.
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -88,7 +99,7 @@ export default async function ClassesPage() {
               <div className="mt-2 flex gap-3 text-xs text-ink-soft">
                 <span>{c._count.assignments} assignments</span>
                 <span>{c._count.exams} exams</span>
-                <span>{c._count.resources} resources</span>
+                <span>{c._count.resources + c._count.materials} resources</span>
               </div>
             </Link>
           ))}

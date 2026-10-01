@@ -483,7 +483,7 @@ signal an unlock the way it signals a content edit; two specific scanned
 files still can't be OCR'd because Anthropic's own content-filtering
 policy blocks the output, which isn't something to route around).
 
-**One connected class page (2026-10).** Lecture notes now also live in the
+**One connected class page (2026-09).** Lecture notes now also live in the
 Notes tab (one linked note per lecture, editable from either tab), and books
 and slides moved from the Lectures tab to Resources, next to saved links.
 Added in-app recording (`LectureRecorder`: keeps the screen awake, pauses,
@@ -497,6 +497,18 @@ Next.js page-data requests, so `router.refresh()` showed the previous copy
 after changes (a deleted lecture stayed on screen until a reload). The
 service worker (v2) now caches static files only. Schema changes:
 `Note.lectureId` and `Lecture.noteSyncedAt`, both nullable.
+
+**Phone layout and first-run experience (2026-09).** Phones and tablets get
+a bottom tab bar (Today, Classes, Record, Schedule, More) instead of a top
+menu that ran off the screen, with safe-area padding for the iPhone notch
+and home indicator. The dashboard puts "What should I do right now?" first
+on phones and shows long lists five at a time. Assignments are cards on
+phones and grouped as Overdue, Coming up and Done (`AssignmentList`,
+`src/lib/assignment-groups.ts`), with Mark as done and deletable steps. A
+new account sees a welcome with "Connect Canvas" instead of an "on track"
+status, empty pages link to Canvas instead of listing terminal commands,
+and AI or setup failures read as plain sentences, never as environment
+variable names.
 
 **Known limits, not gaps in this app:** Gmail (`GOOGLE_CLIENT_ID` etc.) and
 the AI assistants (`ANTHROPIC_API_KEY`) both require credentials you

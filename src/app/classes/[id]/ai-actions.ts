@@ -3,7 +3,7 @@
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { loadClassContext, classSystemPrompt } from "@/lib/class-context";
-import { askClaude } from "@/lib/anthropic";
+import { askClaude, getAnthropicClient } from "@/lib/anthropic";
 import { AI_LIMIT_MESSAGE, allowAiRequest } from "@/lib/rate-limit";
 import { formatDueLabel } from "@/lib/time";
 
@@ -94,19 +94,23 @@ export async function askClassAssistantAction(
     return { answer: aiAnswer, usedAi: true };
   }
 
-  // No AI key configured (or the call failed) — never fabricate a summary
-  // or quiz. Be honest, and hand back the real underlying data instead of
-  // nothing, so the feature still returns something true and useful.
+  // With a key configured, a null answer means the call failed (timeout,
+  // overload): say so and suggest a retry. Never fabricate a summary or
+  // quiz. Without a key (a local copy), hand back the real data on file
+  // instead, so the feature still returns something true.
+  if (getAnthropicClient()) {
+    return { answer: "The assistant didn't answer just now. Try again in a moment.", usedAi: false };
+  }
   if (!ctx.hasAnyContent) {
     return {
       answer:
-        "AI features need an ANTHROPIC_API_KEY (see .env.example), and this class doesn't have any notes, assignments, exams, lectures, materials, or resources on file yet to summarize even without one.",
+        "The AI assistant isn't set up on this site, and this class doesn't have any notes, assignments, exams, lectures or materials on file yet.",
       usedAi: false,
     };
   }
   return {
     answer: [
-      "AI features need an ANTHROPIC_API_KEY to answer this directly — here's the raw data for this class instead:",
+      "The AI assistant isn't set up on this site, so here's what's on file for this class:",
       "",
       "Notes:",
       ctx.notesText,
