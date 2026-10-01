@@ -7,6 +7,9 @@ import { ScheduleAddForm } from "@/components/schedule/ScheduleAddForm";
 import { deleteScheduleEventAction } from "@/app/classes/[id]/actions";
 import { canvasAssignmentUrl } from "@/lib/canvas";
 import { dayKey, formatTzTime } from "@/lib/time";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { ChecklistIcon, ExternalIcon, PencilIcon, XIcon } from "@/components/icons";
+import { courseStyle } from "@/lib/course-style";
 
 function minutesToLabel(min: number): string {
   const h = Math.floor(min / 60);
@@ -153,15 +156,13 @@ export default async function SchedulePage() {
 
   return (
     <AppShell active="/schedule" userName={user.name ?? user.email}>
-      <h1 className="mb-1 font-display text-2xl font-semibold">Schedule</h1>
-      <p className="mb-6 text-sm text-ink-soft">
-        The next 7 days: your recurring class meetings alongside real assignment and exam due dates.
-        Canvas doesn't provide meeting times, so those are added by hand below (or from a class's
-        Overview tab) — due dates come straight from your assignments and exams.
-      </p>
+      <PageHeader
+        title="Schedule"
+        description="The next 7 days: your recurring class meetings alongside real assignment and exam due dates. Canvas doesn't provide meeting times, so add those yourself, here or on a class's Overview tab."
+      />
 
       {classes.length === 0 ? (
-        <div className="rounded-xl2 border border-dashed border-border p-8 text-center text-sm text-ink-soft">
+        <div className="empty">
           No classes yet.{" "}
           <Link href="/canvas" className="font-medium text-accent-ink underline">
             Connect Canvas
@@ -169,72 +170,71 @@ export default async function SchedulePage() {
           to bring in your courses, then add their meeting times here.
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_300px]">
-          <div className="flex flex-col gap-3">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="flex flex-col gap-4">
             {days.map((day) => (
-              <section key={day.key}>
-                <h2 className="mb-2 flex items-baseline gap-2 text-xs font-semibold uppercase tracking-wider text-ink-faint">
-                  {day.label}
-                  <span className="font-normal normal-case text-ink-faint/70">{day.dateLabel}</span>
-                </h2>
+              <section key={day.key} className="card overflow-hidden">
+                <header className="flex items-baseline justify-between gap-3 border-b border-border-soft px-4 py-3 sm:px-5">
+                  <h2 className="text-sm font-semibold text-ink">{day.label}</h2>
+                  <span className="text-[13px] text-ink-faint">{day.dateLabel}</span>
+                </header>
                 {day.entries.length === 0 ? (
-                  <div className="rounded-xl2 border border-dashed border-border-soft p-3 text-xs text-ink-faint">
-                    Nothing on the calendar.
-                  </div>
+                  <p className="px-4 py-3.5 text-[13px] text-ink-faint sm:px-5">Nothing on the calendar.</p>
                 ) : (
-                  <ul className="flex flex-col gap-2">
+                  <ul className="divide-y divide-border-soft">
                     {day.entries.map((entry) =>
                       entry.type === "class" ? (
-                        <li
-                          key={`class-${entry.scheduleEventId}`}
-                          className="flex items-center justify-between gap-3 rounded-xl2 border border-border-soft bg-surface p-3 shadow-card"
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <span
-                              className="inline-block h-2.5 w-2.5 flex-none rounded-full"
-                              style={{ background: `var(--c-${entry.color})` }}
-                            />
-                            <div>
-                              <div className="text-sm font-medium">{entry.className}</div>
-                              <div className="text-xs text-ink-soft">
-                                {entry.timeLabel}
-                                {entry.location ? ` · ${entry.location}` : ""}
-                                {entry.label ? ` · ${entry.label}` : ""}
-                              </div>
-                            </div>
+                        <li key={`class-${entry.scheduleEventId}`} className="flex items-center gap-3 px-4 py-3 sm:px-5">
+                          <span
+                            aria-hidden
+                            className="h-9 w-1 flex-none rounded-full"
+                            style={{ background: `var(--c-${entry.color})` }}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium text-ink">{entry.className}</p>
+                            <p className="mt-0.5 text-[13px] tabular-nums text-ink-soft">
+                              {entry.timeLabel}
+                              {entry.location ? ` · ${entry.location}` : ""}
+                              {entry.label ? ` · ${entry.label}` : ""}
+                            </p>
                           </div>
                           <form action={deleteScheduleEventAction.bind(null, entry.scheduleEventId)}>
-                            <button className="text-xs text-ink-faint hover:text-danger">Remove</button>
+                            <button
+                              title="Remove"
+                              aria-label="Remove"
+                              className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-faint transition-colors hover:bg-danger-soft hover:text-danger"
+                            >
+                              <XIcon className="h-4 w-4" />
+                            </button>
                           </form>
                         </li>
                       ) : (
-                        <li
-                          key={`due-${entry.kind}-${entry.id}`}
-                          className="flex items-center justify-between gap-3 rounded-xl2 border border-dashed border-warn/50 bg-warn-soft/30 p-3"
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <span
-                              className="inline-block h-2.5 w-2.5 flex-none rounded-full"
-                              style={{ background: `var(--c-${entry.color})` }}
-                            />
-                            <div>
-                              <div className="text-sm font-medium">
-                                {entry.kind === "exam" ? "📝 " : ""}
-                                {entry.title}
-                              </div>
-                              <div className="text-xs text-ink-soft">
-                                Due {entry.timeLabel} · {entry.className}
-                              </div>
-                            </div>
+                        <li key={`due-${entry.kind}-${entry.id}`} className="flex items-center gap-3 px-4 py-3 sm:px-5">
+                          <span
+                            aria-hidden
+                            className="course-tint flex h-9 w-9 flex-none items-center justify-center rounded-xl"
+                            style={courseStyle(entry.color)}
+                          >
+                            {entry.kind === "exam" ? <PencilIcon className="h-4 w-4" /> : <ChecklistIcon className="h-4 w-4" />}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="flex items-center gap-2 text-sm font-medium text-ink">
+                              <span className="truncate">{entry.title}</span>
+                              {entry.kind === "exam" && <span className="badge flex-none bg-danger-soft text-danger">Exam</span>}
+                            </p>
+                            <p className="mt-0.5 truncate text-[13px] text-ink-soft">
+                              Due {entry.timeLabel} · {entry.className}
+                            </p>
                           </div>
                           {entry.canvasUrl && (
                             <a
                               href={entry.canvasUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="flex-none text-xs font-medium text-accent hover:underline"
+                              className="btn btn-ghost btn-sm flex-none"
                             >
-                              Canvas ↗
+                              Canvas
+                              <ExternalIcon className="h-3.5 w-3.5" />
                             </a>
                           )}
                         </li>

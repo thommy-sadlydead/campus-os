@@ -3,6 +3,7 @@
 import { useRef, useState, type DragEvent } from "react";
 import { audioTypeForFile } from "@/lib/lecture-notes";
 import { saveLectureAudio } from "./save-lecture-audio";
+import { FileIcon, UploadIcon } from "@/components/icons";
 
 /**
  * Upload an existing recording, such as a Voice Memo, by choosing it or
@@ -67,29 +68,35 @@ export function AudioUpload({ classId, onSaved }: { classId: string | null; onSa
         }}
         onDragLeave={() => setDragging(false)}
         onDrop={onDrop}
-        className={`flex flex-col items-center gap-2 rounded-xl2 border-2 border-dashed p-6 text-center transition-colors ${
-          dragging ? "border-accent bg-surface-2" : "border-border"
+        className={`flex flex-col items-center gap-2 rounded-xl2 border-[1.5px] border-dashed px-6 py-8 text-center transition-colors ${
+          dragging ? "border-accent bg-accent-soft" : "border-border bg-bg"
         }`}
       >
         {file ? (
           <>
-            <p className="max-w-full truncate text-sm font-medium">{file.name}</p>
+            <span className="mb-1 flex h-10 w-10 items-center justify-center rounded-xl bg-surface-2 text-ink-soft">
+              <FileIcon className="h-5 w-5" />
+            </span>
+            <p className="max-w-full truncate text-sm font-medium text-ink">{file.name}</p>
             <p className="text-xs text-ink-faint">{(file.size / (1024 * 1024)).toFixed(1)} MB</p>
             <button
               type="button"
               onClick={() => inputRef.current?.click()}
               disabled={uploading}
-              className="text-xs text-ink-soft underline hover:text-ink disabled:opacity-50"
+              className="btn btn-ghost btn-sm"
             >
               Choose a different file
             </button>
           </>
         ) : (
           <>
+            <span className="mb-1 flex h-10 w-10 items-center justify-center rounded-xl bg-surface-2 text-ink-soft">
+              <UploadIcon className="h-5 w-5" />
+            </span>
             <button
               type="button"
               onClick={() => inputRef.current?.click()}
-              className="rounded-lg bg-ink px-4 py-2.5 text-sm font-semibold text-surface hover:opacity-90"
+              className="btn btn-secondary"
             >
               Choose a recording
             </button>
@@ -113,13 +120,13 @@ export function AudioUpload({ classId, onSaved }: { classId: string | null; onSa
             onChange={(e) => setTitle(e.target.value)}
             aria-label="Lecture title"
             placeholder="Lecture title"
-            className="flex-1 rounded-lg border border-border bg-bg px-3 py-2 text-sm outline-none focus:border-accent"
+            className="field flex-1"
           />
           <button
             type="button"
             onClick={() => void upload()}
             disabled={uploading || !classId}
-            className="flex-none rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-surface hover:opacity-90 disabled:opacity-60"
+            className="btn btn-primary flex-none"
           >
             {uploading ? `Uploading… ${progress}%` : "Upload and make notes"}
           </button>

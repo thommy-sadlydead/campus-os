@@ -15,6 +15,7 @@ import {
 import { isLectureInProgress, lectureStatusLabel, type LectureStatus } from "@/lib/lecture-notes";
 import { LectureRecorder } from "@/components/lectures/LectureRecorder";
 import { AudioUpload } from "@/components/lectures/AudioUpload";
+import { ChevronRightIcon, MicIcon, PencilIcon, RefreshIcon, TrashIcon } from "@/components/icons";
 
 export interface LectureRow {
   id: string;
@@ -110,7 +111,7 @@ export function LecturesPanel({
     <div className="flex flex-col gap-4">
       <AddLectureCard classId={classId} defaultTitle={defaultTitle} onDone={() => router.refresh()} />
 
-      <p className="text-xs text-ink-faint">
+      <p className="px-1 text-xs leading-relaxed text-ink-faint">
         Notes are written from the recording, using{" "}
         <button onClick={onOpenResources} className="font-medium text-ink-soft underline hover:text-ink">
           {materialCount > 0 ? `this class's ${materialCount} books and slides` : "any books and slides you add"}
@@ -119,11 +120,11 @@ export function LecturesPanel({
       </p>
 
       {lectures.length === 0 ? (
-        <div className="rounded-xl2 border border-dashed border-border p-8 text-center text-sm text-ink-soft">
+        <div className="empty">
           No lectures yet. Record one above, or upload a recording you already have.
         </div>
       ) : (
-        <ul className="flex flex-col gap-2">
+        <ul className="flex flex-col gap-3">
           {lectures.map((lecture) => (
             <LectureCard
               key={lecture.id}
@@ -186,7 +187,7 @@ function AddLectureCard({
       onClick={() => setMode(value)}
       disabled={busy}
       className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50 sm:flex-none ${
-        mode === value ? "bg-ink text-surface" : "text-ink-soft hover:text-ink"
+        mode === value ? "bg-surface text-ink shadow-sm" : "text-ink-soft hover:text-ink"
       }`}
     >
       {label}
@@ -194,16 +195,21 @@ function AddLectureCard({
   );
 
   return (
-    <div className="rounded-xl2 border border-border-soft bg-surface p-4 shadow-card">
+    <div className="card card-pad">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h4 className="font-display text-base font-semibold">Add a lecture</h4>
-        <div className="flex w-full rounded-lg border border-border p-0.5 sm:w-auto">
+        <div className="flex items-center gap-3">
+          <span className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-surface-2 text-ink-soft">
+            <MicIcon className="h-[18px] w-[18px]" />
+          </span>
+          <h2 className="text-[15px] font-semibold text-ink">Add a lecture</h2>
+        </div>
+        <div className="flex w-full rounded-lg bg-surface-2 p-0.5 sm:w-auto">
           {tab("record", "Record")}
           {tab("upload", "Upload")}
           {tab("transcript", "Paste transcript")}
         </div>
       </div>
-      <div className="mt-3">
+      <div className="mt-4">
         {mode === "record" && (
           <LectureRecorder classId={classId} defaultTitle={defaultTitle} onSaved={onDone} onBusyChange={setBusy} />
         )}
@@ -254,21 +260,21 @@ function TranscriptForm({ classId, defaultTitle, onDone }: { classId: string; de
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         aria-label="Lecture title"
-        className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm outline-none focus:border-accent"
+        className="field w-full"
       />
       <textarea
         value={transcriptText}
         onChange={(e) => setTranscriptText(e.target.value)}
         rows={6}
         placeholder="Paste the lecture transcript here…"
-        className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm outline-none focus:border-accent"
+        className="field w-full"
       />
       <div className="flex items-center justify-end gap-3">
         {error && <p className="mr-auto text-sm text-danger">{error}</p>}
         <button
           type="submit"
           disabled={saving}
-          className="rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-surface hover:opacity-90 disabled:opacity-60"
+          className="btn btn-primary"
         >
           {saving ? "Writing notes… (about a minute)" : "Make notes"}
         </button>
@@ -300,58 +306,62 @@ function LectureCard({
   const notes = lecture.note?.bodyMarkdown ?? lecture.notesMarkdown;
 
   return (
-    <li id={`lecture-${lecture.id}`} className="scroll-mt-4 rounded-xl2 border border-border-soft bg-surface p-4 shadow-card">
+    <li id={`lecture-${lecture.id}`} className="card scroll-mt-4 p-4 sm:px-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <button onClick={onToggleOpen} className="min-w-0 flex-1 text-left" aria-expanded={isOpen}>
-          <span className="font-medium">{lecture.title}</span>
-          <span className="mt-0.5 block text-xs text-ink-faint">
-            {date.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
+        <button onClick={onToggleOpen} className="group flex min-w-0 flex-1 items-start gap-2 text-left" aria-expanded={isOpen}>
+          <ChevronRightIcon
+            className={`mt-[3px] h-4 w-4 flex-none text-ink-faint transition-transform group-hover:text-ink ${isOpen ? "rotate-90" : ""}`}
+          />
+          <span className="min-w-0">
+            <span className="block font-medium leading-snug text-ink">{lecture.title}</span>
+            <span className="mt-0.5 block text-xs text-ink-faint">
+              {date.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
+            </span>
           </span>
         </button>
-        <div className="flex flex-none items-center gap-3">
-          <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_TONE[lecture.status]}`}>
-            {lectureStatusLabel(lecture.status)}
-          </span>
-          <button onClick={onDelete} className="text-xs text-ink-faint hover:text-danger">
-            Delete
+        <div className="flex flex-none items-center gap-1">
+          <span className={`badge ${STATUS_TONE[lecture.status]}`}>{lectureStatusLabel(lecture.status)}</span>
+          <button
+            onClick={onDelete}
+            title="Delete lecture"
+            aria-label={`Delete ${lecture.title}`}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-faint transition-colors hover:bg-danger-soft hover:text-danger"
+          >
+            <TrashIcon className="h-4 w-4" />
           </button>
         </div>
       </div>
 
       {lecture.status === "FAILED" && lecture.errorMessage && (
-        <div className="mt-2 flex items-center justify-between gap-2 rounded-lg bg-danger-soft p-2.5 text-xs text-danger">
+        <div className="mt-3 flex items-center justify-between gap-3 rounded-lg bg-danger-soft px-3 py-2.5 text-[13px] text-danger">
           <span>{lecture.errorMessage}</span>
-          <button onClick={onRetry} disabled={pending} className="flex-none font-medium underline disabled:opacity-60">
+          <button onClick={onRetry} disabled={pending} className="btn btn-secondary btn-sm flex-none text-danger">
+            <RefreshIcon className="h-3.5 w-3.5" />
             Try again
           </button>
         </div>
       )}
 
       {isLectureInProgress(lecture.status) && (
-        <p className="mt-2 text-xs text-ink-faint">
+        <p className="mt-2 flex items-center gap-2 pl-6 text-xs text-ink-faint">
+          <span aria-hidden className="dot animate-pulse bg-warn" />
           Transcribing and writing notes. This usually takes a few minutes; you can leave this page.
         </p>
       )}
 
       {isOpen && (
-        <div className="mt-3 flex flex-col gap-3 border-t border-border-soft pt-3">
+        <div className="mt-4 flex flex-col gap-4 border-t border-border-soft pt-4">
           {notes && (
             <div>
-              <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
-                <h5 className="text-xs font-semibold uppercase tracking-wider text-ink-faint">Notes</h5>
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <h3 className="eyebrow">Notes</h3>
                 {lecture.note ? (
-                  <button
-                    onClick={() => onOpenNote(lecture.note!.id)}
-                    className="text-xs font-medium text-accent-ink hover:underline"
-                  >
+                  <button onClick={() => onOpenNote(lecture.note!.id)} className="btn btn-ghost btn-sm -mr-2 text-accent-ink">
+                    <PencilIcon className="h-3.5 w-3.5" />
                     Edit in Notes
                   </button>
                 ) : (
-                  <button
-                    onClick={onAddToNotes}
-                    disabled={pending}
-                    className="text-xs font-medium text-accent-ink hover:underline disabled:opacity-60"
-                  >
+                  <button onClick={onAddToNotes} disabled={pending} className="btn btn-ghost btn-sm -mr-2 text-accent-ink">
                     Add to Notes tab
                   </button>
                 )}
@@ -362,11 +372,12 @@ function LectureCard({
             </div>
           )}
           {lecture.transcriptText && (
-            <details>
-              <summary className="cursor-pointer select-none text-xs font-semibold uppercase tracking-wider text-ink-faint">
-                Transcript
+            <details className="group/transcript">
+              <summary className="flex cursor-pointer select-none list-none items-center gap-1.5 [&::-webkit-details-marker]:hidden">
+                <ChevronRightIcon className="h-3.5 w-3.5 text-ink-faint transition-transform group-open/transcript:rotate-90" />
+                <span className="eyebrow">Transcript</span>
               </summary>
-              <p className="mt-2 max-h-64 overflow-y-auto whitespace-pre-wrap rounded-lg bg-surface-2 p-2.5 text-xs leading-relaxed text-ink-soft">
+              <p className="mt-2 max-h-64 overflow-y-auto whitespace-pre-wrap rounded-lg bg-surface-2 p-3 text-xs leading-relaxed text-ink-soft">
                 {lecture.transcriptText}
               </p>
             </details>

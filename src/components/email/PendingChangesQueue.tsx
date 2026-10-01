@@ -1,4 +1,5 @@
 import { resolvePendingChangeAction } from "@/app/email/actions";
+import { AlertIcon } from "@/components/icons";
 
 export interface PendingChangeRow {
   id: string;
@@ -41,17 +42,28 @@ export function PendingChangesQueue({ changes }: { changes: PendingChangeRow[] }
   if (changes.length === 0) return null;
 
   return (
-    <div className="mb-6 rounded-xl2 border border-warn bg-warn-soft/40 p-5 shadow-card">
-      <h3 className="font-display text-base font-semibold">
-        Needs your decision <span className="text-sm font-normal text-ink-soft">({changes.length})</span>
-      </h3>
-      <p className="mt-0.5 text-xs text-ink-soft">
-        Email never overwrites your schedule automatically — these conflict with what's already on file.
-      </p>
-      <ul className="mt-3 flex flex-col gap-3">
+    <section className="card mb-8 overflow-hidden">
+      <header className="flex items-start gap-3 border-b border-border-soft bg-warn-soft px-4 py-4 sm:px-5">
+        <AlertIcon className="mt-0.5 h-5 w-5 flex-none text-warn" />
+        <div>
+          <h2 className="flex items-center gap-2 text-[15px] font-semibold text-ink">
+            Needs your decision
+            <span className="badge bg-surface tabular-nums text-warn">{changes.length}</span>
+          </h2>
+          <p className="mt-0.5 text-[13px] text-ink-soft">
+            Email never overwrites your schedule automatically — these conflict with what's already on file.
+          </p>
+        </div>
+      </header>
+      <ul className="divide-y divide-border-soft">
         {changes.map((c) => {
           const emailLink = c.sourceGmailId ? (
-            <a href={`https://mail.google.com/mail/u/0/#all/${c.sourceGmailId}`} target="_blank" rel="noreferrer" className="underline">
+            <a
+              href={`https://mail.google.com/mail/u/0/#all/${c.sourceGmailId}`}
+              target="_blank"
+              rel="noreferrer"
+              className="font-medium text-accent-ink underline underline-offset-2"
+            >
               an email
             </a>
           ) : (
@@ -59,28 +71,28 @@ export function PendingChangesQueue({ changes }: { changes: PendingChangeRow[] }
           );
           const isNewRecord = c.entityId === null;
           return (
-            <li key={c.id} className="rounded-xl2 border border-border-soft bg-surface p-4">
+            <li key={c.id} className="px-4 py-4 sm:px-5">
               {isNewRecord ? (
-                <p className="text-sm">
-                  {c.className && <span className="font-medium">{c.className}: </span>}
-                  {c.reason} {emailLink} proposed: <span className="font-medium">{formatValue(c.field, c.newValueText)}</span>.
+                <p className="text-sm leading-relaxed text-ink-soft">
+                  {c.className && <span className="font-semibold text-ink">{c.className}: </span>}
+                  {c.reason} {emailLink} proposed: <span className="font-semibold text-ink">{formatValue(c.field, c.newValueText)}</span>.
                 </p>
               ) : (
-                <p className="text-sm">
-                  {c.className && <span className="font-medium">{c.className}: </span>}
+                <p className="text-sm leading-relaxed text-ink-soft">
+                  {c.className && <span className="font-semibold text-ink">{c.className}: </span>}
                   Your {FIELD_LABEL[c.field] ?? c.field} says{" "}
-                  <span className="font-medium">{formatValue(c.field, c.oldValueText)}</span>, but {emailLink} says{" "}
-                  <span className="font-medium">{formatValue(c.field, c.newValueText)}</span>. Which should I use?
+                  <span className="font-semibold text-ink">{formatValue(c.field, c.oldValueText)}</span>, but {emailLink} says{" "}
+                  <span className="font-semibold text-ink">{formatValue(c.field, c.newValueText)}</span>. Which should I use?
                 </p>
               )}
               <div className="mt-3 flex gap-2">
                 <form action={resolvePendingChangeAction.bind(null, c.id, "accept")}>
-                  <button className="rounded-lg bg-ink px-3 py-1.5 text-xs font-semibold text-surface hover:opacity-90">
+                  <button className="btn btn-primary btn-sm">
                     {isNewRecord ? "Add it" : "Use the email's version"}
                   </button>
                 </form>
                 <form action={resolvePendingChangeAction.bind(null, c.id, "reject")}>
-                  <button className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-surface-2">
+                  <button className="btn btn-secondary btn-sm">
                     {isNewRecord ? "Ignore" : "Keep what I have"}
                   </button>
                 </form>
@@ -89,6 +101,6 @@ export function PendingChangesQueue({ changes }: { changes: PendingChangeRow[] }
           );
         })}
       </ul>
-    </div>
+    </section>
   );
 }

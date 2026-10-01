@@ -9,7 +9,7 @@
 //
 // Bump CACHE_VERSION on any deploy that changes what's cached here; the
 // activate step deletes every older cache.
-const CACHE_VERSION = "v2";
+const CACHE_VERSION = "v3";
 const CACHE_NAME = `campus-os-static-${CACHE_VERSION}`;
 const OFFLINE_URL = "/offline";
 

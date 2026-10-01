@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { PluginListenerHandle } from "@capacitor/core";
 import { hasNativePlugin, NativeRecorder, nativeErrorCode, readInboxFile, SharedInbox } from "@/lib/native-app";
 import { saveLectureAudio } from "./save-lecture-audio";
+import { MicIcon } from "@/components/icons";
 
 type Phase = "idle" | "starting" | "recording" | "paused" | "saving" | "failed";
 
@@ -428,27 +429,28 @@ export function LectureRecorder({
   if (phase === "recording" || phase === "paused") {
     return (
       <div className="flex flex-col items-center gap-4 py-3 text-center">
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <span
-            aria-hidden
-            className={`h-2.5 w-2.5 rounded-full ${phase === "recording" ? "animate-pulse bg-danger" : "bg-ink-faint"}`}
-          />
+        <div className={`badge ${phase === "recording" ? "bg-danger-soft text-danger" : "bg-surface-2 text-ink-soft"}`}>
+          <span aria-hidden className={`dot ${phase === "recording" ? "animate-pulse bg-danger" : "bg-ink-faint"}`} />
           {phase === "recording" ? "Recording" : "Paused"}
         </div>
-        <div className="font-mono text-5xl tabular-nums" aria-live="off">
+        <div className="font-mono text-5xl font-medium tabular-nums tracking-tight text-ink" aria-live="off">
           {formatElapsed(elapsedMs)}
         </div>
         <div className="h-2 w-56 max-w-full overflow-hidden rounded-full bg-surface-2" aria-hidden>
-          <div ref={meterRef} className="h-full origin-left bg-ok" style={{ transform: "scaleX(0)" }} />
+          <div
+            ref={meterRef}
+            className="h-full origin-left rounded-full"
+            style={{ transform: "scaleX(0)", backgroundImage: "linear-gradient(90deg, var(--grad-from), var(--grad-to))" }}
+          />
         </div>
         <div className="flex flex-wrap justify-center gap-3">
           <button
             onClick={phase === "paused" ? resume : pause}
-            className="rounded-lg border border-border px-4 py-2.5 text-sm font-medium hover:bg-surface-2"
+            className="btn btn-secondary"
           >
             {phase === "paused" ? "Resume" : "Pause"}
           </button>
-          <button onClick={stop} className="rounded-lg bg-ink px-4 py-2.5 text-sm font-semibold text-surface hover:opacity-90">
+          <button onClick={stop} className="btn btn-primary">
             Stop and save
           </button>
         </div>
@@ -471,7 +473,10 @@ export function LectureRecorder({
           {progress < 100 ? `Uploading ${formatElapsed(elapsedMs)} of audio… ${progress}%` : "Starting the transcript…"}
         </p>
         <div className="h-2 w-56 max-w-full overflow-hidden rounded-full bg-surface-2">
-          <div className="h-full bg-accent transition-all" style={{ width: `${Math.max(progress, 4)}%` }} />
+          <div
+            className="h-full rounded-full transition-all"
+            style={{ width: `${Math.max(progress, 4)}%`, backgroundImage: "linear-gradient(90deg, var(--grad-from), var(--grad-to))" }}
+          />
         </div>
         <p className="text-xs text-ink-faint">Keep this page open until the upload finishes.</p>
       </div>
@@ -485,7 +490,7 @@ export function LectureRecorder({
         <div className="flex flex-wrap justify-center gap-3">
           <button
             onClick={() => void uploadRecording(failedFile)}
-            className="rounded-lg bg-ink px-4 py-2.5 text-sm font-semibold text-surface hover:opacity-90"
+            className="btn btn-primary"
           >
             Try again
           </button>
@@ -493,12 +498,12 @@ export function LectureRecorder({
             <a
               href={downloadUrl}
               download={failedFile.name}
-              className="rounded-lg border border-border px-4 py-2.5 text-sm font-medium hover:bg-surface-2"
+              className="btn btn-secondary"
             >
               Save to this device
             </a>
           )}
-          <button onClick={discard} className="rounded-lg px-3 py-2.5 text-sm text-ink-faint hover:text-danger">
+          <button onClick={discard} className="btn btn-ghost hover:bg-danger-soft hover:text-danger">
             Discard
           </button>
         </div>
@@ -513,17 +518,21 @@ export function LectureRecorder({
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         aria-label="Lecture title"
-        className="w-full max-w-sm rounded-lg border border-border bg-bg px-3 py-2 text-center text-sm outline-none focus:border-accent"
+        className="field w-full max-w-sm text-center"
       />
       <button
         onClick={() => void start()}
         disabled={!classId || phase === "starting"}
         aria-label="Start recording"
-        className="flex h-20 w-20 items-center justify-center rounded-full bg-danger shadow-card transition-transform hover:scale-105 disabled:opacity-40 disabled:hover:scale-100"
+        className="my-3 flex h-24 w-24 items-center justify-center rounded-full text-white ring-8 ring-accent-soft transition-transform hover:scale-105 active:scale-95 disabled:opacity-40 disabled:hover:scale-100"
+        style={{
+          backgroundImage: "linear-gradient(135deg, var(--grad-from), var(--grad-to))",
+          boxShadow: "0 14px 30px -10px rgba(255, 122, 47, 0.55)",
+        }}
       >
-        <span className="block h-7 w-7 rounded-full bg-white" />
+        <MicIcon className="h-9 w-9" />
       </button>
-      <p className="text-sm font-medium">
+      <p className="text-sm font-semibold text-ink">
         {!classId ? "Choose a class to start recording" : phase === "starting" ? "Starting…" : "Tap to record"}
       </p>
       <p className="max-w-xs text-xs text-ink-faint">

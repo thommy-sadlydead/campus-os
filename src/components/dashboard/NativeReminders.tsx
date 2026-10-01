@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { LocalNotifications } from "@capacitor/local-notifications";
 import { isNativeApp } from "@/lib/native-app";
 import { isReminderId, planDueReminders } from "@/lib/reminders";
+import { BellIcon } from "@/components/icons";
 
 const DISMISSED_KEY = "campusos-reminders-not-now";
 
@@ -79,22 +80,22 @@ export function NativeReminders({
 
   if (!offer) return null;
   return (
-    <div className="mb-6 flex flex-col gap-3 rounded-xl2 border border-border-soft bg-surface p-4 shadow-card sm:flex-row sm:items-center sm:justify-between">
-      <div>
-        <p className="text-sm font-semibold">Get reminders on this iPhone?</p>
+    <section className="card card-pad mb-6 flex flex-col gap-4 sm:flex-row sm:items-center">
+      <span className="hidden h-10 w-10 flex-none items-center justify-center rounded-xl bg-accent-soft text-accent sm:flex">
+        <BellIcon className="h-5 w-5" />
+      </span>
+      <div className="flex-1">
+        <p className="text-[15px] font-semibold text-ink">Get reminders on this iPhone?</p>
         <p className="mt-0.5 text-sm text-ink-soft">A heads-up at 7 PM the evening before something&apos;s due.</p>
       </div>
       <div className="flex flex-none gap-2">
-        <button onClick={notNow} className="rounded-lg px-3 py-2 text-sm text-ink-soft hover:bg-surface-2">
+        <button onClick={notNow} className="btn btn-ghost">
           Not now
         </button>
-        <button
-          onClick={() => void turnOn()}
-          className="rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-surface hover:opacity-90"
-        >
+        <button onClick={() => void turnOn()} className="btn btn-primary">
           Turn on reminders
         </button>
       </div>
-    </div>
+    </section>
   );
 }

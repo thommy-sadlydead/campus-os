@@ -4,30 +4,44 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Campus OS</title>
+    <!-- Colors match the design tokens in src/app/globals.css. -->
     <style>
-      :root { --bg: #f2f3f6; --surface: #ffffff; --ink: #1b2130; --ink-soft: #565f74; --accent: #b8742c; --on-accent: #ffffff; }
+      :root { --bg: #f6f7f9; --ink: #0f1218; --ink-soft: #596273; --button: #0f1218; --on-button: #ffffff; --grad-from: #4c7dff; --grad-to: #ff7a2f; }
       @media (prefers-color-scheme: dark) {
-        :root { --bg: #14161d; --surface: #1c1f29; --ink: #e8e9ee; --ink-soft: #a7adbe; --accent: #e0a85c; --on-accent: #14161d; }
+        :root { --bg: #0a0b0f; --ink: #f1f2f5; --ink-soft: #a4abb9; --button: #f1f2f5; --on-button: #0a0b0f; --grad-from: #5b8cff; --grad-to: #ff8a3d; }
       }
       * { box-sizing: border-box; }
       html, body { height: 100%; margin: 0; }
       body {
         background: var(--bg); color: var(--ink);
         font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        -webkit-font-smoothing: antialiased;
         display: flex; align-items: center; justify-content: center;
         padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
       }
-      main { max-width: 22rem; text-align: center; }
-      h1 { font-size: 1.25rem; margin: 0 0 .5rem; }
-      p { color: var(--ink-soft); margin: 0 0 1.5rem; }
+      main { max-width: 22rem; text-align: center; display: flex; flex-direction: column; align-items: center; }
+      .mark {
+        width: 44px; height: 44px; border-radius: 13px; margin-bottom: 1.5rem;
+        display: flex; align-items: center; justify-content: center; color: #fff;
+        background-image: linear-gradient(135deg, var(--grad-from), var(--grad-to));
+      }
+      h1 { font-size: 1.375rem; font-weight: 600; letter-spacing: -0.02em; margin: 0 0 .5rem; }
+      p { color: var(--ink-soft); font-size: .9375rem; margin: 0 0 1.5rem; }
       button {
-        appearance: none; border: 0; border-radius: 10px; padding: .75rem 1.5rem;
-        background: var(--accent); color: var(--on-accent); font: inherit; font-weight: 600;
+        appearance: none; border: 0; border-radius: 10px; min-height: 46px; padding: 0 1.5rem;
+        background: var(--button); color: var(--on-button); font: inherit; font-size: .9375rem; font-weight: 600;
       }
     </style>
   </head>
   <body>
     <main>
+      <div class="mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
+          <path d="M12 5 2.5 9.2 12 13.4l9.5-4.2z" />
+          <path d="M6.5 11.3v3.4c0 1.4 2.5 2.8 5.5 2.8s5.5-1.4 5.5-2.8v-3.4L12 13.8z" />
+          <path d="M20.2 9.8v4.6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" fill="none" />
+        </svg>
+      </div>
       <h1>Can't reach Campus OS</h1>
       <p>Campus OS needs an internet connection. Check your Wi-Fi or cellular data, then try again.</p>
       <button type="button" onclick="location.href = 'https://campus-os-mocha-pi.vercel.app/'">Try again</button>

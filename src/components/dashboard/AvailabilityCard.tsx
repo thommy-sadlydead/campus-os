@@ -1,5 +1,7 @@
 import { addAvailabilityBlockAction, removeAvailabilityBlockAction } from "@/app/dashboard/actions";
 import { formatMinutes } from "@/lib/time";
+import { CardHeader } from "@/components/ui/CardHeader";
+import { CalendarIcon, XIcon } from "@/components/icons";
 
 function minutesToTimeLabel(min: number): string {
   const h = Math.floor(min / 60);
@@ -17,67 +19,53 @@ export function AvailabilityCard({
   const totalMinutes = blocks.reduce((s, b) => s + (b.endMinute - b.startMinute), 0);
 
   return (
-    <div className="rounded-xl2 border border-border-soft bg-surface p-5 shadow-card">
-      <h3 className="font-display text-base font-semibold">Free time today</h3>
-      <p className="mt-0.5 text-xs text-ink-faint">
-        Only used if you log it — the dashboard never guesses how much free time you have.
-      </p>
+    <section className="card card-pad">
+      <CardHeader
+        icon={<CalendarIcon className="h-[18px] w-[18px]" />}
+        title="Free time today"
+        description="Only used if you log it — the dashboard never guesses how much free time you have."
+      />
 
       {blocks.length > 0 && (
-        <ul className="mt-3 flex flex-col gap-1.5">
-          {blocks.map((b) => (
-            <li
-              key={b.id}
-              className="flex items-center justify-between rounded-lg bg-surface-2 px-3 py-1.5 text-sm"
-            >
-              <span>
-                {minutesToTimeLabel(b.startMinute)} – {minutesToTimeLabel(b.endMinute)}
-                {b.label ? ` · ${b.label}` : ""}
-              </span>
-              <form action={removeAvailabilityBlockAction.bind(null, b.id)}>
-                <button className="text-xs text-ink-faint hover:text-danger">Remove</button>
-              </form>
-            </li>
-          ))}
-        </ul>
+        <>
+          <ul className="mt-4 flex flex-col gap-1.5">
+            {blocks.map((b) => (
+              <li key={b.id} className="flex items-center justify-between gap-2 rounded-lg bg-surface-2 py-1.5 pl-3 pr-1.5 text-sm">
+                <span className="min-w-0 truncate tabular-nums text-ink">
+                  {minutesToTimeLabel(b.startMinute)} – {minutesToTimeLabel(b.endMinute)}
+                  {b.label ? <span className="text-ink-soft"> · {b.label}</span> : ""}
+                </span>
+                <form action={removeAvailabilityBlockAction.bind(null, b.id)}>
+                  <button
+                    title="Remove"
+                    aria-label="Remove"
+                    className="flex h-7 w-7 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-danger-soft hover:text-danger"
+                  >
+                    <XIcon className="h-4 w-4" />
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs text-ink-soft">Total logged: {formatMinutes(totalMinutes)}</p>
+        </>
       )}
 
-      {blocks.length > 0 && (
-        <p className="mt-2 text-xs text-ink-soft">Total logged: {formatMinutes(totalMinutes)}</p>
-      )}
-
-      <form action={addAvailabilityBlockAction} className="mt-3 flex flex-wrap items-end gap-2">
-        <div className="flex flex-col gap-1">
-          <label className="text-xs text-ink-soft">Start</label>
-          <input
-            type="time"
-            name="start"
-            required
-            className="rounded-lg border border-border bg-bg px-2 py-1.5 text-sm outline-none focus:border-accent"
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <label className="text-xs text-ink-soft">End</label>
-          <input
-            type="time"
-            name="end"
-            required
-            className="rounded-lg border border-border bg-bg px-2 py-1.5 text-sm outline-none focus:border-accent"
-          />
-        </div>
-        <div className="flex flex-1 flex-col gap-1">
-          <label className="text-xs text-ink-soft">Label (optional)</label>
-          <input
-            type="text"
-            name="label"
-            placeholder="e.g. between classes"
-            className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-sm outline-none focus:border-accent"
-          />
-        </div>
-        <button className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium hover:bg-surface-2">
-          Add
-        </button>
+      <form action={addAvailabilityBlockAction} className="mt-4 grid grid-cols-2 gap-2">
+        <label>
+          <span className="field-label">Start</span>
+          <input type="time" name="start" required className="field" />
+        </label>
+        <label>
+          <span className="field-label">End</span>
+          <input type="time" name="end" required className="field" />
+        </label>
+        <label className="col-span-2">
+          <span className="field-label">Label (optional)</span>
+          <input type="text" name="label" placeholder="e.g. between classes" className="field" />
+        </label>
+        <button className="btn btn-secondary col-span-2 mt-1">Add free time</button>
       </form>
-    </div>
+    </section>
   );
 }

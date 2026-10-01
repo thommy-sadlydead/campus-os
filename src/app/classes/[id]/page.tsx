@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -10,6 +11,8 @@ import { defaultLectureTitle } from "@/lib/record-class";
 import type { AssignmentRowStatus } from "@/components/assignments/AssignmentRow";
 import type { LectureRow } from "@/components/classes/LecturesPanel";
 import type { ClassMaterialRow } from "@/components/classes/ResourcesPanel";
+import { ChevronLeftIcon } from "@/components/icons";
+import { courseInitials, courseStyle } from "@/lib/course-style";
 
 // Server Actions invoked from this page (notably generateNotes, via
 // pollLectureStatusAction/retryLectureAction in lecture-actions.ts) can now
@@ -92,11 +95,26 @@ export default async function ClassPage({
 
   return (
     <AppShell active="/classes" userName={user.name ?? user.email}>
-      <div className="mb-5 flex items-center gap-2.5">
-        <span className="inline-block h-3 w-3 flex-none rounded-full" style={{ background: `var(--c-${cls.color})` }} />
-        <div>
-          <div className="text-xs font-medium uppercase tracking-wide text-ink-faint">{cls.code}</div>
-          <h1 className="font-display text-2xl font-semibold">{cls.name}</h1>
+      <div className="mb-6">
+        <Link
+          href="/classes"
+          className="-ml-1 inline-flex items-center gap-0.5 rounded-md px-1 py-0.5 text-[13px] font-medium text-ink-faint transition-colors hover:text-ink"
+        >
+          <ChevronLeftIcon className="h-4 w-4" />
+          Classes
+        </Link>
+        <div className="mt-3 flex items-center gap-4">
+          <span
+            aria-hidden
+            className="course-tint flex h-12 w-12 flex-none items-center justify-center rounded-xl2 text-base font-semibold"
+            style={courseStyle(cls.color)}
+          >
+            {courseInitials(cls.name)}
+          </span>
+          <div className="min-w-0">
+            {cls.code && <p className="eyebrow">{cls.code}</p>}
+            <h1 className="font-display text-2xl font-semibold leading-tight text-ink sm:text-[28px]">{cls.name}</h1>
+          </div>
         </div>
       </div>
 

@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { App } from "@capacitor/app";
 import { LocalNotifications } from "@capacitor/local-notifications";
 import { hasNativePlugin, isNativeApp, NativeRecorder, SharedInbox } from "@/lib/native-app";
+import { ChevronRightIcon, MicIcon } from "@/components/icons";
 
 const AUTO_OPENED_KEY = "campusos-auto-opened";
 /** Back in the app this soon after sharing a recording, go straight to it. */
@@ -76,10 +77,17 @@ export function NativeAppBridge() {
     return (
       <Link
         href="/record"
-        className="flex items-center justify-center gap-2 bg-danger px-4 py-2.5 text-sm font-semibold text-white"
+        className="mb-5 flex items-center gap-3 rounded-xl2 bg-danger-soft px-4 py-3 text-sm text-danger"
       >
-        <span aria-hidden className="block h-2 w-2 animate-pulse rounded-full bg-white" />
-        Recording a lecture. Tap to return.
+        <span className="relative flex h-2.5 w-2.5 flex-none">
+          <span aria-hidden className="absolute inset-0 animate-ping rounded-full bg-danger opacity-60" />
+          <span aria-hidden className="relative h-2.5 w-2.5 rounded-full bg-danger" />
+        </span>
+        <span className="flex-1 font-semibold">Recording a lecture</span>
+        <span className="flex items-center gap-1 text-[13px] font-medium">
+          Return
+          <ChevronRightIcon className="h-4 w-4" />
+        </span>
       </Link>
     );
   }
@@ -87,9 +95,13 @@ export function NativeAppBridge() {
   return (
     <Link
       href="/record"
-      className="block border-b border-border-soft bg-accent-soft px-4 py-2.5 text-center text-sm font-medium text-accent-ink"
+      className="mb-5 flex items-center gap-3 rounded-xl2 bg-accent-soft px-4 py-3 text-sm text-accent-ink"
     >
-      {waiting === 1 ? "1 recording is" : `${waiting} recordings are`} waiting to be added to a class →
+      <MicIcon className="h-[18px] w-[18px] flex-none" />
+      <span className="flex-1 font-medium">
+        {waiting === 1 ? "1 recording is" : `${waiting} recordings are`} waiting to be added to a class
+      </span>
+      <ChevronRightIcon className="h-4 w-4 flex-none" />
     </Link>
   );
 }

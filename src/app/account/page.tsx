@@ -4,40 +4,50 @@ import { AppShell } from "@/components/AppShell";
 import { ChangePasswordForm, DeleteAccountForm } from "@/components/account/AccountForms";
 import { AiFeaturesSettings } from "@/components/account/AiConsent";
 import { formatInTimeZone } from "date-fns-tz";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { CardHeader } from "@/components/ui/CardHeader";
+import { AlertIcon, LockIcon, SparkIcon } from "@/components/icons";
 
 export default async function AccountPage() {
   const user = await requireUser();
 
   return (
     <AppShell active="/account" userName={user.name ?? user.email}>
-      <h1 className="mb-1 font-display text-2xl font-semibold">Account</h1>
-      <p className="mb-6 text-sm text-ink-soft">Signed in as {user.email}</p>
+      <PageHeader title="Account" description={`Signed in as ${user.email}`} />
 
-      <div className="flex max-w-xl flex-col gap-6">
-        <section id="ai" className="rounded-xl2 border border-border-soft bg-surface p-6 shadow-card">
-          <h2 className="font-display text-base font-semibold">AI features</h2>
+      <div className="flex max-w-2xl flex-col gap-6">
+        <section id="ai" className="card card-pad scroll-mt-24">
+          <CardHeader icon={<SparkIcon className="h-[18px] w-[18px]" />} title="AI features" />
           <AiFeaturesSettings
             allowedSince={user.aiConsentAt ? formatInTimeZone(user.aiConsentAt, user.timezone, "MMM d, yyyy") : null}
           />
         </section>
 
-        <section className="rounded-xl2 border border-border-soft bg-surface p-6 shadow-card">
-          <h2 className="font-display text-base font-semibold">Change password</h2>
-          <p className="mt-1 text-sm text-ink-soft">Changing it signs you out everywhere except this device.</p>
+        <section className="card card-pad">
+          <CardHeader
+            icon={<LockIcon className="h-[18px] w-[18px]" />}
+            title="Change password"
+            description="Changing it signs you out everywhere except this device."
+          />
           <ChangePasswordForm />
         </section>
 
-        <section className="rounded-xl2 border border-danger bg-surface p-6 shadow-card">
-          <h2 className="font-display text-base font-semibold text-danger">Delete account</h2>
-          <p className="mt-1 text-sm text-ink-soft">
+        <section className="card card-pad">
+          <div className="flex items-start gap-3">
+            <span className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-danger-soft text-danger">
+              <AlertIcon className="h-[18px] w-[18px]" />
+            </span>
+            <h2 className="pt-2 text-[15px] font-semibold leading-snug text-danger">Delete account</h2>
+          </div>
+          <p className="mt-4 text-sm leading-relaxed text-ink-soft">
             Permanently deletes your account and everything in it: classes, assignments, notes, lectures and their audio,
             emails, and your Canvas and Gmail connections. Gmail access is revoked at Google, and lecture transcripts
             are deleted from the transcription service. This can&apos;t be undone.
           </p>
-          <p className="mt-2 text-sm text-ink-soft">
+          <p className="mt-2 text-sm leading-relaxed text-ink-soft">
             Your Canvas access token lives in Canvas too. Delete it there under Account → Settings → Approved
             Integrations. See the{" "}
-            <Link href="/privacy" className="underline hover:text-ink">
+            <Link href="/privacy" className="font-medium text-ink underline decoration-border underline-offset-2 hover:decoration-ink">
               privacy policy
             </Link>{" "}
             for details.

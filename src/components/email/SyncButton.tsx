@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { syncEmailAction } from "@/app/email/actions";
+import { RefreshIcon } from "@/components/icons";
 
 // One sync reads a limited number of new messages (see syncEmailAction), so
 // a first sync or a busy week takes several. Keep going on its own, up to a
@@ -38,17 +39,14 @@ export function SyncButton({ lastSyncedLabel }: { lastSyncedLabel: string }) {
   }
 
   return (
-    <div className="flex items-center gap-3">
-      <button
-        onClick={sync}
-        disabled={pending}
-        className="rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-surface hover:opacity-90 disabled:opacity-60"
-      >
-        {pending ? "Syncing…" : "Sync now"}
-      </button>
+    <div className="flex flex-row-reverse items-center gap-3 sm:flex-row">
       <span className="text-xs text-ink-faint" aria-live="polite">
         {message ?? lastSyncedLabel}
       </span>
+      <button onClick={sync} disabled={pending} className="btn btn-primary">
+        <RefreshIcon className={`h-4 w-4 ${pending ? "animate-spin" : ""}`} />
+        {pending ? "Syncing…" : "Sync now"}
+      </button>
     </div>
   );
 }

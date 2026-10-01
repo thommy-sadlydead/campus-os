@@ -75,8 +75,8 @@ as out of scope.
   review/practice/final-review, etc.) rather than refusing to work. Small
   assignments (roughly under 30 minutes) are deliberately left unsplit — a
   2-minute attendance check doesn't need three steps.
-- **Behind / At-Risk status** (`src/lib/risk-engine.ts`): a 🟢/🟡/🔴
-  assessment shown at the top of the dashboard, plus a lightweight badge on
+- **Behind / At-Risk status** (`src/lib/risk-engine.ts`): an on track /
+  getting behind / at risk assessment shown at the top of the dashboard, plus a lightweight badge on
   each class card. Built from real signals only — overdue items, how much
   is due in the next 48 hours, upcoming exams, and (only when you've logged
   it) how your actual free time compares to today's workload — and when
@@ -380,7 +380,8 @@ AI call involved:
   to the heuristic otherwise. Either way the result is stored as real
   `Task` rows, so it shows up on the dashboard, the class page, and the
   Assignments list the same way regardless of which path produced it.
-- `src/lib/risk-engine.ts` — the Behind/At-Risk 🟢/🟡/🔴 assessment.
+- `src/lib/risk-engine.ts` — the Behind/At-Risk assessment (on track,
+  getting behind, at risk).
   Takes the priority engine's already-computed ranked list and workload
   summary (never a second, possibly-inconsistent read of your data) and
   applies real thresholds: any overdue item, an hour or more behind your
@@ -398,7 +399,7 @@ AI call involved:
 
 Built: foundation, Canvas sync, Command Center (phase 1); per-class pages,
 flexible Notes, Schedule (phase 2); Automatic Assignment Breakdown and the
-Behind/At-Risk 🟢/🟡/🔴 system (phase 3); Gmail OAuth, email intelligence,
+Behind/At-Risk system (phase 3); Gmail OAuth, email intelligence,
 PendingChange conflict resolution, Inbox Academic Feed, per-class and
 cross-app AI assistants (phase 4, plus the assistants originally slated
 for "after phase 2/4" — built once both existed for them to draw on). That
@@ -519,6 +520,22 @@ new account sees a welcome with "Connect Canvas" instead of an "on track"
 status, empty pages link to Canvas instead of listing terminal commands,
 and AI or setup failures read as plain sentences, never as environment
 variable names.
+
+**Redesign (2026-10).** One design system across every page, in the
+spirit of a modern SaaS app. The tokens in `src/app/globals.css` (neutral
+grays, an orange accent, a blue-to-orange brand gradient, status colors,
+light and dark) feed Tailwind, and shared classes cover the repeated
+pieces: `.card`, `.btn` with `btn-primary`/`-secondary`/`-ghost`/`-brand`,
+`.field`, `.badge`, `.chip`, `.eyebrow` and `.empty`. The Geist font
+replaces the old serif headings. Wide screens get a sidebar (Record,
+grouped navigation, account); phones get a frosted top bar and a floating
+tab bar with Record raised in the middle. Pages share `PageHeader` and
+`CardHeader` (`src/components/ui/`) and one line-icon set
+(`src/components/icons.tsx`), which replaces the emoji that used to mark
+status, file types and pins. Each class has a colored initials tile
+(`src/lib/course-style.ts`). The landing, log-in, offline and not-found
+pages use the same look, and the iPhone app's launch screen and offline
+page use the new colors. No features were added or removed.
 
 **Known limits, not gaps in this app:** Gmail (`GOOGLE_CLIENT_ID` etc.) and
 the AI assistants (`ANTHROPIC_API_KEY`) both require credentials you

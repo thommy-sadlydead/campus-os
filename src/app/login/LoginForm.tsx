@@ -5,9 +5,10 @@ import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import { loginAction, registerAction, type AuthActionState } from "./actions";
 import { MIN_PASSWORD_LENGTH } from "@/lib/account-forms";
+import { LogoMark } from "@/components/Logo";
+import { BrandBackdrop } from "@/components/ui/BrandBackdrop";
 
-const INPUT_CLASS =
-  "rounded-lg border border-border bg-bg px-3 py-2 text-sm text-ink outline-none focus:border-accent";
+const INPUT_CLASS = "field";
 
 function SubmitButton({ label }: { label: string }) {
   const { pending } = useFormStatus();
@@ -15,7 +16,7 @@ function SubmitButton({ label }: { label: string }) {
     <button
       type="submit"
       disabled={pending}
-      className="w-full rounded-lg bg-ink px-4 py-2.5 text-sm font-semibold text-surface transition-opacity hover:opacity-90 disabled:opacity-50"
+      className="btn btn-primary btn-lg mt-1 w-full"
     >
       {pending ? "Please wait…" : label}
     </button>
@@ -28,8 +29,8 @@ function Field({
   ...inputProps
 }: { id: string; label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-xs font-medium text-ink-soft">
+    <div className="flex flex-col">
+      <label htmlFor={id} className="field-label">
         {label}
       </label>
       <input id={id} name={id} className={INPUT_CLASS} {...inputProps} />
@@ -54,73 +55,81 @@ export function LoginForm({
   const state = registering ? registerState : loginState;
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-bg px-4">
-      <div className="w-full max-w-sm rounded-xl2 border border-border-soft bg-surface p-8 shadow-card">
-        <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-ink-faint">Campus OS</div>
-        <h1 className="mb-6 font-display text-2xl font-semibold">
-          {registering ? "Create your account" : "Welcome back"}
-        </h1>
+    <div className="relative flex min-h-screen flex-col items-center justify-center bg-bg px-4 py-10">
+      <BrandBackdrop />
+      <div className="relative w-full max-w-sm">
+        <Link href="/" aria-label="Campus OS home" className="mx-auto mb-6 flex w-fit">
+          <LogoMark size={44} />
+        </Link>
+        <div className="card p-6 shadow-pop sm:p-8">
+          <h1 className="text-center font-display text-2xl font-semibold">
+            {registering ? "Create your account" : "Welcome back"}
+          </h1>
+          <p className="mb-6 mt-1.5 text-center text-sm text-ink-soft">
+            {registering ? "Use your school email and your invite code." : "Log in to Campus OS."}
+          </p>
 
-        {notice && <p className="mb-4 rounded-lg bg-ok-soft px-3 py-2 text-sm text-ok">{notice}</p>}
+          {notice && <p className="mb-4 rounded-lg bg-ok-soft px-3 py-2 text-sm text-ok">{notice}</p>}
 
-        <form
-          // Remounts the form when switching modes so each one starts from
-          // its own saved state instead of the other mode's leftovers.
-          key={registering ? "register" : "login"}
-          action={registering ? registerFormAction : loginFormAction}
-          className="flex flex-col gap-4"
-        >
-          <Field
-            id="email"
-            label="School email"
-            type="email"
-            required
-            autoComplete="email"
-            placeholder="you@school.edu"
-            defaultValue={state?.email ?? ""}
-          />
-          <Field
-            id="password"
-            label="Password"
-            type="password"
-            required
-            minLength={registering ? MIN_PASSWORD_LENGTH : undefined}
-            autoComplete={registering ? "new-password" : "current-password"}
-            placeholder="••••••••"
-          />
-          {registering && (
-            <>
-              <Field
-                id="confirmPassword"
-                label="Confirm password"
-                type="password"
-                required
-                minLength={MIN_PASSWORD_LENGTH}
-                autoComplete="new-password"
-                placeholder="••••••••"
-              />
-              <Field id="inviteCode" label="Invite code" type="text" required autoComplete="off" />
-            </>
-          )}
-
-          {state?.error && <p className="rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">{state.error}</p>}
-
-          <SubmitButton label={registering ? "Create account" : "Log in"} />
-        </form>
-
-        {signupOpen ? (
-          <button
-            onClick={() => setMode(registering ? "login" : "register")}
-            className="mt-4 w-full text-center text-sm text-ink-soft hover:text-ink"
+          <form
+            // Remounts the form when switching modes so each one starts from
+            // its own saved state instead of the other mode's leftovers.
+            key={registering ? "register" : "login"}
+            action={registering ? registerFormAction : loginFormAction}
+            className="flex flex-col gap-4"
           >
-            {registering ? "Already have an account? Log in" : "Have an invite code? Create an account"}
-          </button>
-        ) : (
-          <p className="mt-4 text-center text-sm text-ink-faint">Campus OS is invite-only right now.</p>
-        )}
+            <Field
+              id="email"
+              label="School email"
+              type="email"
+              required
+              autoComplete="email"
+              placeholder="you@school.edu"
+              defaultValue={state?.email ?? ""}
+            />
+            <Field
+              id="password"
+              label="Password"
+              type="password"
+              required
+              minLength={registering ? MIN_PASSWORD_LENGTH : undefined}
+              autoComplete={registering ? "new-password" : "current-password"}
+              placeholder="••••••••"
+            />
+            {registering && (
+              <>
+                <Field
+                  id="confirmPassword"
+                  label="Confirm password"
+                  type="password"
+                  required
+                  minLength={MIN_PASSWORD_LENGTH}
+                  autoComplete="new-password"
+                  placeholder="••••••••"
+                />
+                <Field id="inviteCode" label="Invite code" type="text" required autoComplete="off" />
+              </>
+            )}
+
+            {state?.error && <p className="rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">{state.error}</p>}
+
+            <SubmitButton label={registering ? "Create account" : "Log in"} />
+          </form>
+
+          {signupOpen ? (
+            <button
+              onClick={() => setMode(registering ? "login" : "register")}
+              className="mt-4 w-full text-center text-sm text-ink-soft hover:text-ink"
+            >
+              {registering ? "Already have an account? Log in" : "Have an invite code? Create an account"}
+            </button>
+          ) : (
+            <p className="mt-4 text-center text-sm text-ink-faint">Campus OS is invite-only right now.</p>
+          )}
+        </div>
 
         {showDemoHint && (
-          <p className="mt-6 text-xs leading-relaxed text-ink-faint">
+          <p className="mt-6 text-center text-xs leading-relaxed text-ink-faint">
             Local demo login (from <code>npm run db:seed</code>):{" "}
             <code className="font-mono">student@example.com</code> /{" "}
             <code className="font-mono">campusos-demo</code>

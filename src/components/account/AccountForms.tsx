@@ -5,8 +5,7 @@ import { useFormStatus } from "react-dom";
 import { changePasswordAction, deleteAccountAction, type AccountActionState } from "@/app/account/actions";
 import { DELETE_CONFIRMATION_WORD, MIN_PASSWORD_LENGTH } from "@/lib/account-forms";
 
-const INPUT_CLASS =
-  "rounded-lg border border-border bg-bg px-3 py-2 text-sm text-ink outline-none focus:border-accent";
+const INPUT_CLASS = "field";
 
 function Field({
   id,
@@ -14,8 +13,8 @@ function Field({
   ...inputProps
 }: { id: string; label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-xs font-medium text-ink-soft">
+    <div className="flex flex-col">
+      <label htmlFor={id} className="field-label">
         {label}
       </label>
       <input id={id} name={id} className={INPUT_CLASS} {...inputProps} />
@@ -29,9 +28,7 @@ function SubmitButton({ label, pendingLabel, danger }: { label: string; pendingL
     <button
       type="submit"
       disabled={pending}
-      className={`self-start rounded-lg px-4 py-2.5 text-sm font-semibold text-surface transition-opacity hover:opacity-90 disabled:opacity-50 ${
-        danger ? "bg-danger" : "bg-ink"
-      }`}
+      className={`btn mt-1 self-start ${danger ? "btn-destructive" : "btn-primary"}`}
     >
       {pending ? pendingLabel : label}
     </button>
@@ -47,7 +44,7 @@ function Message({ state }: { state: AccountActionState }) {
 export function ChangePasswordForm() {
   const [state, formAction] = useActionState<AccountActionState, FormData>(changePasswordAction, undefined);
   return (
-    <form action={formAction} className="mt-4 flex flex-col gap-3">
+    <form action={formAction} className="mt-5 flex flex-col gap-4">
       <Field id="currentPassword" label="Current password" type="password" required autoComplete="current-password" />
       <Field
         id="newPassword"
@@ -74,7 +71,7 @@ export function ChangePasswordForm() {
 export function DeleteAccountForm() {
   const [state, formAction] = useActionState<AccountActionState, FormData>(deleteAccountAction, undefined);
   return (
-    <form action={formAction} className="mt-4 flex flex-col gap-3">
+    <form action={formAction} className="mt-5 flex flex-col gap-4">
       <Field id="password" label="Your password" type="password" required autoComplete="current-password" />
       <Field
         id="confirmation"

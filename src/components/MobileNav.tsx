@@ -3,71 +3,36 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { logoutAction } from "@/app/login/actions";
+import {
+  BookIcon,
+  CalendarIcon,
+  ChecklistIcon,
+  ChevronRightIcon,
+  HomeIcon,
+  LayersIcon,
+  LogOutIcon,
+  MailIcon,
+  MicIcon,
+  MoreIcon,
+  UserIcon,
+} from "@/components/icons";
 
-// Phones and tablets (below lg) get a bottom tab bar, the way iPhone apps
-// are laid out, instead of a top menu that runs off the side of the
-// screen. Record sits in the middle because it's the one thing you need
-// in a hurry, in class. Everything else lives under More.
-
-const ICON_PROPS = {
-  width: 24,
-  height: 24,
-  viewBox: "0 0 24 24",
-  fill: "none",
-  stroke: "currentColor",
-  strokeWidth: 1.8,
-  strokeLinecap: "round" as const,
-  strokeLinejoin: "round" as const,
-  "aria-hidden": true,
-};
-
-function TodayIcon() {
-  return (
-    <svg {...ICON_PROPS}>
-      <path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" />
-    </svg>
-  );
-}
-
-function ClassesIcon() {
-  return (
-    <svg {...ICON_PROPS}>
-      <path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5z" />
-      <path d="M5 19.5A1.5 1.5 0 0 0 6.5 21H19v-3" />
-    </svg>
-  );
-}
-
-function ScheduleIcon() {
-  return (
-    <svg {...ICON_PROPS}>
-      <rect x="3" y="5" width="18" height="16" rx="2" />
-      <path d="M3 10h18M8 3v4M16 3v4" />
-    </svg>
-  );
-}
-
-function MoreIcon() {
-  return (
-    <svg {...ICON_PROPS} fill="currentColor" stroke="none">
-      <circle cx="5" cy="12" r="1.7" />
-      <circle cx="12" cy="12" r="1.7" />
-      <circle cx="19" cy="12" r="1.7" />
-    </svg>
-  );
-}
+// Phones and tablets (below lg) get a floating tab bar, the way iPhone apps
+// are laid out, instead of the sidebar. Record sits raised in the middle
+// because it's the one thing you need in a hurry, in class. Everything else
+// lives under More.
 
 const TABS = [
-  { href: "/dashboard", label: "Today", Icon: TodayIcon },
-  { href: "/classes", label: "Classes", Icon: ClassesIcon },
-  { href: "/schedule", label: "Schedule", Icon: ScheduleIcon },
+  { href: "/dashboard", label: "Today", Icon: HomeIcon },
+  { href: "/classes", label: "Classes", Icon: BookIcon },
+  { href: "/schedule", label: "Schedule", Icon: CalendarIcon },
 ];
 
 const MORE_LINKS = [
-  { href: "/assignments", label: "Assignments" },
-  { href: "/email", label: "Email" },
-  { href: "/canvas", label: "Canvas" },
-  { href: "/account", label: "Account" },
+  { href: "/assignments", label: "Assignments", Icon: ChecklistIcon },
+  { href: "/email", label: "Email", Icon: MailIcon },
+  { href: "/canvas", label: "Canvas", Icon: LayersIcon },
+  { href: "/account", label: "Account", Icon: UserIcon },
 ];
 
 export function MobileNav({ active }: { active: string }) {
@@ -84,7 +49,10 @@ export function MobileNav({ active }: { active: string }) {
   }, [moreOpen]);
 
   const tabClass = (isActive: boolean) =>
-    `flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium ${isActive ? "text-ink" : "text-ink-faint"}`;
+    `flex w-full flex-col items-center gap-1 rounded-2xl py-1.5 text-[10.5px] font-medium transition-colors ${
+      isActive ? "text-ink" : "text-ink-faint"
+    }`;
+  const iconClass = (isActive: boolean) => `h-[22px] w-[22px] ${isActive ? "text-accent" : ""}`;
 
   const [today, classes, schedule] = TABS;
 
@@ -92,26 +60,32 @@ export function MobileNav({ active }: { active: string }) {
     <>
       <nav
         aria-label="Main"
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-border-soft bg-surface pb-[env(safe-area-inset-bottom)] lg:hidden"
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-3 pb-[calc(0.6rem+env(safe-area-inset-bottom))] lg:hidden"
       >
-        <ul className="mx-auto grid max-w-lg grid-cols-5 items-end">
+        <ul className="glass pointer-events-auto mx-auto grid max-w-md grid-cols-5 items-end rounded-[24px] border border-border-soft px-1.5 pb-1 pt-1.5 shadow-pop">
           {[today, classes].map(({ href, label, Icon }) => (
             <li key={href}>
               <Link href={href} className={tabClass(active === href)} aria-current={active === href ? "page" : undefined}>
-                <Icon />
+                <Icon className={iconClass(active === href)} />
                 {label}
               </Link>
             </li>
           ))}
-          <li>
+          <li className="flex justify-center">
             <Link
               href="/record"
               aria-label="Record a lecture"
               aria-current={active === "/record" ? "page" : undefined}
-              className="flex flex-col items-center gap-0.5 pb-2 text-[11px] font-medium text-ink"
+              className="flex flex-col items-center gap-1 pb-1.5 text-[10.5px] font-medium text-ink"
             >
-              <span className="-mt-4 flex h-12 w-12 items-center justify-center rounded-full bg-danger shadow-card ring-4 ring-surface">
-                <span className="block h-4 w-4 rounded-full bg-white" />
+              <span
+                className="-mt-7 flex h-14 w-14 items-center justify-center rounded-full text-white ring-[5px] ring-bg"
+                style={{
+                  backgroundImage: "linear-gradient(135deg, var(--grad-from), var(--grad-to))",
+                  boxShadow: "0 10px 24px -8px rgba(255, 122, 47, 0.6)",
+                }}
+              >
+                <MicIcon className="h-6 w-6" />
               </span>
               Record
             </Link>
@@ -122,7 +96,7 @@ export function MobileNav({ active }: { active: string }) {
               className={tabClass(active === schedule.href)}
               aria-current={active === schedule.href ? "page" : undefined}
             >
-              <schedule.Icon />
+              <schedule.Icon className={iconClass(active === schedule.href)} />
               {schedule.label}
             </Link>
           </li>
@@ -132,9 +106,9 @@ export function MobileNav({ active }: { active: string }) {
               onClick={() => setMoreOpen(true)}
               aria-expanded={moreOpen}
               aria-haspopup="dialog"
-              className={`w-full ${tabClass(moreActive)}`}
+              className={tabClass(moreActive)}
             >
-              <MoreIcon />
+              <MoreIcon className={iconClass(moreActive)} />
               More
             </button>
           </li>
@@ -147,28 +121,35 @@ export function MobileNav({ active }: { active: string }) {
             type="button"
             aria-label="Close"
             onClick={() => setMoreOpen(false)}
-            className="absolute inset-0 h-full w-full bg-black/40"
+            className="absolute inset-0 h-full w-full bg-black/40 backdrop-blur-[2px]"
           />
-          <div className="absolute inset-x-0 bottom-0 rounded-t-2xl border-t border-border-soft bg-surface px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 shadow-card">
-            <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-border" aria-hidden />
-            <ul className="mx-auto flex max-w-lg flex-col">
-              {MORE_LINKS.map((link) => (
-                <li key={link.href}>
+          <div className="absolute inset-x-0 bottom-0 rounded-t-[28px] border-t border-border-soft bg-surface px-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-3 shadow-pop">
+            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-border" aria-hidden />
+            <ul className="mx-auto flex max-w-lg flex-col gap-0.5">
+              {MORE_LINKS.map(({ href, label, Icon }) => (
+                <li key={href}>
                   <Link
-                    href={link.href}
+                    href={href}
                     onClick={() => setMoreOpen(false)}
-                    aria-current={active === link.href ? "page" : undefined}
-                    className={`block rounded-lg px-3 py-3 text-base ${
-                      active === link.href ? "bg-surface-2 font-semibold" : "hover:bg-surface-2"
+                    aria-current={active === href ? "page" : undefined}
+                    className={`flex items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-medium ${
+                      active === href ? "bg-surface-2 text-ink" : "text-ink hover:bg-surface-2"
                     }`}
                   >
-                    {link.label}
+                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-surface-2 text-ink-soft">
+                      <Icon className="h-[18px] w-[18px]" />
+                    </span>
+                    <span className="flex-1">{label}</span>
+                    <ChevronRightIcon className="h-4 w-4 text-ink-faint" />
                   </Link>
                 </li>
               ))}
-              <li className="mt-1 border-t border-border-soft pt-1">
+              <li className="mt-2 border-t border-border-soft pt-2">
                 <form action={logoutAction}>
-                  <button className="block w-full rounded-lg px-3 py-3 text-left text-base text-danger hover:bg-surface-2">
+                  <button className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[15px] font-medium text-danger hover:bg-danger-soft">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-danger-soft">
+                      <LogOutIcon className="h-[18px] w-[18px]" />
+                    </span>
                     Log out
                   </button>
                 </form>

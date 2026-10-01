@@ -84,18 +84,25 @@ export function ClassTabs({
 
   return (
     <div>
-      <div ref={tabRowRef} className="mb-5 flex gap-1 overflow-x-auto border-b border-border-soft">
+      {/* On a phone the row scrolls sideways, edge to edge. */}
+      <div
+        ref={tabRowRef}
+        className="-mx-4 mb-6 flex gap-1.5 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden"
+      >
         {CLASS_TABS.map((t) => (
           <button
             key={t}
             data-selected={tab === t || undefined}
+            aria-pressed={tab === t}
             onClick={() => go(t)}
-            className={`flex-none whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
-              tab === t ? "border-ink text-ink" : "border-transparent text-ink-soft hover:text-ink"
+            className={`flex flex-none items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors ${
+              tab === t ? "bg-ink text-surface shadow-sm" : "text-ink-soft hover:bg-surface-2 hover:text-ink"
             }`}
           >
             {t}
-            {counts[t] != null && <span className="ml-1.5 text-xs text-ink-faint">{counts[t]}</span>}
+            {counts[t] != null && (
+              <span className={`text-xs tabular-nums ${tab === t ? "text-surface opacity-60" : "text-ink-faint"}`}>{counts[t]}</span>
+            )}
           </button>
         ))}
       </div>
@@ -132,7 +139,7 @@ export function ClassTabs({
       {tab === "Exams" && <ExamsPanel exams={exams} tz={tz} />}
       {tab === "Resources" && <ResourcesPanel classId={classInfo.id} resources={resources} materials={materials} />}
 
-      <div className="mt-8">
+      <div className="mt-10">
         <ClassAssistant classId={classInfo.id} className={classInfo.name} />
       </div>
     </div>

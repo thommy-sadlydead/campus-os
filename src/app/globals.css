@@ -3,103 +3,170 @@
 @tailwind utilities;
 
 /*
- * Design tokens carried over directly from the Fall Ledger artifact
- * (the calendar built before this app) so Campus OS extends the same
- * visual language rather than introducing a new one — per the "keep the
- * existing design language" requirement.
+ * Campus OS design system. Every color in the app comes from these tokens
+ * (as Tailwind classes like bg-surface, text-ink-soft, border-border-soft),
+ * so changing one here changes it everywhere, light and dark alike.
+ *
+ *   bg / surface / surface-2   page canvas, cards, quiet fills and hovers
+ *   ink / ink-soft / ink-faint  text, from headings down to hints
+ *   border / border-soft       control outlines, card and divider lines
+ *   accent (+ -ink, -soft)     the brand orange: links, focus, highlights
+ *   danger / ok / warn         status colors, each with a soft background
+ *   c-1 … c-8                  per-class colors
+ *   --grad-from / --grad-to    the blue-to-orange brand gradient, used
+ *                              sparingly (logo, Record, a few highlights)
  */
 :root {
-  --bg: #f2f3f6;
+  --bg: #f6f7f9;
   --surface: #ffffff;
-  --surface-2: #e9ebf1;
-  --ink: #1b2130;
-  --ink-soft: #565f74;
-  --ink-faint: #8990a3;
-  --border: #dde1e9;
-  --border-soft: #e8eaf0;
-  --accent: #b8742c;
-  --accent-ink: #7a4c17;
-  --accent-soft: #f3e3d0;
-  --danger: #b23b3b;
-  --danger-soft: #f6e0e0;
-  --ok: #3f7d45;
-  --ok-soft: #e1efe2;
-  --warn: #a9791f;
-  --warn-soft: #f3e8cf;
+  --surface-2: #f1f3f6;
+  --ink: #0f1218;
+  --ink-soft: #596273;
+  --ink-faint: #8a93a3;
+  --border: #e2e5eb;
+  --border-soft: #eceef2;
+  --accent: #ea6a12;
+  --accent-ink: #b8500a;
+  --accent-soft: #fff1e6;
+  --accent-ring: rgba(234, 106, 18, 0.18);
+  --danger: #d92d3a;
+  --danger-soft: #fdeced;
+  --ok: #15803d;
+  --ok-soft: #e9f7ee;
+  --warn: #b45309;
+  --warn-soft: #fef4e6;
 
-  --c-1: #1d7a73; /* teal */
-  --c-2: #6d5dbe; /* violet */
-  --c-3: #a9791f; /* gold */
-  --c-4: #b4432f; /* brick */
-  --c-5: #3f7d45; /* green */
-  --c-6: #3c6e9c; /* slate blue */
-  --c-7: #9b3f7a; /* magenta */
-  --c-8: #4a5568; /* graphite */
+  --grad-from: #4c7dff;
+  --grad-to: #ff7a2f;
+  --glow-1: rgba(76, 125, 255, 0.1);
+  --glow-2: rgba(255, 122, 47, 0.08);
+  --halo-1: rgba(76, 125, 255, 0.2);
+  --halo-2: rgba(255, 122, 47, 0.16);
+  --shadow-color: 16, 24, 40;
+  --glass: rgba(255, 255, 255, 0.78);
+
+  --c-1: #0d9488; /* teal */
+  --c-2: #7c3aed; /* violet */
+  --c-3: #d97706; /* amber */
+  --c-4: #e11d48; /* rose */
+  --c-5: #16a34a; /* green */
+  --c-6: #2563eb; /* blue */
+  --c-7: #c026d3; /* fuchsia */
+  --c-8: #475569; /* slate */
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #14161d;
-    --surface: #1c1f29;
-    --surface-2: #252938;
-    --ink: #e8e9ee;
-    --ink-soft: #a7adbe;
-    --ink-faint: #6d7488;
-    --border: #333849;
-    --border-soft: #2a2e3d;
-    --accent: #e0a85c;
-    --accent-ink: #f2cd93;
-    --accent-soft: #3a2c17;
-    --danger: #e08b7d;
-    --danger-soft: #3a2222;
-    --ok: #82c288;
-    --ok-soft: #1f2e21;
-    --warn: #d9a94a;
-    --warn-soft: #362a13;
+    --bg: #0a0b0f;
+    --surface: #121419;
+    --surface-2: #1a1d24;
+    --ink: #f1f2f5;
+    --ink-soft: #a4abb9;
+    --ink-faint: #6c7381;
+    --border: #272b34;
+    --border-soft: #1d2028;
+    --accent: #ff8a3d;
+    --accent-ink: #ffb27a;
+    --accent-soft: #2a1a0f;
+    --accent-ring: rgba(255, 138, 61, 0.28);
+    --danger: #f87171;
+    --danger-soft: #2a1416;
+    --ok: #4ade80;
+    --ok-soft: #10251a;
+    --warn: #fbbf24;
+    --warn-soft: #2a2111;
 
-    --c-1: #4fc9be;
-    --c-2: #a79ae0;
-    --c-3: #d9a94a;
-    --c-4: #e08065;
-    --c-5: #7fc487;
-    --c-6: #7fb0dd;
-    --c-7: #d97fc0;
-    --c-8: #9aa4b8;
+    --grad-from: #5b8cff;
+    --grad-to: #ff8a3d;
+    --glow-1: rgba(91, 140, 255, 0.12);
+    --glow-2: rgba(255, 138, 61, 0.08);
+    --halo-1: rgba(91, 140, 255, 0.18);
+    --halo-2: rgba(255, 138, 61, 0.12);
+    --shadow-color: 0, 0, 0;
+    --glass: rgba(18, 20, 25, 0.74);
+
+    --c-1: #2dd4bf;
+    --c-2: #a78bfa;
+    --c-3: #fbbf24;
+    --c-4: #fb7185;
+    --c-5: #4ade80;
+    --c-6: #60a5fa;
+    --c-7: #e879f9;
+    --c-8: #94a3b8;
   }
 }
 
 :root[data-theme="dark"] {
-  --bg: #14161d;
-  --surface: #1c1f29;
-  --surface-2: #252938;
-  --ink: #e8e9ee;
-  --ink-soft: #a7adbe;
-  --ink-faint: #6d7488;
-  --border: #333849;
-  --border-soft: #2a2e3d;
-  --accent: #e0a85c;
-  --accent-ink: #f2cd93;
-  --accent-soft: #3a2c17;
-  --danger: #e08b7d;
-  --danger-soft: #3a2222;
-  --ok: #82c288;
-  --ok-soft: #1f2e21;
-  --warn: #d9a94a;
-  --warn-soft: #362a13;
+  --bg: #0a0b0f;
+  --surface: #121419;
+  --surface-2: #1a1d24;
+  --ink: #f1f2f5;
+  --ink-soft: #a4abb9;
+  --ink-faint: #6c7381;
+  --border: #272b34;
+  --border-soft: #1d2028;
+  --accent: #ff8a3d;
+  --accent-ink: #ffb27a;
+  --accent-soft: #2a1a0f;
+  --accent-ring: rgba(255, 138, 61, 0.28);
+  --danger: #f87171;
+  --danger-soft: #2a1416;
+  --ok: #4ade80;
+  --ok-soft: #10251a;
+  --warn: #fbbf24;
+  --warn-soft: #2a2111;
 
-  --c-1: #4fc9be;
-  --c-2: #a79ae0;
-  --c-3: #d9a94a;
-  --c-4: #e08065;
-  --c-5: #7fc487;
-  --c-6: #7fb0dd;
-  --c-7: #d97fc0;
-  --c-8: #9aa4b8;
+  --grad-from: #5b8cff;
+  --grad-to: #ff8a3d;
+  --glow-1: rgba(91, 140, 255, 0.12);
+  --glow-2: rgba(255, 138, 61, 0.08);
+  --halo-1: rgba(91, 140, 255, 0.18);
+  --halo-2: rgba(255, 138, 61, 0.12);
+  --shadow-color: 0, 0, 0;
+  --glass: rgba(18, 20, 25, 0.74);
+
+  --c-1: #2dd4bf;
+  --c-2: #a78bfa;
+  --c-3: #fbbf24;
+  --c-4: #fb7185;
+  --c-5: #4ade80;
+  --c-6: #60a5fa;
+  --c-7: #e879f9;
+  --c-8: #94a3b8;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-rendering: optimizeLegibility;
 }
 
 body {
-  background: var(--bg);
+  background-color: var(--bg);
   color: var(--ink);
+  font-feature-settings: "ss01", "cv11";
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+
+/* Headings: tighter tracking reads as a product, not a document. */
+.font-display {
+  letter-spacing: -0.022em;
+}
+
+/* One focus style everywhere: a soft ring in the brand color. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-ring);
 }
 
 /*
@@ -114,5 +181,114 @@ body {
   textarea,
   [contenteditable="true"] {
     font-size: 16px;
+  }
+}
+
+@layer components {
+  /* Frosted bars that float over content (top bar, tab bar, sheets). */
+  .glass {
+    background-color: var(--glass);
+    -webkit-backdrop-filter: saturate(180%) blur(18px);
+    backdrop-filter: saturate(180%) blur(18px);
+  }
+
+  /* Surfaces */
+  .card {
+    @apply rounded-xl2 border border-border-soft bg-surface shadow-card;
+  }
+  .card-pad {
+    @apply p-5 sm:p-6;
+  }
+
+  /* Buttons. Primary is the dark (light in dark mode) button for the main
+     action on a screen; brand is the gradient one, kept for Record. */
+  .btn {
+    @apply inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-lg px-4 text-sm font-medium transition-[background-color,color,box-shadow,opacity,transform] duration-150 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
+    min-height: 2.5rem;
+  }
+  .btn-sm {
+    @apply px-3 text-[13px];
+    min-height: 2rem;
+  }
+  .btn-lg {
+    @apply px-5 text-[15px];
+    min-height: 2.875rem;
+  }
+  .btn-primary {
+    @apply bg-ink text-surface shadow-sm hover:opacity-90;
+  }
+  .btn-secondary {
+    @apply border border-border bg-surface text-ink shadow-sm hover:bg-surface-2;
+  }
+  .btn-ghost {
+    @apply text-ink-soft hover:bg-surface-2 hover:text-ink;
+  }
+  .btn-accent {
+    @apply bg-accent text-white shadow-sm hover:opacity-90;
+  }
+  .btn-danger {
+    @apply border border-border bg-surface text-danger hover:bg-danger-soft;
+  }
+  .btn-destructive {
+    @apply bg-danger text-surface shadow-sm hover:opacity-90;
+  }
+  .btn-brand {
+    @apply text-white hover:opacity-95;
+    background-image: linear-gradient(135deg, var(--grad-from), var(--grad-to));
+    box-shadow: 0 6px 18px -6px rgba(255, 122, 47, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  }
+
+  /* Form fields */
+  .field {
+    @apply w-full rounded-lg border border-border bg-surface px-3 text-sm text-ink shadow-sm outline-none transition-[border-color,box-shadow] placeholder:text-ink-faint disabled:opacity-60;
+    min-height: 2.5rem;
+  }
+  textarea.field {
+    @apply py-2.5;
+  }
+  .field-sm {
+    @apply px-2.5;
+    min-height: 2.125rem;
+  }
+  textarea.field-sm {
+    @apply py-1.5;
+  }
+  .field-label {
+    @apply mb-1.5 block text-[13px] font-medium text-ink-soft;
+  }
+
+  /* Small labels and badges */
+  .eyebrow {
+    @apply text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-faint;
+  }
+  .badge {
+    @apply inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+  .dot {
+    @apply inline-block h-2 w-2 flex-none rounded-full;
+  }
+  /* Suggestion chips: quick questions and filters. */
+  .chip {
+    @apply inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-surface px-3 py-1 text-xs font-medium text-ink-soft transition-colors hover:border-ink-faint hover:text-ink disabled:opacity-50;
+  }
+
+  /* Empty states */
+  .empty {
+    @apply rounded-xl2 border border-dashed border-border bg-surface px-6 py-10 text-center text-sm text-ink-soft;
+  }
+
+  /* A class's own color as a soft tile (set --course with courseStyle()). */
+  .course-tint {
+    background-color: var(--surface-2);
+    background-color: color-mix(in srgb, var(--course) 14%, var(--surface));
+    color: var(--course);
+  }
+
+  /* The brand gradient as text, for a word or two in a headline. */
+  .text-brand {
+    background-image: linear-gradient(120deg, var(--grad-from), var(--grad-to));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
   }
 }

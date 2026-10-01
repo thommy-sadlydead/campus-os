@@ -10,7 +10,7 @@ function SubmitButton() {
     <button
       type="submit"
       disabled={pending}
-      className="mt-1 w-full rounded-lg bg-ink px-4 py-2.5 text-sm font-semibold text-surface transition-opacity hover:opacity-90 disabled:opacity-50"
+      className="btn btn-primary mt-1 w-full"
     >
       {pending ? "Connecting…" : "Connect Canvas"}
     </button>
@@ -21,9 +21,9 @@ export function ConnectCanvasForm({ defaultBaseUrl }: { defaultBaseUrl: string }
   const [state, formAction] = useActionState<ConnectCanvasState, FormData>(connectCanvasAction, undefined);
 
   return (
-    <form action={formAction} className="mt-3 flex flex-col gap-3">
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="baseUrl" className="text-xs font-medium text-ink-soft">
+    <form action={formAction} className="mt-5 flex flex-col gap-4">
+      <div className="flex flex-col">
+        <label htmlFor="baseUrl" className="field-label">
           Canvas URL
         </label>
         <input
@@ -32,11 +32,11 @@ export function ConnectCanvasForm({ defaultBaseUrl }: { defaultBaseUrl: string }
           type="url"
           required
           defaultValue={state?.baseUrl ?? defaultBaseUrl}
-          className="rounded-lg border border-border bg-bg px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+          className="field"
         />
       </div>
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="accessToken" className="text-xs font-medium text-ink-soft">
+      <div className="flex flex-col">
+        <label htmlFor="accessToken" className="field-label">
           Access token
         </label>
         <input
@@ -46,7 +46,7 @@ export function ConnectCanvasForm({ defaultBaseUrl }: { defaultBaseUrl: string }
           required
           placeholder="Paste your Canvas access token"
           autoComplete="off"
-          className="rounded-lg border border-border bg-bg px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+          className="field"
         />
       </div>
 

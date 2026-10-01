@@ -7,6 +7,8 @@ import { PendingChangesQueue } from "@/components/email/PendingChangesQueue";
 import { InboxFeed } from "@/components/email/InboxFeed";
 import { ConnectGmailButton } from "@/components/email/ConnectGmailButton";
 import { disconnectEmailAction } from "@/app/email/actions";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { CheckCircleIcon, MailIcon } from "@/components/icons";
 
 // syncEmailAction (run from SyncButton) reads and classifies up to 60
 // messages per run, a few seconds each, which can outlast Vercel's default
@@ -26,27 +28,32 @@ export default async function EmailPage({
   if (!account) {
     return (
       <AppShell active="/email" userName={user.name ?? user.email}>
-        <h1 className="mb-1 font-display text-2xl font-semibold">Email</h1>
-        <p className="mb-6 text-sm text-ink-soft">
-          Connect your school Gmail to surface due-date changes, room/schedule changes, syllabus updates, and
-          professor instructions — automatically, without ever handing this app your password.
-        </p>
+        <PageHeader
+          title="Email"
+          description="Connect your school Gmail to surface due-date changes, room/schedule changes, syllabus updates, and professor instructions — automatically, without ever handing this app your password."
+        />
 
-        {error && (
-          <div className="mb-4 rounded-xl2 border border-danger bg-danger-soft p-3 text-sm text-danger">
-            {error}
-          </div>
-        )}
+        {error && <div className="mb-4 rounded-xl2 bg-danger-soft px-4 py-3 text-sm text-danger">{error}</div>}
 
-        <div className="rounded-xl2 border border-border-soft bg-surface p-6 shadow-card">
-          <h3 className="font-display text-base font-semibold">How this works</h3>
-          <ul className="mt-3 flex flex-col gap-2 text-sm text-ink-soft">
-            <li>• You sign in on Google&apos;s own screen, so Campus OS never sees your password.</li>
-            <li>• Campus OS can only read email. It can&apos;t send, delete or change anything in your inbox.</li>
-            <li>• It looks at your recent inbox and keeps only school-related messages.</li>
-            <li>• If an email changes a due date or room, Campus OS asks you before updating anything.</li>
+        <div className="card card-pad max-w-2xl sm:p-8">
+          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-surface-2 text-ink-soft">
+            <MailIcon className="h-[22px] w-[22px]" />
+          </span>
+          <h2 className="mt-4 text-lg font-semibold text-ink">How this works</h2>
+          <ul className="mt-3 flex flex-col gap-2.5 text-sm text-ink-soft">
+            {[
+              "You sign in on Google's own screen, so Campus OS never sees your password.",
+              "Campus OS can only read email. It can't send, delete or change anything in your inbox.",
+              "It looks at your recent inbox and keeps only school-related messages.",
+              "If an email changes a due date or room, Campus OS asks you before updating anything.",
+            ].map((line) => (
+              <li key={line} className="flex gap-2.5">
+                <CheckCircleIcon className="mt-px h-[18px] w-[18px] flex-none text-ok" />
+                {line}
+              </li>
+            ))}
           </ul>
-          <ConnectGmailButton className="inline-block rounded-lg bg-ink px-4 py-2.5 text-sm font-semibold text-surface hover:opacity-90" />
+          <ConnectGmailButton className="btn btn-primary btn-lg" />
         </div>
       </AppShell>
     );
@@ -69,24 +76,29 @@ export default async function EmailPage({
 
   return (
     <AppShell active="/email" userName={user.name ?? user.email}>
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="font-display text-2xl font-semibold">Email</h1>
-          <p className="mt-0.5 text-sm text-ink-soft">Connected as {account.emailAddress}</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <SyncButton
-            lastSyncedLabel={
-              account.lastSyncedAt
-                ? `Last synced ${formatPastMoment(account.lastSyncedAt, new Date(), user.timezone)}`
-                : "Never synced yet"
-            }
-          />
-          <form action={disconnectEmailAction}>
-            <button className="text-xs text-ink-faint hover:text-danger">Disconnect</button>
-          </form>
-        </div>
-      </div>
+      <PageHeader
+        title="Email"
+        description={
+          <span className="inline-flex items-center gap-2">
+            <span aria-hidden className="dot bg-ok" />
+            Connected as {account.emailAddress}
+          </span>
+        }
+        actions={
+          <>
+            <SyncButton
+              lastSyncedLabel={
+                account.lastSyncedAt
+                  ? `Last synced ${formatPastMoment(account.lastSyncedAt, new Date(), user.timezone)}`
+                  : "Never synced yet"
+              }
+            />
+            <form action={disconnectEmailAction}>
+              <button className="btn btn-ghost btn-sm hover:bg-danger-soft hover:text-danger">Disconnect</button>
+            </form>
+          </>
+        }
+      />
 
       <PendingChangesQueue
         changes={pendingChangesRaw.map((c) => ({
@@ -103,7 +115,7 @@ export default async function EmailPage({
         }))}
       />
 
-      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-faint">Academic feed</h2>
+      <h2 className="mb-3 text-sm font-semibold text-ink">Academic feed</h2>
       <InboxFeed
         emails={emailsRaw.map((e) => ({
           id: e.id,

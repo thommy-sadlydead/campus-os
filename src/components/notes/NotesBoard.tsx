@@ -16,6 +16,10 @@ import {
   toggleNotePinAction,
   moveNoteAction,
 } from "@/app/classes/[id]/actions";
+import { ArrowDownIcon, ArrowUpIcon, PencilIcon, PinIcon, PlusIcon, SearchIcon, TrashIcon, XIcon } from "@/components/icons";
+
+const ICON_BUTTON =
+  "flex h-7 w-7 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-surface-2 hover:text-ink";
 
 export interface NotesBoardNote {
   id: string;
@@ -87,16 +91,20 @@ export function NotesBoard({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <input
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search notes in this class…"
-          className="w-full max-w-xs rounded-lg border border-border bg-bg px-3 py-2 text-sm outline-none focus:border-accent"
-        />
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+        <label className="relative w-full sm:max-w-xs">
+          <span className="sr-only">Search notes</span>
+          <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" />
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search notes in this class…"
+            className="field pl-9"
+          />
+        </label>
         <form
-          className="ml-auto flex gap-2"
+          className="flex gap-2 sm:ml-auto"
           action={(fd) => {
             const name = String(fd.get("name") || "");
             if (!name.trim()) return;
@@ -113,14 +121,16 @@ export function NotesBoard({
             value={newSectionName}
             onChange={(e) => setNewSectionName(e.target.value)}
             placeholder="New section (e.g. Midterm Review)"
-            className="w-56 rounded-lg border border-border bg-bg px-3 py-2 text-sm outline-none focus:border-accent"
+            aria-label="New section name"
+            className="field min-w-0 flex-1 sm:w-60 sm:flex-none"
           />
           <button
             type="submit"
             disabled={pending}
-            className="flex-none rounded-lg bg-ink px-3 py-2 text-sm font-medium text-surface hover:opacity-90 disabled:opacity-60"
+            className="btn btn-primary flex-none"
           >
-            + Section
+            <PlusIcon className="h-4 w-4" />
+            Section
           </button>
         </form>
       </div>
@@ -130,7 +140,7 @@ export function NotesBoard({
       )}
 
       {!q && sections.length === 0 && (
-        <div className="rounded-xl2 border border-dashed border-border p-8 text-center text-sm text-ink-soft">
+        <div className="empty">
           No sections yet. Add one above to start organizing notes however you want — by week,
           by topic, whatever makes sense to you.
         </div>
@@ -148,9 +158,7 @@ export function NotesBoard({
           return (
             <div
               key={section.id}
-              className={`rounded-xl2 border border-border-soft bg-surface p-4 shadow-card ${
-                hasOpenNote ? "md:col-span-2 xl:col-span-3" : ""
-              }`}
+              className={`card p-4 ${hasOpenNote ? "md:col-span-2 xl:col-span-3" : ""}`}
             >
               <SectionHeader
                 name={section.name}
@@ -203,7 +211,7 @@ export function NotesBoard({
               </ul>
 
               <form
-                className="mt-3 flex gap-2"
+                className="mt-3 flex gap-2 border-t border-border-soft pt-3"
                 action={(fd) => {
                   startTransition(async () => {
                     await createNoteAction(section.id, fd);
@@ -214,14 +222,15 @@ export function NotesBoard({
                 <input
                   type="text"
                   name="title"
-                  placeholder="+ New note title"
-                  className="w-full rounded-lg border border-border-soft bg-bg px-2.5 py-1.5 text-sm outline-none focus:border-accent"
+                  placeholder="New note title"
+                  aria-label="New note title"
+                  className="field field-sm w-full"
                 />
                 <input type="hidden" name="bodyMarkdown" value="" />
                 <button
                   type="submit"
                   disabled={pending}
-                  className="flex-none rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium hover:bg-surface-2 disabled:opacity-60"
+                  className="btn btn-secondary btn-sm flex-none"
                 >
                   Add
                 </button>
@@ -268,7 +277,8 @@ function SectionHeader({
             onRename(value);
             setEditing(false);
           }}
-          className="w-full rounded-lg border border-accent bg-bg px-2 py-1 text-sm font-semibold outline-none"
+          aria-label="Section name"
+          className="field field-sm font-semibold"
         />
       </form>
     );
@@ -278,20 +288,20 @@ function SectionHeader({
     <div className="flex items-center gap-1">
       <button
         onClick={() => setEditing(true)}
-        className="flex-1 truncate text-left font-display text-base font-semibold hover:underline"
+        className="min-w-0 flex-1 truncate text-left text-[15px] font-semibold text-ink hover:text-accent-ink"
         title="Rename section"
       >
         {name}
       </button>
-      <div className="flex flex-none items-center gap-0.5 text-ink-faint">
+      <div className="flex flex-none items-center">
         {onMoveUp && (
-          <button onClick={onMoveUp} aria-label="Move section up" className="rounded p-1 hover:bg-surface-2 hover:text-ink">
-            ↑
+          <button onClick={onMoveUp} aria-label="Move section up" title="Move up" className={ICON_BUTTON}>
+            <ArrowUpIcon className="h-4 w-4" />
           </button>
         )}
         {onMoveDown && (
-          <button onClick={onMoveDown} aria-label="Move section down" className="rounded p-1 hover:bg-surface-2 hover:text-ink">
-            ↓
+          <button onClick={onMoveDown} aria-label="Move section down" title="Move down" className={ICON_BUTTON}>
+            <ArrowDownIcon className="h-4 w-4" />
           </button>
         )}
         <button
@@ -299,9 +309,10 @@ function SectionHeader({
             if (confirm(`Delete "${name}" and all its notes?`)) onDelete();
           }}
           aria-label="Delete section"
-          className="rounded p-1 hover:bg-danger-soft hover:text-danger"
+          title="Delete section"
+          className={`${ICON_BUTTON} hover:bg-danger-soft hover:text-danger`}
         >
-          ×
+          <XIcon className="h-4 w-4" />
         </button>
       </div>
     </div>
@@ -337,7 +348,7 @@ function NoteCard({
     <button
       type="button"
       onClick={() => onViewLecture(note.lecture!.id)}
-      className="text-xs font-medium text-accent-ink hover:underline"
+      className="inline-flex items-center gap-1 text-xs font-medium text-accent-ink hover:underline"
     >
       From lecture · {new Date(note.lecture.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
     </button>
@@ -345,7 +356,7 @@ function NoteCard({
 
   if (isOpen && editing) {
     return (
-      <li id={`note-${note.id}`} className="scroll-mt-4 rounded-lg border border-accent bg-bg p-2.5">
+      <li id={`note-${note.id}`} className="scroll-mt-4 rounded-xl border border-accent bg-surface p-3 shadow-[0_0_0_4px_var(--accent-ring)]">
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -361,14 +372,14 @@ function NoteCard({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             aria-label="Note title"
-            className="rounded-md border border-border bg-surface px-2 py-1 text-sm font-medium outline-none focus:border-accent"
+            className="field field-sm font-medium w-auto"
           />
           <textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
             rows={note.lecture ? 16 : 8}
             placeholder="Write your note… (**bold**, - lists and # headings work)"
-            className="rounded-md border border-border bg-surface px-2 py-1.5 font-mono text-xs leading-relaxed outline-none focus:border-accent"
+            className="field field-sm font-mono text-xs leading-relaxed w-auto"
           />
           <div className="flex justify-end gap-2">
             <button
@@ -378,11 +389,11 @@ function NoteCard({
                 setBody(note.bodyMarkdown);
                 setEditing(false);
               }}
-              className="rounded-lg px-2.5 py-1 text-xs text-ink-soft hover:bg-surface-2"
+              className="btn btn-ghost btn-sm"
             >
               Cancel
             </button>
-            <button type="submit" className="rounded-lg bg-ink px-2.5 py-1 text-xs font-medium text-surface hover:opacity-90">
+            <button type="submit" className="btn btn-primary btn-sm">
               Save
             </button>
           </div>
@@ -393,32 +404,35 @@ function NoteCard({
 
   if (isOpen) {
     return (
-      <li id={`note-${note.id}`} className="scroll-mt-4 rounded-lg border border-border bg-bg p-3">
+      <li id={`note-${note.id}`} className="scroll-mt-4 rounded-xl border border-border bg-surface p-4 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <button onClick={onToggleOpen} className="min-w-0 flex-1 text-left" aria-expanded="true">
-            <span className="text-sm font-semibold">
-              {note.pinned && <span aria-hidden>📌 </span>}
+            <span className="flex items-center gap-1.5 text-base font-semibold text-ink">
+              {note.pinned && <PinIcon className="h-4 w-4 flex-none text-accent" />}
               {note.title}
             </span>
           </button>
-          <div className="flex flex-none items-center gap-3 text-xs">
-            <button onClick={() => setEditing(true)} className="font-medium text-accent-ink hover:underline">
+          <div className="-mr-1.5 flex flex-none items-center gap-0.5">
+            <button onClick={() => setEditing(true)} className="btn btn-ghost btn-sm text-accent-ink">
+              <PencilIcon className="h-3.5 w-3.5" />
               Edit
             </button>
-            <button onClick={onTogglePin} className="text-ink-soft hover:text-ink">
+            <button onClick={onTogglePin} className="btn btn-ghost btn-sm">
+              <PinIcon className="h-3.5 w-3.5" />
               {note.pinned ? "Unpin" : "Pin"}
             </button>
             <button
               onClick={() => confirm(`Delete "${note.title}"?`) && onDelete()}
-              className="text-ink-faint hover:text-danger"
+              className="btn btn-ghost btn-sm hover:bg-danger-soft hover:text-danger"
             >
+              <TrashIcon className="h-3.5 w-3.5" />
               Delete
             </button>
           </div>
         </div>
         {lectureLink && <div className="mt-1">{lectureLink}</div>}
         {note.bodyMarkdown.trim() ? (
-          <div className={`mt-2 ${MARKDOWN_CLASSNAME}`}>
+          <div className={`mt-3 ${MARKDOWN_CLASSNAME}`}>
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{note.bodyMarkdown}</ReactMarkdown>
           </div>
         ) : (
@@ -432,21 +446,28 @@ function NoteCard({
 
   const preview = markdownPreview(note.bodyMarkdown);
   return (
-    <li id={`note-${note.id}`} className="group scroll-mt-4 rounded-lg border border-border-soft bg-bg p-2.5">
+    <li
+      id={`note-${note.id}`}
+      className="group scroll-mt-4 rounded-xl border border-border-soft bg-bg p-3 transition-colors hover:border-border"
+    >
       <div className="flex items-start gap-1.5">
         <button onClick={onToggleOpen} className="min-w-0 flex-1 text-left" aria-expanded="false">
           <div className="flex items-center gap-1.5">
-            {note.pinned && <span aria-hidden title="Pinned">📌</span>}
-            <span className="truncate text-sm font-medium">{note.title}</span>
+            {note.pinned && <PinIcon className="h-3.5 w-3.5 flex-none text-accent" />}
+            <span className="truncate text-sm font-medium text-ink">{note.title}</span>
           </div>
-          {preview && <p className="mt-0.5 line-clamp-2 text-xs text-ink-faint">{preview}</p>}
+          {preview && <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-ink-faint">{preview}</p>}
         </button>
-        <div className="flex flex-none items-center gap-0.5 text-ink-faint opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
+        <div className="-mr-1 -mt-1 flex flex-none items-center opacity-100 transition-opacity sm:opacity-0 sm:group-focus-within:opacity-100 sm:group-hover:opacity-100">
           {onMoveUp && (
-            <button onClick={onMoveUp} aria-label="Move note up" className="rounded p-1 hover:bg-surface-2 hover:text-ink">↑</button>
+            <button onClick={onMoveUp} aria-label="Move note up" title="Move up" className={ICON_BUTTON}>
+              <ArrowUpIcon className="h-3.5 w-3.5" />
+            </button>
           )}
           {onMoveDown && (
-            <button onClick={onMoveDown} aria-label="Move note down" className="rounded p-1 hover:bg-surface-2 hover:text-ink">↓</button>
+            <button onClick={onMoveDown} aria-label="Move note down" title="Move down" className={ICON_BUTTON}>
+              <ArrowDownIcon className="h-3.5 w-3.5" />
+            </button>
           )}
         </div>
       </div>

@@ -16,6 +16,8 @@ import {
   DIRECT_MATERIAL_UPLOAD_MAX_BYTES,
   type ClassMaterialType,
 } from "@/lib/lecture-notes";
+import { CardHeader } from "@/components/ui/CardHeader";
+import { ChevronRightIcon, ExternalIcon, FileIcon, LayersIcon, LinkIcon, PlusIcon, SearchIcon, XIcon } from "@/components/icons";
 
 export interface ResourceRow {
   id: string;
@@ -41,7 +43,14 @@ export interface ClassMaterialRow {
   syncStatus: string | null;
 }
 
-const TYPE_ICON: Record<string, string> = { link: "🔗", file: "📄", document: "📝" };
+const TYPE_ICON: Record<string, (props: { className?: string }) => React.ReactElement> = {
+  link: LinkIcon,
+  file: FileIcon,
+  document: FileIcon,
+};
+
+const REMOVE_BUTTON =
+  "flex h-7 w-7 flex-none items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-danger-soft hover:text-danger disabled:opacity-60";
 
 const GROUP_ORDER: ClassMaterialType[] = ["SYLLABUS", "SLIDES", "BOOK", "NOTES"];
 const GROUP_TITLES: Record<ClassMaterialType, string> = {
@@ -112,23 +121,20 @@ function MaterialsSection({ classId, materials }: { classId: string; materials: 
   }
 
   return (
-    <section className="rounded-xl2 border border-border-soft bg-surface p-4 shadow-card">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h3 className="font-display text-base font-semibold">Books and slides</h3>
-          <p className="mt-0.5 text-xs text-ink-faint">
-            Campus OS reads these when it writes lecture notes and answers questions about this class.
-          </p>
-        </div>
-        {!adding && (
-          <button
-            onClick={() => setAdding(true)}
-            className="flex-none rounded-lg border border-border px-3 py-1.5 text-sm font-medium hover:bg-surface-2"
-          >
-            + Add
-          </button>
-        )}
-      </div>
+    <section className="card card-pad">
+      <CardHeader
+        icon={<LayersIcon className="h-[18px] w-[18px]" />}
+        title="Books and slides"
+        description="Campus OS reads these when it writes lecture notes and answers questions about this class."
+        action={
+          !adding && (
+            <button onClick={() => setAdding(true)} className="btn btn-secondary btn-sm">
+              <PlusIcon className="h-4 w-4" />
+              Add
+            </button>
+          )
+        }
+      />
 
       {adding && (
         <AddMaterialForm
@@ -139,18 +145,18 @@ function MaterialsSection({ classId, materials }: { classId: string; materials: 
       )}
 
       {materials.length === 0 && (
-        <p className="mt-3 text-sm text-ink-soft">
+        <p className="mt-4 text-sm text-ink-soft">
           Nothing here yet. Connecting Canvas imports these automatically, or add your own above.
         </p>
       )}
 
       {failed.length > 0 && (
-        <details className="mt-4 rounded-lg border border-warn bg-warn-soft p-3" open={failed.length <= 5}>
-          <summary className="cursor-pointer select-none text-sm font-medium">
+        <details className="mt-4 rounded-xl bg-warn-soft p-3.5" open={failed.length <= 5}>
+          <summary className="cursor-pointer select-none text-sm font-medium text-warn">
             {failed.length} file{failed.length === 1 ? "" : "s"} couldn&apos;t be imported from Canvas
           </summary>
           <p className="mt-1 text-xs text-ink-soft">
-            Open one in Canvas to read it there, or paste its text in with + Add so Campus OS can use it.
+            Open one in Canvas to read it there, or paste its text in with Add so Campus OS can use it.
           </p>
           <ul className="mt-2 flex flex-col gap-2">
             {failed.map((m) => (
@@ -161,22 +167,28 @@ function MaterialsSection({ classId, materials }: { classId: string; materials: 
       )}
 
       {materials.length > 12 && (
-        <input
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder={`Search ${materials.length} files…`}
-          className="mt-4 w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm outline-none focus:border-accent"
-        />
+        <label className="relative mt-4 block">
+          <span className="sr-only">Search files</span>
+          <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" />
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={`Search ${materials.length} files…`}
+            className="field pl-9"
+          />
+        </label>
       )}
 
-      <div className="mt-4 flex flex-col gap-3">
+      <div className="mt-4 flex flex-col gap-4">
         {groups.map((group) => (
           <details key={group.type} open={!!q || group.items.length <= 8} className="group/section">
-            <summary className="cursor-pointer select-none text-xs font-semibold uppercase tracking-wider text-ink-faint">
-              {GROUP_TITLES[group.type]} <span className="font-normal">({group.items.length})</span>
+            <summary className="flex cursor-pointer select-none list-none items-center gap-1.5 [&::-webkit-details-marker]:hidden">
+              <ChevronRightIcon className="h-3.5 w-3.5 text-ink-faint transition-transform group-open/section:rotate-90" />
+              <span className="eyebrow">{GROUP_TITLES[group.type]}</span>
+              <span className="badge bg-surface-2 px-2 text-[11px] tabular-nums text-ink-soft">{group.items.length}</span>
             </summary>
-            <ul className="mt-2 flex flex-col gap-2">
+            <ul className="mt-2 flex flex-col gap-1.5">
               {group.items.map((m) => (
                 <MaterialItem key={m.id} material={m} onRemove={() => remove(m)} pending={pending} />
               ))}
@@ -202,26 +214,28 @@ function MaterialItem({
 }) {
   const note = statusNote(m);
   return (
-    <li className="flex items-start gap-3 rounded-lg border border-border-soft bg-bg p-2.5">
+    <li className="flex items-start gap-3 rounded-xl border border-border-soft bg-surface p-3">
+      <span className="flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-surface-2 text-ink-soft">
+        <FileIcon className="h-4 w-4" />
+      </span>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="min-w-0 truncate text-sm font-medium">{m.title}</span>
-          {note && (
-            <span className="flex-none rounded-full bg-warn-soft px-2 py-0.5 text-[11px] font-medium text-warn">{note}</span>
-          )}
+          <span className="min-w-0 truncate text-sm font-medium text-ink">{m.title}</span>
+          {note && <span className="badge flex-none bg-warn-soft px-2 text-[11px] text-warn">{note}</span>}
         </div>
         {m.preview && (
-          <p className={`mt-0.5 text-xs text-ink-faint ${showReason ? "" : "line-clamp-1"}`}>{m.preview}</p>
+          <p className={`mt-0.5 text-xs leading-relaxed text-ink-faint ${showReason ? "" : "line-clamp-1"}`}>{m.preview}</p>
         )}
       </div>
-      <div className="flex flex-none items-center gap-3 text-xs">
+      <div className="flex flex-none items-center gap-0.5">
         {m.sourceUrl && (
-          <a href={m.sourceUrl} target="_blank" rel="noreferrer" className="font-medium text-accent-ink hover:underline">
+          <a href={m.sourceUrl} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm text-accent-ink">
             Open
+            <ExternalIcon className="h-3.5 w-3.5" />
           </a>
         )}
-        <button onClick={onRemove} disabled={pending} className="text-ink-faint hover:text-danger disabled:opacity-60">
-          Remove
+        <button onClick={onRemove} disabled={pending} title="Remove" aria-label={`Remove ${m.title}`} className={REMOVE_BUTTON}>
+          <XIcon className="h-4 w-4" />
         </button>
       </div>
     </li>
@@ -312,7 +326,7 @@ function AddMaterialForm({
       type="button"
       onClick={() => setMode(value)}
       className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-        mode === value ? "bg-ink text-surface" : "text-ink-soft hover:text-ink"
+        mode === value ? "bg-surface text-ink shadow-sm" : "text-ink-soft hover:text-ink"
       }`}
     >
       {label}
@@ -320,15 +334,15 @@ function AddMaterialForm({
   );
 
   return (
-    <form onSubmit={submit} className="mt-4 flex flex-col gap-2 rounded-lg border border-border-soft bg-bg p-3">
+    <form onSubmit={submit} className="mt-4 flex flex-col gap-2.5 rounded-xl border border-border-soft bg-bg p-3.5">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="inline-flex rounded-lg border border-border p-0.5">
+        <div className="inline-flex rounded-lg bg-surface-2 p-0.5">
           {tab("file", "Upload a file")}
           {tab("text", "Paste text")}
           {tab("link", "Add from a link")}
         </div>
         {onClose && (
-          <button type="button" onClick={onClose} className="text-xs text-ink-faint hover:text-ink">
+          <button type="button" onClick={onClose} className="btn btn-ghost btn-sm">
             Cancel
           </button>
         )}
@@ -339,7 +353,7 @@ function AddMaterialForm({
           value={type}
           onChange={(e) => setType(e.target.value as "BOOK" | "SLIDES")}
           aria-label="What is it?"
-          className="flex-none rounded-lg border border-border bg-surface px-2.5 py-1.5 text-sm outline-none focus:border-accent"
+          className="field field-sm flex-none w-auto"
         >
           <option value="SLIDES">Slides</option>
           <option value="BOOK">Book or reading</option>
@@ -349,7 +363,7 @@ function AddMaterialForm({
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder={mode === "text" ? "Title, like “Chapter 3” or “Week 5 slides”" : "Title (optional)"}
-          className="flex-1 rounded-lg border border-border bg-surface px-2.5 py-1.5 text-sm outline-none focus:border-accent"
+          className="field field-sm flex-1"
         />
       </div>
 
@@ -359,7 +373,7 @@ function AddMaterialForm({
             ref={fileRef}
             type="file"
             accept=".pdf,.pptx,.docx,.epub,.txt,.html,.htm"
-            className="w-full rounded-lg border border-border bg-surface px-2.5 py-1.5 text-sm outline-none file:mr-2 file:rounded-md file:border-0 file:bg-surface-2 file:px-2 file:py-1 file:text-xs file:font-medium focus:border-accent"
+            className="field field-sm w-full file:mr-2 file:rounded-md file:border-0 file:bg-surface-2 file:px-2 file:py-1 file:text-xs file:font-medium"
           />
           <p className="text-xs text-ink-faint">PDF, PowerPoint (.pptx), Word (.docx), EPUB or text, up to 25 MB.</p>
         </>
@@ -370,7 +384,7 @@ function AddMaterialForm({
           onChange={(e) => setContent(e.target.value)}
           rows={4}
           placeholder="Paste an excerpt, an outline, or key points…"
-          className="w-full rounded-lg border border-border bg-surface px-2.5 py-1.5 text-sm outline-none focus:border-accent"
+          className="field field-sm w-full"
         />
       )}
       {mode === "link" && (
@@ -380,7 +394,7 @@ function AddMaterialForm({
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             placeholder="https://…"
-            className="w-full rounded-lg border border-border bg-surface px-2.5 py-1.5 text-sm outline-none focus:border-accent"
+            className="field field-sm w-full"
           />
           <p className="text-xs text-ink-faint">
             A Canvas file link or a regular web page. The text is saved once, when you add it.
@@ -394,7 +408,7 @@ function AddMaterialForm({
         <button
           type="submit"
           disabled={!!busy}
-          className="rounded-lg bg-ink px-3 py-1.5 text-sm font-semibold text-surface hover:opacity-90 disabled:opacity-60"
+          className="btn btn-primary btn-sm"
         >
           {busy ?? "Add"}
         </button>
@@ -408,24 +422,25 @@ function LinksSection({ classId, resources }: { classId: string; resources: Reso
   const [pending, startTransition] = useTransition();
 
   return (
-    <section className="rounded-xl2 border border-border-soft bg-surface p-4 shadow-card">
-      <h3 className="font-display text-base font-semibold">Links</h3>
-      <p className="mt-0.5 text-xs text-ink-faint">Websites, study guides, anything you want one tap away.</p>
+    <section className="card card-pad">
+      <CardHeader
+        icon={<LinkIcon className="h-[18px] w-[18px]" />}
+        title="Links"
+        description="Websites, study guides, anything you want one tap away."
+      />
 
       {resources.length > 0 && (
-        <ul className="mt-3 flex flex-col gap-2">
+        <ul className="mt-4 flex flex-col gap-1.5">
           {resources.map((r) => (
-            <li key={r.id} className="flex items-start gap-3 rounded-lg border border-border-soft bg-bg p-2.5">
-              <span aria-hidden className="text-base">
-                {TYPE_ICON[r.type] ?? "🔗"}
-              </span>
-              <div className="min-w-0 flex-1">
+            <li key={r.id} className="flex items-start gap-3 rounded-xl border border-border-soft bg-surface p-3">
+              <ResourceIcon type={r.type} />
+              <div className="min-w-0 flex-1 pt-1">
                 {r.url ? (
-                  <a href={r.url} target="_blank" rel="noreferrer" className="text-sm font-medium hover:underline">
+                  <a href={r.url} target="_blank" rel="noreferrer" className="text-sm font-medium text-ink hover:underline">
                     {r.title}
                   </a>
                 ) : (
-                  <span className="text-sm font-medium">{r.title}</span>
+                  <span className="text-sm font-medium text-ink">{r.title}</span>
                 )}
                 {r.notes && <p className="mt-0.5 text-xs text-ink-soft">{r.notes}</p>}
               </div>
@@ -438,9 +453,11 @@ function LinksSection({ classId, resources }: { classId: string; resources: Reso
                   });
                 }}
                 disabled={pending}
-                className="flex-none text-xs text-ink-faint hover:text-danger disabled:opacity-60"
+                title="Remove"
+                aria-label={`Remove ${r.title}`}
+                className={REMOVE_BUTTON}
               >
-                Remove
+                <XIcon className="h-4 w-4" />
               </button>
             </li>
           ))}
@@ -454,7 +471,7 @@ function LinksSection({ classId, resources }: { classId: string; resources: Reso
             router.refresh();
           });
         }}
-        className="mt-3 flex flex-col gap-2 sm:flex-row"
+        className="mt-4 flex flex-col gap-2 border-t border-border-soft pt-4 sm:flex-row"
       >
         <input type="hidden" name="type" value="link" />
         <input
@@ -462,23 +479,32 @@ function LinksSection({ classId, resources }: { classId: string; resources: Reso
           required
           placeholder="Title"
           aria-label="Link title"
-          className="rounded-lg border border-border bg-bg px-2.5 py-1.5 text-sm outline-none focus:border-accent sm:w-48"
+          className="field field-sm sm:w-48"
         />
         <input
           name="url"
           type="url"
           placeholder="https://…"
           aria-label="Link address"
-          className="flex-1 rounded-lg border border-border bg-bg px-2.5 py-1.5 text-sm outline-none focus:border-accent"
+          className="field field-sm flex-1"
         />
         <button
           type="submit"
           disabled={pending}
-          className="flex-none rounded-lg border border-border px-3 py-1.5 text-sm font-medium hover:bg-surface-2 disabled:opacity-60"
+          className="btn btn-secondary btn-sm flex-none"
         >
           Add link
         </button>
       </form>
     </section>
+  );
+}
+
+function ResourceIcon({ type }: { type: string }) {
+  const Icon = TYPE_ICON[type] ?? LinkIcon;
+  return (
+    <span className="flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-surface-2 text-ink-soft">
+      <Icon className="h-4 w-4" />
+    </span>
   );
 }

@@ -2,12 +2,14 @@
 
 import { useState, useTransition } from "react";
 import { explainRiskAction } from "@/app/dashboard/actions";
-import { RISK_EMOJI, RISK_LABEL, type RiskAssessment, type RiskLevel } from "@/lib/risk-engine";
+import type { RiskAssessment, RiskLevel } from "@/lib/risk-engine";
+import { RISK_TONE, RiskBadge } from "@/components/ui/RiskBadge";
+import { AlertIcon, ArrowRightIcon, CheckCircleIcon, ClockIcon, SparkIcon } from "@/components/icons";
 
-const CARD_TONE: Record<RiskLevel, string> = {
-  "on-track": "border-ok",
-  "getting-behind": "border-warn bg-warn-soft/30",
-  "at-risk": "border-danger bg-danger-soft/30",
+const LEVEL_ICON: Record<RiskLevel, (props: { className?: string }) => React.ReactElement> = {
+  "on-track": CheckCircleIcon,
+  "getting-behind": ClockIcon,
+  "at-risk": AlertIcon,
 };
 
 /**
@@ -22,30 +24,37 @@ const CARD_TONE: Record<RiskLevel, string> = {
 export function RiskStatusCard({ risk }: { risk: RiskAssessment }) {
   const [narrative, setNarrative] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const Icon = LEVEL_ICON[risk.level];
 
   return (
-    <div className={`mb-6 rounded-xl2 border bg-surface p-5 shadow-card ${CARD_TONE[risk.level]}`}>
-      <div className="flex items-start gap-3">
-        <span className="text-2xl leading-none" aria-hidden>
-          {RISK_EMOJI[risk.level]}
+    <section className="card card-pad mb-6">
+      <div className="flex items-start gap-4">
+        <span className={`hidden h-11 w-11 flex-none items-center justify-center rounded-xl sm:flex ${RISK_TONE[risk.level]}`}>
+          <Icon className="h-[22px] w-[22px]" />
         </span>
         <div className="min-w-0 flex-1">
-          <div className="text-xs font-semibold uppercase tracking-wide text-ink-faint">{RISK_LABEL[risk.level]}</div>
-          <p className="mt-0.5 font-display text-lg font-semibold">{risk.headline}</p>
+          <RiskBadge level={risk.level} />
+          <h2 className="mt-2.5 font-display text-lg font-semibold leading-snug text-ink sm:text-xl">{risk.headline}</h2>
 
           {narrative ? (
-            <p className="mt-2 text-sm leading-relaxed text-ink">{narrative}</p>
+            <p className="mt-2 text-sm leading-relaxed text-ink-soft">{narrative}</p>
           ) : (
             <>
               {risk.reasons.length > 0 && (
-                <ul className="mt-2 flex flex-col gap-0.5 text-sm text-ink-soft">
+                <ul className="mt-3 flex flex-col gap-1.5 text-sm text-ink-soft">
                   {risk.reasons.map((r, i) => (
-                    <li key={i}>{r}</li>
+                    <li key={i} className="flex gap-2.5">
+                      <span aria-hidden className="mt-[0.55rem] h-1 w-1 flex-none rounded-full bg-ink-faint" />
+                      {r}
+                    </li>
                   ))}
                 </ul>
               )}
               {risk.recommendations.length > 0 && (
-                <p className="mt-2 text-sm font-medium text-ink">{risk.recommendations[0]}</p>
+                <div className="mt-4 flex gap-2.5 rounded-lg bg-surface-2 px-3.5 py-3 text-sm font-medium text-ink">
+                  <ArrowRightIcon className="mt-0.5 h-4 w-4 flex-none text-accent" />
+                  <p>{risk.recommendations[0]}</p>
+                </div>
               )}
             </>
           )}
@@ -54,13 +63,14 @@ export function RiskStatusCard({ risk }: { risk: RiskAssessment }) {
             <button
               onClick={() => startTransition(async () => setNarrative((await explainRiskAction()).narrative))}
               disabled={pending}
-              className="mt-3 text-xs font-medium text-accent hover:underline disabled:opacity-60"
+              className="btn btn-ghost btn-sm -ml-3 mt-2 text-accent-ink hover:text-accent-ink"
             >
+              <SparkIcon className="h-4 w-4" />
               {pending ? "Thinking…" : narrative ? "Refresh explanation" : "Explain in plain language"}
             </button>
           )}
         </div>
       </div>
-    </div>
+    </section>
   );
 }

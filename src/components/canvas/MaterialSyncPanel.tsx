@@ -7,6 +7,8 @@ import {
   startCanvasMaterialSyncAction,
   type CourseSyncProgress,
 } from "@/app/canvas/actions";
+import { CardHeader } from "@/components/ui/CardHeader";
+import { FileIcon } from "@/components/icons";
 
 const POLL_INTERVAL_MS = 3000;
 
@@ -107,40 +109,36 @@ export function MaterialSyncPanel() {
   const polling = courses !== null && courses.some((c) => !isTerminal(c.status));
 
   return (
-    <div className="rounded-xl2 border border-border-soft bg-surface p-4 shadow-card">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h4 className="text-sm font-semibold">Course materials</h4>
-          <p className="mt-0.5 text-xs text-ink-faint">
-            Automatically finds and imports books, slides, syllabi, and other documents from each course in Canvas.
-          </p>
-        </div>
-        <button
-          onClick={handleStart}
-          disabled={starting || polling}
-          className="flex-none rounded-lg border border-border px-3 py-1.5 text-sm font-medium hover:bg-surface-2 disabled:opacity-60"
-        >
+    <div className="card card-pad">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <CardHeader
+          icon={<FileIcon className="h-[18px] w-[18px]" />}
+          title="Course materials"
+          description="Automatically finds and imports books, slides, syllabi, and other documents from each course in Canvas."
+        />
+        <button onClick={handleStart} disabled={starting || polling} className="btn btn-secondary flex-none">
           {polling ? "Syncing…" : starting ? "Starting…" : "Go fetch materials"}
         </button>
       </div>
 
       {courses === null ? (
-        <p className="mt-3 text-xs text-ink-faint">Checking sync status…</p>
+        <p className="mt-4 text-xs text-ink-faint">Checking sync status…</p>
       ) : courses.length === 0 ? (
-        <p className="mt-3 text-xs text-ink-faint">No Canvas courses to sync yet.</p>
+        <p className="mt-4 text-xs text-ink-faint">No Canvas courses to sync yet.</p>
       ) : (
-        <ul className="mt-3 flex flex-col gap-2">
+        <ul className="mt-5 flex flex-col divide-y divide-border-soft border-t border-border-soft">
           {courses.map((c) => (
-            <li key={c.classId} className="flex items-center gap-3 rounded-lg border border-border-soft bg-bg p-2.5">
+            <li key={c.classId} className="flex items-center gap-3 py-3">
               <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-medium">{c.className}</div>
+                <div className="truncate text-sm font-medium text-ink">{c.className}</div>
 
                 {(c.status === "PENDING" || c.status === "DISCOVERING" || c.status === "DOWNLOADING") && (
                   <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
                     <div
-                      className="h-full rounded-full bg-accent transition-all"
+                      className="h-full rounded-full transition-all"
                       style={{
                         width: c.resourcesFound > 0 ? `${Math.round((c.resourcesDone / c.resourcesFound) * 100)}%` : "8%",
+                        backgroundImage: "linear-gradient(90deg, var(--grad-from), var(--grad-to))",
                       }}
                     />
                   </div>
@@ -162,9 +160,7 @@ export function MaterialSyncPanel() {
 
                 {c.status === "FAILED" && c.errorMessage && <p className="mt-0.5 text-xs text-danger">{c.errorMessage}</p>}
               </div>
-              <span
-                className={`flex-none rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_TONE[c.status] ?? "bg-surface-2 text-ink-soft"}`}
-              >
+              <span className={`badge flex-none ${STATUS_TONE[c.status] ?? "bg-surface-2 text-ink-soft"}`}>
                 {STATUS_LABEL[c.status] ?? c.status}
               </span>
             </li>

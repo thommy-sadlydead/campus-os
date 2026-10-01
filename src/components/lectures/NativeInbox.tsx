@@ -96,8 +96,8 @@ export function NativeInbox({
 
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="text-xs font-semibold uppercase tracking-wider text-ink-faint">
-        Waiting to be added <span className="font-normal">({items.length})</span>
+      <h2 className="flex items-center gap-2 text-sm font-semibold text-ink">
+        Waiting to be added <span className="badge bg-accent-soft tabular-nums text-accent-ink">{items.length}</span>
       </h2>
       {items.map((item) => {
         const draft = drafts[item.id] ?? { classId: "", title: item.title };
@@ -111,14 +111,14 @@ export function NativeInbox({
           item.recordedAt ? formatInTimeZone(new Date(item.recordedAt), timezone, "EEE, MMM d 'at' h:mm a") : null,
         ].filter(Boolean);
         return (
-          <div key={item.id} className="flex flex-col gap-3 rounded-xl2 border border-border-soft bg-surface p-4 shadow-card">
+          <div key={item.id} className="card flex flex-col gap-3 p-4">
             <input
               type="text"
               value={draft.title}
               onChange={(e) => update(item.id, { title: e.target.value })}
               disabled={draft.busy}
               aria-label="Lecture title"
-              className="rounded-lg border border-border bg-bg px-3 py-2 text-sm font-medium outline-none focus:border-accent disabled:opacity-60"
+              className="field font-medium"
             />
             <p className="text-xs text-ink-faint">{meta.join(" · ")}</p>
             <select
@@ -126,7 +126,7 @@ export function NativeInbox({
               onChange={(e) => update(item.id, { classId: e.target.value })}
               disabled={draft.busy}
               aria-label="Class"
-              className="rounded-lg border border-border bg-surface px-3 py-2.5 text-sm outline-none focus:border-accent disabled:opacity-60"
+              className="field"
             >
               <option value="" disabled>
                 Choose a class…
@@ -141,7 +141,13 @@ export function NativeInbox({
               <div className="flex flex-col gap-1.5">
                 <p className="text-sm">{(draft.progress ?? 0) < 100 ? `Uploading… ${draft.progress ?? 0}%` : "Starting the transcript…"}</p>
                 <div className="h-2 overflow-hidden rounded-full bg-surface-2">
-                  <div className="h-full bg-accent transition-all" style={{ width: `${Math.max(draft.progress ?? 0, 4)}%` }} />
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{
+                      width: `${Math.max(draft.progress ?? 0, 4)}%`,
+                      backgroundImage: "linear-gradient(90deg, var(--grad-from), var(--grad-to))",
+                    }}
+                  />
                 </div>
               </div>
             ) : (
@@ -149,11 +155,11 @@ export function NativeInbox({
                 <button
                   onClick={() => void add(item)}
                   disabled={!draft.classId}
-                  className="rounded-lg bg-ink px-4 py-2.5 text-sm font-semibold text-surface hover:opacity-90 disabled:opacity-40"
+                  className="btn btn-primary"
                 >
                   Add to class
                 </button>
-                <button onClick={() => void remove(item)} className="px-2 py-2.5 text-sm text-ink-faint hover:text-danger">
+                <button onClick={() => void remove(item)} className="btn btn-ghost hover:bg-danger-soft hover:text-danger">
                   Delete
                 </button>
               </div>

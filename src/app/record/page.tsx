@@ -5,6 +5,7 @@ import { RecordLecture } from "@/components/lectures/RecordLecture";
 import { defaultLectureTitle, suggestClassToRecord } from "@/lib/record-class";
 import { hasAiConsent } from "@/lib/ai-consent";
 import { AiConsentCard } from "@/components/account/AiConsent";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 export default async function RecordPage() {
   const user = await requireUser();
@@ -27,10 +28,10 @@ export default async function RecordPage() {
 
   return (
     <AppShell active="/record" userName={user.name ?? user.email}>
-      <h1 className="mb-1 font-display text-2xl font-semibold">Record a lecture</h1>
-      <p className="mb-6 text-sm text-ink-soft">
-        Campus OS writes the transcript and notes for you, and files them under the class.
-      </p>
+      <PageHeader
+        title="Record a lecture"
+        description="Campus OS writes the transcript and notes for you, and files them under the class."
+      />
       {!hasAiConsent(user) && (
         <AiConsentCard
           dismissible={false}

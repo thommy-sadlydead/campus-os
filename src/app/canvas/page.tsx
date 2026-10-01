@@ -6,6 +6,9 @@ import { ConnectCanvasForm } from "@/components/canvas/ConnectCanvasForm";
 import { SyncButton } from "@/components/canvas/SyncButton";
 import { MaterialSyncPanel } from "@/components/canvas/MaterialSyncPanel";
 import { disconnectCanvasAction } from "@/app/canvas/actions";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { CardHeader } from "@/components/ui/CardHeader";
+import { CheckCircleIcon, LayersIcon } from "@/components/icons";
 
 // continueCanvasMaterialSyncAction (invoked from MaterialSyncPanel) can now
 // process a scanned PDF via OCR mid-chunk — several sequential per-page
@@ -21,30 +24,38 @@ export default async function CanvasPage() {
   if (!account) {
     return (
       <AppShell active="/canvas" userName={user.name ?? user.email}>
-        <h1 className="mb-1 font-display text-2xl font-semibold">Canvas</h1>
-        <p className="mb-6 text-sm text-ink-soft">
-          Connect Canvas to bring in your courses, assignments, due dates and course files. Campus OS only
-          reads from Canvas; it can&apos;t submit, change or delete anything there.
-        </p>
+        <PageHeader
+          title="Canvas"
+          description="Connect Canvas to bring in your courses, assignments, due dates and course files. Campus OS only reads from Canvas; it can't submit, change or delete anything there."
+        />
 
-        <div className="grid gap-6 sm:grid-cols-2">
-          <div className="rounded-xl2 border border-border-soft bg-surface p-6 shadow-card">
-            <h3 className="font-display text-base font-semibold">Connect Canvas</h3>
+        <div className="grid gap-6 md:grid-cols-2">
+          <div className="card card-pad">
+            <CardHeader icon={<LayersIcon className="h-[18px] w-[18px]" />} title="Connect Canvas" />
             <ConnectCanvasForm defaultBaseUrl={process.env.CANVAS_BASE_URL || "https://cedarville.instructure.com"} />
           </div>
 
-          <div className="rounded-xl2 border border-border-soft bg-surface p-6 shadow-card">
-            <h3 className="font-display text-base font-semibold">Get an access token</h3>
-            <ol className="mt-3 flex list-decimal flex-col gap-2 pl-4 text-sm text-ink-soft">
-              <li>In Canvas, go to Account → Settings.</li>
-              <li>
-                Scroll to <strong>Approved Integrations</strong> and click{" "}
-                <strong>+ New Access Token</strong>.
-              </li>
-              <li>Give it a purpose like "Campus OS" and click Generate Token.</li>
-              <li>Copy it now — Canvas only shows it once.</li>
+          <div className="card card-pad">
+            <CardHeader title="Get an access token" />
+            <ol className="mt-4 flex flex-col gap-3 text-sm text-ink-soft">
+              {[
+                <>In Canvas, go to Account → Settings.</>,
+                <>
+                  Scroll to <strong className="font-semibold text-ink">Approved Integrations</strong> and click{" "}
+                  <strong className="font-semibold text-ink">+ New Access Token</strong>.
+                </>,
+                <>Give it a purpose like &quot;Campus OS&quot; and click Generate Token.</>,
+                <>Copy it now — Canvas only shows it once.</>,
+              ].map((step, i) => (
+                <li key={i} className="flex gap-3">
+                  <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-surface-2 text-xs font-semibold text-ink-soft">
+                    {i + 1}
+                  </span>
+                  <span className="pt-0.5">{step}</span>
+                </li>
+              ))}
             </ol>
-            <p className="mt-4 text-xs leading-relaxed text-ink-faint">
+            <p className="mt-5 border-t border-border-soft pt-4 text-xs leading-relaxed text-ink-faint">
               Your token is encrypted before it&apos;s stored and is only used to read your courses. You can
               disconnect any time, and delete the token in Canvas under Approved Integrations.
             </p>
@@ -56,36 +67,44 @@ export default async function CanvasPage() {
 
   return (
     <AppShell active="/canvas" userName={user.name ?? user.email}>
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="font-display text-2xl font-semibold">Canvas</h1>
-          <p className="mt-0.5 text-sm text-ink-soft">Connected to {account.baseUrl}</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <SyncButton
-            lastSyncedLabel={
-              account.lastSyncedAt
-                ? `Last synced ${formatPastMoment(account.lastSyncedAt, new Date(), user.timezone)}`
-                : "Never synced yet"
-            }
-          />
-          <form action={disconnectCanvasAction}>
-            <button className="text-xs text-ink-faint hover:text-danger">Disconnect</button>
-          </form>
-        </div>
-      </div>
+      <PageHeader
+        title="Canvas"
+        description={
+          <span className="inline-flex items-center gap-2">
+            <span aria-hidden className="dot bg-ok" />
+            Connected to {account.baseUrl}
+          </span>
+        }
+        actions={
+          <>
+            <SyncButton
+              lastSyncedLabel={
+                account.lastSyncedAt
+                  ? `Last synced ${formatPastMoment(account.lastSyncedAt, new Date(), user.timezone)}`
+                  : "Never synced yet"
+              }
+            />
+            <form action={disconnectCanvasAction}>
+              <button className="btn btn-ghost btn-sm hover:bg-danger-soft hover:text-danger">Disconnect</button>
+            </form>
+          </>
+        }
+      />
 
-      <div className="mb-6 rounded-xl2 border border-border-soft bg-surface p-6 shadow-card text-sm text-ink-soft">
-        Your classes, assignments, and exams are pulled from here — check the{" "}
-        <a href="/classes" className="text-accent underline">
-          Classes
-        </a>{" "}
-        and{" "}
-        <a href="/assignments" className="text-accent underline">
-          Assignments
-        </a>{" "}
-        pages to see what's synced. Syncing again any time is safe — it updates existing courses and
-        assignments instead of duplicating them.
+      <div className="card card-pad mb-6 flex gap-3 text-sm leading-relaxed text-ink-soft">
+        <CheckCircleIcon className="mt-0.5 h-5 w-5 flex-none text-ok" />
+        <p>
+          Your classes, assignments, and exams are pulled from here — check the{" "}
+          <a href="/classes" className="font-medium text-accent-ink underline underline-offset-2">
+            Classes
+          </a>{" "}
+          and{" "}
+          <a href="/assignments" className="font-medium text-accent-ink underline underline-offset-2">
+            Assignments
+          </a>{" "}
+          pages to see what&apos;s synced. Syncing again any time is safe — it updates existing courses and
+          assignments instead of duplicating them.
+        </p>
       </div>
 
       <MaterialSyncPanel />

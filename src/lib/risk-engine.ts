@@ -18,12 +18,6 @@ import { formatDueLabel, formatMinutes } from "@/lib/time";
 
 export type RiskLevel = "on-track" | "getting-behind" | "at-risk";
 
-export const RISK_EMOJI: Record<RiskLevel, string> = {
-  "on-track": "🟢",
-  "getting-behind": "🟡",
-  "at-risk": "🔴",
-};
-
 export const RISK_LABEL: Record<RiskLevel, string> = {
   "on-track": "On track",
   "getting-behind": "Getting behind",

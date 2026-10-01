@@ -1,16 +1,16 @@
 import type { Config } from "tailwindcss";
 
-// Color tokens carried over from the Fall Ledger artifact so the new app
-// keeps the same visual identity instead of introducing a new one.
+// Colors, fonts, corner radii and shadows all point at the design tokens in
+// src/app/globals.css, which is where the design system is defined.
 const config: Config = {
   darkMode: ["class"],
   content: ["./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
       fontFamily: {
-        display: ["var(--font-fraunces)", "Georgia", "serif"],
-        sans: ["var(--font-inter)", "system-ui", "sans-serif"],
-        mono: ["var(--font-plex-mono)", "ui-monospace", "monospace"],
+        display: ["var(--font-geist)", "system-ui", "sans-serif"],
+        sans: ["var(--font-geist)", "system-ui", "sans-serif"],
+        mono: ["var(--font-geist-mono)", "ui-monospace", "monospace"],
       },
       colors: {
         bg: "var(--bg)",
@@ -42,10 +42,15 @@ const config: Config = {
         },
       },
       boxShadow: {
-        card: "0 1px 2px rgba(27,33,48,.06), 0 8px 24px -12px rgba(27,33,48,.15)",
+        sm: "0 1px 2px rgba(var(--shadow-color), 0.05)",
+        card: "0 1px 2px rgba(var(--shadow-color), 0.04), 0 4px 16px -6px rgba(var(--shadow-color), 0.08)",
+        pop: "0 16px 40px -12px rgba(var(--shadow-color), 0.22), 0 2px 6px rgba(var(--shadow-color), 0.06)",
       },
       borderRadius: {
-        xl2: "14px",
+        lg: "10px",
+        xl: "14px",
+        xl2: "18px",
+        "2xl": "18px",
       },
     },
   },

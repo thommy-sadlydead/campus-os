@@ -2,15 +2,13 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { AppShell } from "@/components/AppShell";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { RiskBadge } from "@/components/ui/RiskBadge";
+import { ChevronRightIcon } from "@/components/icons";
+import { courseInitials, courseStyle } from "@/lib/course-style";
 import { loadWorkItemsForUser } from "@/lib/workload";
 import { rankWorkItems, computeWorkloadSummary, type WorkItem } from "@/lib/priority-engine";
-import { assessRisk, RISK_EMOJI, RISK_LABEL, type RiskAssessment, type RiskLevel } from "@/lib/risk-engine";
-
-const RISK_TONE: Record<RiskLevel, string> = {
-  "on-track": "bg-ok-soft text-ok",
-  "getting-behind": "bg-warn-soft text-warn",
-  "at-risk": "bg-danger-soft text-danger",
-};
+import { assessRisk, type RiskAssessment } from "@/lib/risk-engine";
 
 export default async function ClassesPage() {
   const user = await requireUser();
@@ -57,13 +55,13 @@ export default async function ClassesPage() {
 
   return (
     <AppShell active="/classes" userName={user.name ?? user.email}>
-      <h1 className="mb-1 font-display text-2xl font-semibold">Classes</h1>
-      <p className="mb-6 text-sm text-ink-soft">
-        Overview, assignments, notes, lectures, exams, resources, and a class-scoped AI assistant for each.
-      </p>
+      <PageHeader
+        title="Classes"
+        description="Overview, assignments, notes, lectures, exams, resources, and a class-scoped AI assistant for each."
+      />
 
       {classRows.length === 0 ? (
-        <div className="rounded-xl2 border border-dashed border-border p-8 text-center text-sm text-ink-soft">
+        <div className="empty">
           No classes yet.{" "}
           <Link href="/canvas" className="font-medium text-accent-ink underline">
             Connect Canvas
@@ -71,40 +69,46 @@ export default async function ClassesPage() {
           to bring in your courses.
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {classRows.map(({ cls: c, risk }) => (
             <Link
               key={c.id}
               href={`/classes/${c.id}`}
-              className="rounded-xl2 border border-border-soft bg-surface p-4 shadow-card transition-colors hover:border-accent"
+              className="card group flex flex-col p-5 transition-[border-color,box-shadow] hover:border-border hover:shadow-pop"
             >
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <span
-                    className="inline-block h-2.5 w-2.5 rounded-full"
-                    style={{ background: `var(--c-${c.color})` }}
-                  />
-                  <span className="text-xs font-medium uppercase tracking-wide text-ink-faint">{c.code}</span>
-                </div>
-                <span className={`flex-none rounded-full px-2 py-0.5 text-[11px] font-medium ${RISK_TONE[risk.level]}`}>
-                  {RISK_EMOJI[risk.level]} {RISK_LABEL[risk.level]}
+              <div className="flex items-start justify-between gap-3">
+                <span
+                  aria-hidden
+                  className="course-tint flex h-10 w-10 flex-none items-center justify-center rounded-xl text-sm font-semibold"
+                  style={courseStyle(c.color)}
+                >
+                  {courseInitials(c.name)}
                 </span>
+                <RiskBadge level={risk.level} />
               </div>
-              <h3 className="mt-1 font-display text-base font-semibold">{c.name}</h3>
+              {c.code && <p className="eyebrow mt-4">{c.code}</p>}
+              <h2 className={`${c.code ? "mt-1" : "mt-4"} text-base font-semibold leading-snug text-ink`}>{c.name}</h2>
               {(c.professor || c.room) && (
-                <p className="mt-0.5 text-xs text-ink-soft">
-                  {[c.professor, c.room].filter(Boolean).join(" · ")}
-                </p>
+                <p className="mt-1 text-[13px] text-ink-soft">{[c.professor, c.room].filter(Boolean).join(" · ")}</p>
               )}
-              <div className="mt-2 flex gap-3 text-xs text-ink-soft">
-                <span>{c._count.assignments} assignments</span>
-                <span>{c._count.exams} exams</span>
-                <span>{c._count.resources + c._count.materials} resources</span>
+              <div className="mt-auto flex items-center gap-3 pt-5 text-[13px] text-ink-soft">
+                <Count n={c._count.assignments} label="assignments" />
+                <Count n={c._count.exams} label="exams" />
+                <Count n={c._count.resources + c._count.materials} label="resources" />
+                <ChevronRightIcon className="ml-auto h-4 w-4 flex-none text-ink-faint transition-transform group-hover:translate-x-0.5 group-hover:text-ink" />
               </div>
             </Link>
           ))}
         </div>
       )}
     </AppShell>
+  );
+}
+
+function Count({ n, label }: { n: number; label: string }) {
+  return (
+    <span className="whitespace-nowrap">
+      <span className="font-semibold tabular-nums text-ink">{n}</span> {label}
+    </span>
   );
 }

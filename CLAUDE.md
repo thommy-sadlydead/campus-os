@@ -84,10 +84,18 @@ session cookies, no third-party auth.
   see `src/components/classes/class-tabs.ts` and
   `src/components/assignments/assignment-grid.ts`.
 - **Phones get a bottom tab bar** (`src/components/MobileNav.tsx`, below
-  `lg`); the top menu in `AppShell` is for wide screens. The viewport uses
+  `lg`); the sidebar in `AppShell` is for wide screens. The viewport uses
   `viewport-fit=cover`, so anything fixed to the top or bottom pads itself
   with `env(safe-area-inset-*)`, and floating UI near the bottom (toasts)
   sits above the tab bar on phones.
+- **Style with the design system, not one-off classes.** Colors are tokens
+  in `src/app/globals.css` (used as `bg-surface`, `text-ink-soft`, etc.);
+  Tailwind's `/opacity` modifiers don't work on them, so use the `-soft`
+  tokens or `.glass` instead. Reuse the shared classes there (`.card`,
+  `.btn btn-primary`, `.field`, `.badge`, `.eyebrow`, `.empty`),
+  `PageHeader`/`CardHeader` from `src/components/ui/`, and icons from
+  `src/components/icons.tsx` (no emoji in the UI). Tailwind's `dark:`
+  variant does nothing here: dark mode comes from the tokens.
 - **Requests to the app are capped at 4.5 MB on Vercel**, whatever
   `serverActions.bodySizeLimit` says. Anything bigger (lecture audio, large
   book/slide files) goes browser → Blob with a client token, then a Server

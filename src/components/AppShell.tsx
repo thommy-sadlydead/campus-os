@@ -2,17 +2,64 @@ import Link from "next/link";
 import { logoutAction } from "@/app/login/actions";
 import { MobileNav } from "@/components/MobileNav";
 import { NativeAppBridge } from "@/components/NativeAppBridge";
+import { Logo, LogoMark } from "@/components/Logo";
+import {
+  BookIcon,
+  CalendarIcon,
+  ChecklistIcon,
+  HomeIcon,
+  LayersIcon,
+  LogOutIcon,
+  MailIcon,
+  MicIcon,
+  UserIcon,
+} from "@/components/icons";
 
-// The top menu is for wide screens (lg and up). Below that, MobileNav's
-// bottom tab bar takes over, so nothing runs off the side of a phone.
-const NAV = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/schedule", label: "Schedule" },
-  { href: "/assignments", label: "Assignments" },
-  { href: "/classes", label: "Classes" },
-  { href: "/canvas", label: "Canvas" },
-  { href: "/email", label: "Email" },
+// Wide screens (lg and up) get a sidebar; phones and tablets get a slim top
+// bar and MobileNav's floating tab bar instead, the way iPhone apps are
+// laid out.
+
+const WORKSPACE = [
+  { href: "/dashboard", label: "Today", Icon: HomeIcon },
+  { href: "/classes", label: "Classes", Icon: BookIcon },
+  { href: "/assignments", label: "Assignments", Icon: ChecklistIcon },
+  { href: "/schedule", label: "Schedule", Icon: CalendarIcon },
 ];
+
+const CONNECTIONS = [
+  { href: "/email", label: "Email", Icon: MailIcon },
+  { href: "/canvas", label: "Canvas", Icon: LayersIcon },
+];
+
+function initials(name: string): string {
+  const parts = name.replace(/@.*/, "").split(/[\s._-]+/).filter(Boolean);
+  return (parts.length > 1 ? parts[0][0] + parts[1][0] : name.slice(0, 2)).toUpperCase();
+}
+
+function NavLink({
+  href,
+  label,
+  Icon,
+  active,
+}: {
+  href: string;
+  label: string;
+  Icon: (props: { className?: string }) => React.ReactElement;
+  active: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      aria-current={active ? "page" : undefined}
+      className={`group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+        active ? "bg-surface-2 text-ink" : "text-ink-soft hover:bg-surface-2 hover:text-ink"
+      }`}
+    >
+      <Icon className={`h-[18px] w-[18px] ${active ? "text-accent" : "text-ink-faint group-hover:text-ink-soft"}`} />
+      {label}
+    </Link>
+  );
+}
 
 export function AppShell({
   active,
@@ -25,60 +72,98 @@ export function AppShell({
 }) {
   return (
     <div className="min-h-screen bg-bg text-ink">
-      {/* Padded by the safe-area inset so an installed iPhone app keeps the
-          header clear of the status bar and notch. */}
-      <header className="border-b border-border-soft bg-surface pt-[env(safe-area-inset-top)]">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
-          <div className="flex min-w-0 items-center gap-8">
-            <Link href="/dashboard" className="flex-none font-display text-lg font-semibold tracking-tight">
-              Campus OS
-            </Link>
-            <nav className="hidden items-center gap-1 lg:flex">
-              {NAV.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  aria-current={active === item.href ? "page" : undefined}
-                  className={`flex-none whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                    active === item.href ? "bg-ink text-surface" : "text-ink-soft hover:bg-surface-2"
-                  }`}
-                >
-                  {item.label}
-                </Link>
+      {/* A soft wash of the brand colors at the top of the canvas. */}
+      <div aria-hidden className="pointer-events-none fixed inset-x-0 top-0 z-0 h-[420px] lg:left-64">
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(60% 70% at 15% 0%, var(--glow-1), transparent 70%), radial-gradient(50% 60% at 90% 0%, var(--glow-2), transparent 70%)",
+          }}
+        />
+      </div>
+
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border-soft bg-surface lg:flex">
+        <div className="flex h-16 flex-none items-center px-5">
+          <Link href="/dashboard" aria-label="Campus OS home">
+            <Logo />
+          </Link>
+        </div>
+        <div className="px-3 pt-1">
+          <Link href="/record" aria-current={active === "/record" ? "page" : undefined} className="btn btn-brand w-full">
+            <MicIcon className="h-[18px] w-[18px]" />
+            Record a lecture
+          </Link>
+        </div>
+        <nav aria-label="Main" className="mt-6 flex flex-1 flex-col gap-6 overflow-y-auto px-3">
+          <div>
+            <p className="eyebrow mb-2 px-3">Workspace</p>
+            <div className="flex flex-col gap-0.5">
+              {WORKSPACE.map((item) => (
+                <NavLink key={item.href} {...item} active={active === item.href} />
               ))}
-            </nav>
+            </div>
           </div>
-          <div className="hidden flex-none items-center gap-2 lg:flex">
-            <Link
-              href="/record"
-              className="flex items-center gap-1.5 rounded-lg bg-danger px-3 py-1.5 text-sm font-semibold text-white hover:opacity-90"
-            >
-              <span aria-hidden className="block h-2 w-2 rounded-full bg-white" />
-              Record
-            </Link>
+          <div>
+            <p className="eyebrow mb-2 px-3">Connections</p>
+            <div className="flex flex-col gap-0.5">
+              {CONNECTIONS.map((item) => (
+                <NavLink key={item.href} {...item} active={active === item.href} />
+              ))}
+            </div>
+          </div>
+        </nav>
+        <div className="flex-none border-t border-border-soft p-3">
+          <div className="flex items-center gap-1">
             <Link
               href="/account"
-              title={userName}
               aria-current={active === "/account" ? "page" : undefined}
-              className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                active === "/account" ? "bg-ink text-surface" : "text-ink-soft hover:bg-surface-2"
+              className={`flex min-w-0 flex-1 items-center gap-3 rounded-lg px-2 py-2 transition-colors ${
+                active === "/account" ? "bg-surface-2" : "hover:bg-surface-2"
               }`}
             >
-              Account
+              <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-surface-2 text-xs font-semibold text-ink-soft ring-1 ring-border">
+                {initials(userName)}
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-medium text-ink">{userName}</span>
+                <span className="block text-xs text-ink-faint">Account</span>
+              </span>
             </Link>
             <form action={logoutAction}>
-              <button className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-ink-soft hover:bg-surface-2">
-                Log out
+              <button title="Log out" aria-label="Log out" className="btn btn-ghost h-9 min-h-0 w-9 px-0">
+                <LogOutIcon className="h-[18px] w-[18px]" />
               </button>
             </form>
           </div>
         </div>
+      </aside>
+
+      {/* Padded by the safe-area inset so the installed iPhone app keeps the
+          bar clear of the status bar and notch. */}
+      <header className="glass sticky top-0 z-30 border-b border-border-soft pt-[env(safe-area-inset-top)] lg:hidden">
+        <div className="flex h-14 items-center justify-between px-4">
+          <Link href="/dashboard" aria-label="Campus OS home" className="flex items-center gap-2.5">
+            <LogoMark size={26} />
+            <span className="text-[15px] font-semibold tracking-tight">Campus OS</span>
+          </Link>
+          <Link
+            href="/account"
+            aria-label="Account"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-2 text-xs font-semibold text-ink-soft ring-1 ring-border"
+          >
+            {initials(userName) || <UserIcon className="h-4 w-4" />}
+          </Link>
+        </div>
       </header>
-      <NativeAppBridge />
-      {/* Bottom padding keeps the last thing on a page above the tab bar. */}
-      <main className="mx-auto max-w-6xl px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-6 sm:px-6 lg:pb-8 lg:pt-8">
-        {children}
-      </main>
+
+      <div className="relative z-10 lg:pl-64">
+        {/* Bottom padding keeps the last thing on a page above the tab bar. */}
+        <main className="mx-auto max-w-6xl px-4 pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-5 sm:px-6 lg:px-10 lg:pb-16 lg:pt-10">
+          <NativeAppBridge />
+          {children}
+        </main>
+      </div>
       <MobileNav active={active} />
     </div>
   );

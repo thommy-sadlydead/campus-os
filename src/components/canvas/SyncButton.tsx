@@ -2,21 +2,25 @@
 
 import { useState, useTransition } from "react";
 import { syncCanvasAction } from "@/app/canvas/actions";
+import { RefreshIcon } from "@/components/icons";
 
 export function SyncButton({ lastSyncedLabel }: { lastSyncedLabel: string }) {
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex flex-row-reverse items-center gap-3 sm:flex-row">
+      <span className="text-xs text-ink-faint" aria-live="polite">
+        {message ?? lastSyncedLabel}
+      </span>
       <button
         onClick={() => startTransition(async () => setMessage((await syncCanvasAction()).message))}
         disabled={pending}
-        className="rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-surface hover:opacity-90 disabled:opacity-60"
+        className="btn btn-primary"
       >
+        <RefreshIcon className={`h-4 w-4 ${pending ? "animate-spin" : ""}`} />
         {pending ? "Syncing…" : "Sync now"}
       </button>
-      <span className="text-xs text-ink-faint">{message ?? lastSyncedLabel}</span>
     </div>
   );
 }

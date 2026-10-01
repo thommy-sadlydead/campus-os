@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Logo } from "@/components/Logo";
 
 export const metadata: Metadata = { title: "Privacy policy · Campus OS" };
 
@@ -11,7 +12,7 @@ export const metadata: Metadata = { title: "Privacy policy · Campus OS" };
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="flex flex-col gap-2">
-      <h2 className="font-display text-lg font-semibold">{title}</h2>
+      <h2 className="font-display text-lg font-semibold text-ink">{title}</h2>
       {children}
     </section>
   );
@@ -21,13 +22,16 @@ export default function PrivacyPage() {
   const contactEmail = process.env.CONTACT_EMAIL?.trim();
 
   return (
-    <div className="min-h-screen bg-bg px-4 pb-10 pt-[calc(2.5rem+env(safe-area-inset-top))] text-ink">
-      <article className="mx-auto flex max-w-2xl flex-col gap-7 text-sm leading-relaxed text-ink-soft">
+    <div className="min-h-screen bg-bg px-4 pb-12 pt-[calc(1.25rem+env(safe-area-inset-top))] text-ink">
+      <nav className="mx-auto mb-8 flex max-w-3xl items-center">
+        <Link href="/" aria-label="Campus OS home">
+          <Logo />
+        </Link>
+      </nav>
+      <article className="card mx-auto flex max-w-3xl flex-col gap-8 p-6 text-sm leading-relaxed text-ink-soft sm:p-10">
         <header>
-          <Link href="/" className="text-xs font-semibold uppercase tracking-wider text-ink-faint hover:text-ink">
-            Campus OS
-          </Link>
-          <h1 className="mt-1 font-display text-3xl font-semibold text-ink">Privacy policy</h1>
+          <p className="eyebrow">Legal</p>
+          <h1 className="mt-2 font-display text-3xl font-semibold text-ink sm:text-4xl">Privacy policy</h1>
           <p className="mt-1 text-xs text-ink-faint">Last updated September 30, 2026</p>
           <p className="mt-4">
             Campus OS is a personal academic organizer. It pulls your classes and assignments from Canvas, reads
