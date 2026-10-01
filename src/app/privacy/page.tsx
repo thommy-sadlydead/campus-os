@@ -61,9 +61,7 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong className="text-ink">What you add yourself:</strong> notes, schedule, resources, exams and
-              availability. Voicewrite&apos;s writing styles are saved in your browser, not on the server. A style
-              and your request are sent to Anthropic only when you generate text, and Campus OS doesn&apos;t keep
-              either.
+              availability.
             </li>
           </ul>
         </Section>
@@ -77,8 +75,8 @@ export default function PrivacyPage() {
               <strong className="text-ink">Prisma Postgres</strong> hosts the database.
             </li>
             <li>
-              <strong className="text-ink">Anthropic (Claude)</strong> writes AI answers, lecture notes, assignment
-              breakdowns and Voicewrite text, sorts email, and reads scanned PDFs. It receives only what each feature
+              <strong className="text-ink">Anthropic (Claude)</strong> writes AI answers, lecture notes and
+              assignment breakdowns, sorts email, and reads scanned PDFs. It receives only what each feature
               needs, such as a class&apos;s notes and assignments, an email&apos;s text, or a lecture transcript.
               Anthropic{" "}
               <a

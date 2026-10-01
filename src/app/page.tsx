@@ -12,7 +12,6 @@ const FEATURES = [
   "A dashboard that tells you what to work on next",
   "School email from Gmail, sorted by class, with date changes flagged for you to approve",
   "Lecture recordings turned into transcripts and notes",
-  "Voicewrite, a writing helper that writes in your own style",
 ];
 
 export default async function RootPage() {

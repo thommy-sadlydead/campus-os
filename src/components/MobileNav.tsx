@@ -67,7 +67,6 @@ const MORE_LINKS = [
   { href: "/assignments", label: "Assignments" },
   { href: "/email", label: "Email" },
   { href: "/canvas", label: "Canvas" },
-  { href: "/voicewrite", label: "Voicewrite" },
   { href: "/account", label: "Account" },
 ];
 

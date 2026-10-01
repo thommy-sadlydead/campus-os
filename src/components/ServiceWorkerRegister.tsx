@@ -3,8 +3,7 @@
 import { useEffect } from "react";
 
 // Registers public/sw.js in production only, so `npm run dev` never serves
-// a stale cached build while you're actively editing. Ported from
-// Voicewrite's own ServiceWorkerRegister.tsx (identical app-agnostic logic).
+// a stale cached build while you're actively editing.
 export function ServiceWorkerRegister() {
   useEffect(() => {
     if (process.env.NODE_ENV !== "production") return;

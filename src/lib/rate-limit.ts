@@ -27,7 +27,7 @@ export const RATE_LIMITS = {
   // Sign-up attempts per client IP, wrong invite codes included.
   register: { limit: 10, windowMs: 60 * MINUTE },
   // Interactive AI features: dashboard, class assistant, assignment
-  // breakdowns, Voicewrite. Generous for one student's real use.
+  // breakdowns. Generous for one student's real use.
   ai: { limit: 200, windowMs: DAY },
   // New lectures (each one means an AssemblyAI transcription and a long
   // note-generation call), plus audio upload tokens as a backstop for

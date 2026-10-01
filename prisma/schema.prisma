@@ -300,11 +300,11 @@ model CanvasSyncCourseState {
 
 // A recorded lecture: an uploaded audio file (or a directly pasted
 // transcript — see below), its AssemblyAI transcript, and AI-generated notes
-// from that transcript. Like Voicewrite, this has no deterministic fallback —
+// from that transcript. This has no deterministic fallback —
 // transcription and note generation ARE the feature, so without
 // ASSEMBLYAI_API_KEY/ANTHROPIC_API_KEY configured (or on a transient
-// failure) a lecture just sits in FAILED with errorMessage set, same as
-// Voicewrite's "not configured" error instead of a degraded answer.
+// failure) a lecture just sits in FAILED with errorMessage set instead of
+// a degraded answer.
 //
 // status is a String, not a Prisma enum — see the note above Assignment.status.
 // Application-level values: "UPLOADED" | "TRANSCRIBING" | "GENERATING_NOTES" |

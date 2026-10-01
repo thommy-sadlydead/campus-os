@@ -200,9 +200,8 @@ async function selectRelevantMaterials(
 }
 
 /**
- * Runs the note-generation step and saves the result. Like Voicewrite's
- * /api/voicewrite-generate, this calls the Anthropic SDK directly rather than
- * through askClaude() — askClaude() collapses every failure into a silent
+ * Runs the note-generation step and saves the result. This calls the
+ * Anthropic SDK directly rather than through askClaude() — askClaude() collapses every failure into a silent
  * null for features that have a deterministic fallback, but note generation
  * IS the feature here, so failures need to surface as a real FAILED status
  * with a real message instead.

@@ -1,6 +1,5 @@
 // Campus OS service worker: makes the app installable ("Add to Home
-// Screen" / "Install app") and keeps it from breaking offline. Pattern
-// carried over from Voicewrite's own sw.js (see its INTEGRATION.md port).
+// Screen" / "Install app") and keeps it from breaking offline.
 //
 // Only static files are cached. Pages and their data always come from the
 // network: v1 also cached Next.js's page-data (RSC) requests, which made

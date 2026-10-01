@@ -25,6 +25,10 @@ const nextConfig = {
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
+  // Voicewrite was removed; old bookmarks land on the dashboard instead of a 404.
+  async redirects() {
+    return [{ source: "/voicewrite", destination: "/dashboard", permanent: false }];
+  },
 };
 
 export default nextConfig;

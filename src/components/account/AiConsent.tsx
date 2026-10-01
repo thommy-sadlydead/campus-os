@@ -13,7 +13,7 @@ export function AiDisclosure() {
       <ul className="flex list-disc flex-col gap-1 pl-5">
         <li>
           <strong className="text-ink">Anthropic (Claude)</strong> gets your class content (notes, assignments,
-          course files and lecture transcripts), your school emails, and what you type to the assistant or Voicewrite,
+          course files and lecture transcripts), your school emails, and what you type to the assistant,
           to write notes, sort email, break down assignments and answer questions.
         </li>
         <li>

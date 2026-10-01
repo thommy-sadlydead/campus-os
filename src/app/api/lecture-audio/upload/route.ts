@@ -6,9 +6,8 @@ import { RATE_LIMITS, consumeRateLimit } from "@/lib/rate-limit";
 
 // Issues client tokens for the Lectures tab's direct-to-Blob audio upload
 // (src/components/classes/LecturesPanel.tsx). Called via fetch() from
-// @vercel/blob/client's upload(), not a page navigation — same reasoning as
-// /api/voicewrite-generate for using getCurrentUser() and a plain 401 body
-// instead of requireUser()'s redirect.
+// @vercel/blob/client's upload(), not a page navigation, so it uses
+// getCurrentUser() and a plain 401 body instead of requireUser()'s redirect.
 //
 // No onUploadCompleted here: that callback needs a publicly reachable URL,
 // which `next dev` doesn't have. The row is created client-side instead,

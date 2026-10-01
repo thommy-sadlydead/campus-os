@@ -7,7 +7,7 @@ let client: AssemblyAI | null | undefined;
  * Null when ASSEMBLYAI_API_KEY isn't configured. Unlike src/lib/anthropic.ts's
  * askClaude(), there's no deterministic fallback for transcription — callers
  * (src/app/classes/[id]/lecture-actions.ts) must surface this as a real
- * error, same as Voicewrite's Anthropic client (src/app/api/voicewrite-generate).
+ * error.
  */
 export function getAssemblyAIClient(): AssemblyAI | null {
   if (client !== undefined) return client;
