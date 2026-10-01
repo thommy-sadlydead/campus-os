@@ -1,3 +1,4 @@
+import { cookies, headers } from "next/headers";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { AppShell } from "@/components/AppShell";
@@ -8,6 +9,9 @@ import { WorkloadSummaryCard } from "@/components/dashboard/WorkloadSummaryCard"
 import { AvailabilityCard } from "@/components/dashboard/AvailabilityCard";
 import { AskPanel } from "@/components/dashboard/AskPanel";
 import { RiskStatusCard } from "@/components/dashboard/RiskStatusCard";
+import { NativeReminders } from "@/components/dashboard/NativeReminders";
+import { AiConsentCard } from "@/components/account/AiConsent";
+import { AI_NOT_NOW_COOKIE, hasAiConsent } from "@/lib/ai-consent";
 import Link from "next/link";
 import { ShowMore } from "@/components/ShowMore";
 import { loadWorkItemsForUser, getAvailableMinutesToday } from "@/lib/workload";
@@ -30,7 +34,11 @@ export default async function DashboardPage() {
   const user = await requireUser();
   const now = new Date();
 
-  const [items, availableMinutesToday, availabilityBlocks, pendingChangeCount, classCount] = await Promise.all([
+  // The iPhone app adds this to its user agent (capacitor.config.json); only
+  // it can show reminders, so only it gets the deadlines for them.
+  const inApp = (await headers()).get("user-agent")?.includes("CampusOSApp") ?? false;
+
+  const [items, availableMinutesToday, availabilityBlocks, pendingChangeCount, classCount, reminderDeadlines] = await Promise.all([
     loadWorkItemsForUser(user.id),
     getAvailableMinutesToday(user.id, now, user.timezone),
     prisma.availabilityBlock.findMany({
@@ -39,6 +47,18 @@ export default async function DashboardPage() {
     }),
     prisma.pendingChange.count({ where: { userId: user.id, status: "PENDING" } }),
     prisma.class.count({ where: { userId: user.id, archived: false } }),
+    inApp
+      ? prisma.assignment.findMany({
+          where: {
+            class: { userId: user.id, archived: false },
+            dueAt: { gt: now, lte: new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000) },
+            status: { notIn: ["SUBMITTED", "GRADED"] },
+          },
+          select: { name: true, dueAt: true, class: { select: { name: true } } },
+          orderBy: { dueAt: "asc" },
+          take: 100,
+        })
+      : Promise.resolve([]),
   ]);
 
   const ranked = rankWorkItems(items, now, user.timezone);
@@ -115,7 +135,20 @@ export default async function DashboardPage() {
         </Link>
       </div>
 
+      {!hasAiConsent(user) && !(await cookies()).get(AI_NOT_NOW_COOKIE) && <AiConsentCard />}
+
       <RiskStatusCard risk={risk} />
+
+      {inApp && (
+        <NativeReminders
+          timezone={user.timezone}
+          deadlines={reminderDeadlines.map((a) => ({
+            title: a.name,
+            className: a.class.name,
+            dueAt: (a.dueAt as Date).toISOString(),
+          }))}
+        />
+      )}
 
       {pendingChangeCount > 0 && (
         <Link

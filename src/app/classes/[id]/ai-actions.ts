@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { loadClassContext, classSystemPrompt } from "@/lib/class-context";
 import { askClaude, getAnthropicClient } from "@/lib/anthropic";
 import { AI_LIMIT_MESSAGE, allowAiRequest } from "@/lib/rate-limit";
+import { AI_CONSENT_MESSAGE, hasAiConsent } from "@/lib/ai-consent";
 import { formatDueLabel } from "@/lib/time";
 
 export interface ClassAssistantResult {
@@ -74,6 +75,9 @@ export async function askClassAssistantAction(
     return { answer: deterministic, usedAi: false };
   }
 
+  if (!hasAiConsent(user)) {
+    return { answer: AI_CONSENT_MESSAGE, usedAi: false };
+  }
   if (!(await allowAiRequest(user.id))) {
     return { answer: AI_LIMIT_MESSAGE, usedAi: false };
   }

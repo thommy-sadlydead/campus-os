@@ -5,6 +5,7 @@ import { AppShell } from "@/components/AppShell";
 import { SyncButton } from "@/components/email/SyncButton";
 import { PendingChangesQueue } from "@/components/email/PendingChangesQueue";
 import { InboxFeed } from "@/components/email/InboxFeed";
+import { ConnectGmailButton } from "@/components/email/ConnectGmailButton";
 import { disconnectEmailAction } from "@/app/email/actions";
 
 // syncEmailAction (run from SyncButton) reads and classifies up to 60
@@ -45,12 +46,7 @@ export default async function EmailPage({
             <li>• It looks at your recent inbox and keeps only school-related messages.</li>
             <li>• If an email changes a due date or room, Campus OS asks you before updating anything.</li>
           </ul>
-          <a
-            href="/api/email/oauth/start"
-            className="mt-5 inline-block rounded-lg bg-ink px-4 py-2.5 text-sm font-semibold text-surface hover:opacity-90"
-          >
-            Connect Gmail
-          </a>
+          <ConnectGmailButton className="inline-block rounded-lg bg-ink px-4 py-2.5 text-sm font-semibold text-surface hover:opacity-90" />
         </div>
       </AppShell>
     );

@@ -159,11 +159,19 @@ session cookies, no third-party auth.
   `email-classify-heuristic.ts`, `email-intelligence.ts`,
   `change-rules.ts` + `pending-changes.ts` (the only code path allowed to
   write an email-derived fact into Class/Assignment/Exam/ScheduleEvent).
+- **AI permission**: `ai-consent.ts`. Every feature that sends a student's
+  data to Anthropic or AssemblyAI checks `hasAiConsent(user)` on the server
+  first (App Store guideline 5.1.2(i)). A new AI feature must too.
+- **iPhone/iPad/Mac app**: `ios/` (Capacitor shell around the live site,
+  plus a Voice Memos share extension, native background recording and the
+  Gmail sign-in sheet). Read `ios/README.md` first. The website side is
+  `src/lib/native-app.ts` and the components it's used in; all of it does
+  nothing in a browser. Website changes reach the app without a new build.
 
 ## Verifying a change before calling it done
 
 1. `npx tsc --noEmit` (after `npx prisma generate` if the schema changed)
-2. `npx vitest run` — 223 tests as of this writing across 17 files
+2. `npx vitest run` — 235 tests as of this writing across 19 files
 3. Clean build: `rm -rf .next && npx next build` (use `next build` directly
    to skip the `db push` the `npm run build` script triggers, if you're not
    ready to push schema changes yet)

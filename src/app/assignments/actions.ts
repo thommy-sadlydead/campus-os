@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { askClaudeForJson } from "@/lib/anthropic";
 import { allowAiRequest } from "@/lib/rate-limit";
+import { hasAiConsent } from "@/lib/ai-consent";
 import { heuristicBreakdown } from "@/lib/breakdown-heuristics";
 
 export interface BreakdownResult {
@@ -58,7 +59,10 @@ Rules:
 
   // Past the daily AI limit this falls through to the heuristic breakdown,
   // same as having no API key.
-  const ai = (await allowAiRequest(user.id)) ? await askClaudeForJson<AiBreakdownJson>({ system, prompt, maxTokens: 500 }) : null;
+  const ai =
+    hasAiConsent(user) && (await allowAiRequest(user.id))
+      ? await askClaudeForJson<AiBreakdownJson>({ system, prompt, maxTokens: 500 })
+      : null;
 
   let steps = (ai?.steps ?? [])
     .filter((s) => s.title && typeof s.estimatedMinutes === "number" && s.estimatedMinutes > 0)

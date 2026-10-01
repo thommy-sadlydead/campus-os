@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { PluginListenerHandle } from "@capacitor/core";
+import { hasNativePlugin, NativeRecorder, nativeErrorCode, readInboxFile, SharedInbox } from "@/lib/native-app";
 import { saveLectureAudio } from "./save-lecture-audio";
 
 type Phase = "idle" | "starting" | "recording" | "paused" | "saving" | "failed";
@@ -32,6 +34,11 @@ function formatElapsed(ms: number): string {
  * microphone), warns before leaving mid-recording, and never throws a
  * recording away: if the upload fails, it can be retried or saved to the
  * device.
+ *
+ * In the iPhone app it records natively instead (NativeRecorder), which
+ * keeps going with the screen locked or another app open. The recording
+ * lands in the app's inbox and uploads from there; if the upload fails it
+ * stays in the inbox, listed on the Record page.
  */
 export function LectureRecorder({
   classId,
@@ -63,6 +70,10 @@ export function LectureRecorder({
   const meterRef = useRef<HTMLDivElement>(null);
   const segmentStartRef = useRef(0);
   const recordedMsRef = useRef(0);
+  const [native, setNative] = useState(false);
+  const [interrupted, setInterrupted] = useState(false);
+  const nativeListenersRef = useRef<PluginListenerHandle[]>([]);
+  const failedInboxIdRef = useRef<string | null>(null);
   // Read when the recording finishes, which can be long after the render
   // that started it, so these can't come from that render's closure.
   const titleRef = useRef(title);
@@ -73,6 +84,26 @@ export function LectureRecorder({
   });
 
   const busy = phase === "starting" || phase === "recording" || phase === "paused" || phase === "saving";
+
+  useEffect(() => {
+    const available = hasNativePlugin("NativeRecorder");
+    setNative(available);
+    // A native recording keeps going if the student leaves this page;
+    // coming back picks it up again.
+    if (available) {
+      void NativeRecorder.status().then((status) => {
+        if (status.state !== "recording" && status.state !== "paused") return;
+        setElapsedMs(status.elapsedSeconds * 1000);
+        setInterrupted(!!status.interrupted);
+        setPhase(status.state);
+        void followNativeRecording();
+      });
+    }
+    return () => {
+      nativeListenersRef.current.forEach((handle) => void handle.remove());
+      nativeListenersRef.current = [];
+    };
+  }, []);
 
   useEffect(() => {
     onBusyChange?.(busy || phase === "failed");
@@ -159,9 +190,85 @@ export function LectureRecorder({
     }
   }
 
+  // ---- Native recording (iPhone app) ----
+
+  async function syncNativeStatus() {
+    try {
+      const status = await NativeRecorder.status();
+      setElapsedMs(status.elapsedSeconds * 1000);
+      setInterrupted(!!status.interrupted);
+      if (status.state === "recording" || status.state === "paused") setPhase(status.state);
+    } catch {
+      // Keep showing the last known time; the recording itself is native.
+    }
+  }
+
+  async function startNative() {
+    setPhase("starting");
+    try {
+      await NativeRecorder.start({ title: titleRef.current.trim() || defaultTitle });
+    } catch (err) {
+      setPhase("idle");
+      setError(
+        nativeErrorCode(err) === "denied"
+          ? "Campus OS isn't allowed to use the microphone. Turn it on in Settings > Campus OS > Microphone, then try again."
+          : "Couldn't start the microphone. Make sure no other app is using it, then try again."
+      );
+      return;
+    }
+    setElapsedMs(0);
+    setInterrupted(false);
+    await followNativeRecording();
+    setPhase("recording");
+  }
+
+  async function followNativeRecording() {
+    nativeListenersRef.current = [
+      await NativeRecorder.addListener("level", ({ level }) => {
+        if (meterRef.current) meterRef.current.style.transform = `scaleX(${Math.min(1, level * 4)})`;
+      }),
+      await NativeRecorder.addListener("stateChange", () => void syncNativeStatus()),
+    ];
+    // The recorder keeps time; ask it rather than counting here, since this
+    // page stops running while the phone is locked.
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => void syncNativeStatus(), 1000);
+  }
+
+  async function stopNative() {
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = null;
+    nativeListenersRef.current.forEach((handle) => void handle.remove());
+    nativeListenersRef.current = [];
+    setProgress(0);
+    setPhase("saving");
+    try {
+      const { id, durationSeconds } = await NativeRecorder.stop();
+      setElapsedMs(durationSeconds * 1000);
+      await uploadFromInbox(id);
+    } catch {
+      setPhase("idle");
+      setError("Couldn't finish the recording. If it was saved, you'll find it at the top of this page.");
+    }
+  }
+
+  async function uploadFromInbox(id: string) {
+    const item = (await SharedInbox.list()).items.find((i) => i.id === id);
+    if (!item) {
+      setPhase("idle");
+      setError("That recording is no longer on this iPhone.");
+      return;
+    }
+    failedInboxIdRef.current = id;
+    await uploadRecording(await readInboxFile(item));
+  }
+
+  // ---- Recording in the browser ----
+
   async function start() {
     if (!classId) return;
     setError(null);
+    if (native) return startNative();
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
       setError("This browser can't record audio. Use Upload a recording instead.");
       return;
@@ -213,6 +320,11 @@ export function LectureRecorder({
   }
 
   function pause() {
+    if (native) {
+      void NativeRecorder.pause().then(() => syncNativeStatus());
+      setPhase("paused");
+      return;
+    }
     const recorder = recorderRef.current;
     if (!recorder || recorder.state !== "recording") return;
     recorder.pause();
@@ -221,6 +333,13 @@ export function LectureRecorder({
   }
 
   function resume() {
+    if (native) {
+      void NativeRecorder.resume()
+        .then(() => syncNativeStatus())
+        .catch(() => setError("Couldn't resume. Stop and save what's recorded so far, then start again."));
+      setPhase("recording");
+      return;
+    }
     const recorder = recorderRef.current;
     if (!recorder || recorder.state !== "paused") return;
     recorder.resume();
@@ -229,6 +348,7 @@ export function LectureRecorder({
   }
 
   function stop() {
+    if (native) return void stopNative();
     const recorder = recorderRef.current;
     if (!recorder || recorder.state === "inactive") return;
     if (recorder.state === "recording") recordedMsRef.current += performance.now() - segmentStartRef.current;
@@ -265,6 +385,10 @@ export function LectureRecorder({
         keepForRetry(file, result.error);
         return;
       }
+      if (failedInboxIdRef.current) {
+        await SharedInbox.remove({ id: failedInboxIdRef.current }).catch(() => {});
+        failedInboxIdRef.current = null;
+      }
       setFailedFile(null);
       setDownloadUrl(null);
       setElapsedMs(0);
@@ -277,13 +401,23 @@ export function LectureRecorder({
 
   function keepForRetry(file: File, message: string) {
     setFailedFile(file);
-    setDownloadUrl(URL.createObjectURL(file));
-    setError(message);
+    // In the app the recording is already safe in its inbox, and a web
+    // view can't save a download anyway.
+    setDownloadUrl(native ? null : URL.createObjectURL(file));
+    setError(
+      native && failedInboxIdRef.current
+        ? `${message} It's saved on this iPhone: try again now, or add it later from the top of the Record page.`
+        : message
+    );
     setPhase("failed");
   }
 
   function discard() {
     if (!confirm("Discard this recording? It hasn't been saved anywhere.")) return;
+    if (failedInboxIdRef.current) {
+      void SharedInbox.remove({ id: failedInboxIdRef.current }).catch(() => {});
+      failedInboxIdRef.current = null;
+    }
     setFailedFile(null);
     setDownloadUrl(null);
     setError(null);
@@ -318,7 +452,14 @@ export function LectureRecorder({
             Stop and save
           </button>
         </div>
-        <p className="max-w-xs text-xs text-ink-faint">Keep Campus OS open with the screen on until you stop.</p>
+        {interrupted && phase === "paused" && (
+          <p className="max-w-xs text-sm text-warn">Paused by a call or another app. Tap Resume to keep recording.</p>
+        )}
+        <p className="max-w-xs text-xs text-ink-faint">
+          {native
+            ? "You can lock your phone or use other apps. Recording keeps going until you stop."
+            : "Keep Campus OS open with the screen on until you stop."}
+        </p>
       </div>
     );
   }

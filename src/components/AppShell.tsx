@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { logoutAction } from "@/app/login/actions";
 import { MobileNav } from "@/components/MobileNav";
+import { NativeAppBridge } from "@/components/NativeAppBridge";
 
 // The top menu is for wide screens (lg and up). Below that, MobileNav's
 // bottom tab bar takes over, so nothing runs off the side of a phone.
@@ -74,6 +75,7 @@ export function AppShell({
           </div>
         </div>
       </header>
+      <NativeAppBridge />
       {/* Bottom padding keeps the last thing on a page above the tab bar. */}
       <main className="mx-auto max-w-6xl px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-6 sm:px-6 lg:pb-8 lg:pt-8">
         {children}

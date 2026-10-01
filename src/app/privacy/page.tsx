@@ -94,6 +94,11 @@ export default function PrivacyPage() {
               transcript from AssemblyAI as soon as it&apos;s saved in Campus OS.
             </li>
             <li>
+              Anthropic and AssemblyAI get nothing until you allow AI features, which Campus OS asks before you
+              first use one. You can turn them off any time under Account → AI features; with them off, email is
+              sorted without AI and nothing is sent to either service.
+            </li>
+            <li>
               <strong className="text-ink">Google (Gmail)</strong> and <strong className="text-ink">your school&apos;s
               Canvas</strong> are where your data comes from. Campus OS only reads from them. It can&apos;t send,
               delete or change your email, or change anything in Canvas.

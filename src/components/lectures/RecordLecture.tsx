@@ -3,9 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { ClassSuggestion } from "@/lib/record-class";
+import type { ClassSuggestion, ScheduleSlot } from "@/lib/record-class";
 import { LectureRecorder } from "./LectureRecorder";
 import { AudioUpload } from "./AudioUpload";
+import { NativeInbox } from "./NativeInbox";
 
 export interface RecordableClass {
   id: string;
@@ -30,10 +31,15 @@ export function RecordLecture({
   classes,
   suggestion,
   defaultTitle,
+  slots,
+  timezone,
 }: {
   classes: RecordableClass[];
   suggestion: ClassSuggestion | null;
   defaultTitle: string;
+  /** The weekly schedule, for picking the class of a recording shared into the app. */
+  slots: ScheduleSlot[];
+  timezone: string;
 }) {
   const router = useRouter();
   const [classId, setClassId] = useState<string>(suggestion?.classId ?? "");
@@ -57,6 +63,7 @@ export function RecordLecture({
 
   return (
     <div className="flex max-w-xl flex-col gap-4">
+      <NativeInbox classes={classes} slots={slots} timezone={timezone} />
       <div className="flex flex-col gap-1.5">
         <label htmlFor="record-class" className="text-xs font-medium text-ink-soft">
           Class

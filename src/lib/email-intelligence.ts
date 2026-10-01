@@ -152,8 +152,13 @@ Newsletters, digests, event roundups and automated summaries (like Canvas's week
   };
 }
 
-export async function classifyEmail(email: GmailMessageSummary, classes: ClassLite[]): Promise<ClassificationResult> {
-  const ai = await classifyWithAi(email, classes);
+/** `useAi` is whether the student allowed AI features (src/lib/ai-consent.ts); without it, only the non-AI classifier runs. */
+export async function classifyEmail(
+  email: GmailMessageSummary,
+  classes: ClassLite[],
+  { useAi }: { useAi: boolean }
+): Promise<ClassificationResult> {
+  const ai = useAi ? await classifyWithAi(email, classes) : null;
   if (ai) return ai;
   const heuristic = classifyHeuristic(email, classes);
   return { ...heuristic, facts: [], usedAi: false };

@@ -30,6 +30,11 @@ model User {
   name         String?
   timezone     String   @default("America/New_York")
   createdAt    DateTime @default(now())
+  // When the student allowed AI features: sending the text, emails and
+  // recordings each one needs to Anthropic and AssemblyAI. Null means
+  // they haven't (or turned it off), and nothing is sent; see
+  // src/lib/ai-consent.ts. Required by App Store guideline 5.1.2(i).
+  aiConsentAt  DateTime?
 
   sessions            Session[]
   classes             Class[]

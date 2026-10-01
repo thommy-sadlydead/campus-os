@@ -1,0 +1,13 @@
+{
+  "appId": "com.campusos.app",
+  "appName": "Campus OS",
+  "webDir": "native-shell",
+  "server": {
+    "url": "https://campus-os-mocha-pi.vercel.app",
+    "errorPath": "offline.html"
+  },
+  "ios": {
+    "contentInset": "never",
+    "appendUserAgent": "CampusOSApp/1"
+  }
+}

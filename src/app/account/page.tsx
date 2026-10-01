@@ -2,6 +2,8 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { AppShell } from "@/components/AppShell";
 import { ChangePasswordForm, DeleteAccountForm } from "@/components/account/AccountForms";
+import { AiFeaturesSettings } from "@/components/account/AiConsent";
+import { formatInTimeZone } from "date-fns-tz";
 
 export default async function AccountPage() {
   const user = await requireUser();
@@ -12,6 +14,13 @@ export default async function AccountPage() {
       <p className="mb-6 text-sm text-ink-soft">Signed in as {user.email}</p>
 
       <div className="flex max-w-xl flex-col gap-6">
+        <section id="ai" className="rounded-xl2 border border-border-soft bg-surface p-6 shadow-card">
+          <h2 className="font-display text-base font-semibold">AI features</h2>
+          <AiFeaturesSettings
+            allowedSince={user.aiConsentAt ? formatInTimeZone(user.aiConsentAt, user.timezone, "MMM d, yyyy") : null}
+          />
+        </section>
+
         <section className="rounded-xl2 border border-border-soft bg-surface p-6 shadow-card">
           <h2 className="font-display text-base font-semibold">Change password</h2>
           <p className="mt-1 text-sm text-ink-soft">Changing it signs you out everywhere except this device.</p>

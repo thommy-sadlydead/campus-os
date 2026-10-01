@@ -53,3 +53,16 @@ export function suggestClassToRecord(slots: ScheduleSlot[], now: Date, tz: strin
 export function defaultLectureTitle(now: Date, tz: string): string {
   return `Lecture — ${formatInTimeZone(now, tz, "EEE, MMM d")}`;
 }
+
+/**
+ * The moment to look up on the schedule for a recording made earlier (one
+ * shared from Voice Memos): its middle when the length is known, so a
+ * recording started a few minutes before class still lands inside it;
+ * otherwise when it started. Null when the file doesn't say.
+ */
+export function inboxPickTime(recording: { recordedAt?: string; durationSeconds?: number }): Date | null {
+  if (!recording.recordedAt) return null;
+  const start = new Date(recording.recordedAt);
+  if (Number.isNaN(start.getTime())) return null;
+  return recording.durationSeconds ? new Date(start.getTime() + (recording.durationSeconds * 1000) / 2) : start;
+}

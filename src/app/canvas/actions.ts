@@ -7,6 +7,7 @@ import { encryptSecret, decryptSecret } from "@/lib/crypto";
 import { fetchActiveCourses, type CanvasConfig } from "@/lib/canvas";
 import { syncCanvasForUser } from "@/lib/canvas-sync";
 import { queueCourseMaterialSync, advanceCanvasMaterialSync, type CourseSyncProgress } from "@/lib/canvas-materials-sync";
+import { hasAiConsent } from "@/lib/ai-consent";
 
 export type { CourseSyncProgress };
 
@@ -146,7 +147,7 @@ export async function continueCanvasMaterialSyncAction(): Promise<CourseSyncProg
   if (!account) return [];
 
   const cfg: CanvasConfig = { baseUrl: account.baseUrl, token: decryptSecret(account.accessTokenEnc) };
-  const progress = await advanceCanvasMaterialSync(prisma, cfg, user.id);
+  const progress = await advanceCanvasMaterialSync(prisma, cfg, user.id, { readScansWithAi: hasAiConsent(user) });
   // So a class page opened after (or during) a sync shows newly-imported
   // materials right away instead of a stale cached render.
   revalidatePath("/classes");

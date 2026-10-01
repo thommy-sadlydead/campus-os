@@ -9,6 +9,7 @@ import { findBestFitForMinutes, whatShouldIDoRightNow, rankWorkItems, computeWor
 import { assessRisk } from "@/lib/risk-engine";
 import { askClaude, getAnthropicClient } from "@/lib/anthropic";
 import { AI_LIMIT_MESSAGE, allowAiRequest } from "@/lib/rate-limit";
+import { AI_CONSENT_MESSAGE, hasAiConsent } from "@/lib/ai-consent";
 import { startOfTzDay } from "@/lib/time";
 import { buildCrossAppPrompt } from "@/lib/cross-app-context";
 
@@ -112,7 +113,7 @@ export async function whatShouldIDoRightNowAction(): Promise<WhatNowResult> {
   // AI narrative is a polish layer over the deterministic pick — the pick
   // itself never depends on the model being available or working (or on
   // the daily AI limit; past it, the deterministic reason shows instead).
-  const aiMessage = (await allowAiRequest(user.id))
+  const aiMessage = hasAiConsent(user) && (await allowAiRequest(user.id))
     ? await askClaude({
         system:
           "You are a calm, direct academic productivity assistant. Given one recommended task and light context, write 1-2 sentences telling the student what to do right now and why. No fluff, no emoji, no bullet points — plain sentences. Never invent facts (deadlines, minutes, class names) beyond what's given.",
@@ -192,6 +193,9 @@ export async function askCrossAppAction(question: string): Promise<AskResult> {
   if (!trimmed) return { answer: "Ask a question first.", usedAi: false };
 
   const { system, deterministicSummary } = await buildCrossAppPrompt(user.id, user.timezone);
+  if (!hasAiConsent(user)) {
+    return { answer: `${AI_CONSENT_MESSAGE} Here's what's on your plate: ${deterministicSummary}`, usedAi: false };
+  }
   if (!(await allowAiRequest(user.id))) {
     return { answer: `${AI_LIMIT_MESSAGE} Here's what's on your plate: ${deterministicSummary}`, usedAi: false };
   }
@@ -239,6 +243,9 @@ export async function explainRiskAction(): Promise<ExplainRiskResult> {
   const risk = assessRisk(ranked, summary, now, user.timezone);
 
   const fallback = [risk.headline, ...risk.reasons, ...risk.recommendations].join(" ");
+  if (!hasAiConsent(user)) {
+    return { narrative: fallback, usedAi: false };
+  }
   if (!(await allowAiRequest(user.id))) {
     return { narrative: `${fallback} (${AI_LIMIT_MESSAGE})`, usedAi: false };
   }

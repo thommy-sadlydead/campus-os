@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Campus OS</title>
+    <style>
+      :root { --bg: #f2f3f6; --surface: #ffffff; --ink: #1b2130; --ink-soft: #565f74; --accent: #b8742c; --on-accent: #ffffff; }
+      @media (prefers-color-scheme: dark) {
+        :root { --bg: #14161d; --surface: #1c1f29; --ink: #e8e9ee; --ink-soft: #a7adbe; --accent: #e0a85c; --on-accent: #14161d; }
+      }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; margin: 0; }
+      body {
+        background: var(--bg); color: var(--ink);
+        font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        display: flex; align-items: center; justify-content: center;
+        padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+      }
+      main { max-width: 22rem; text-align: center; }
+      h1 { font-size: 1.25rem; margin: 0 0 .5rem; }
+      p { color: var(--ink-soft); margin: 0 0 1.5rem; }
+      button {
+        appearance: none; border: 0; border-radius: 10px; padding: .75rem 1.5rem;
+        background: var(--accent); color: var(--on-accent); font: inherit; font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Can't reach Campus OS</h1>
+      <p>Campus OS needs an internet connection. Check your Wi-Fi or cellular data, then try again.</p>
+      <button type="button" onclick="location.href = 'https://campus-os-mocha-pi.vercel.app/'">Try again</button>
+    </main>
+  </body>
+</html>

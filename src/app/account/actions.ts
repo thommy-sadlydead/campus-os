@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { destroyOtherSessions, destroySession, hashPassword, requireUser, verifyPassword } from "@/lib/auth";
 import { changePasswordSchema, DELETE_CONFIRMATION_WORD } from "@/lib/account-forms";
@@ -68,4 +69,11 @@ export async function deleteAccountAction(_prev: AccountActionState, formData: F
 
   await destroySession();
   redirect("/login?deleted=1");
+}
+
+/** Allows or turns off AI features (User.aiConsentAt; see src/lib/ai-consent.ts). */
+export async function setAiConsentAction(allow: boolean): Promise<void> {
+  const user = await requireUser();
+  await prisma.user.update({ where: { id: user.id }, data: { aiConsentAt: allow ? new Date() : null } });
+  revalidatePath("/", "layout");
 }

@@ -14,6 +14,14 @@ as out of scope.
 
 ## What's built
 
+- **iPhone, iPad and Mac app** (`ios/`): the site inside a native shell,
+  plus sharing recordings from Voice Memos, recording that keeps going with
+  the screen locked, Gmail sign-in that works in an app, and due-date
+  reminders. See [ios/README.md](ios/README.md) for building, signing and
+  App Store review notes.
+- **AI permission**: nothing is sent to Anthropic or AssemblyAI until the
+  student allows AI features (Account → AI features), as the App Store
+  requires.
 - **Data model** for the whole app (`prisma/schema.prisma`): User, Class,
   ScheduleEvent, Assignment, Task, Exam, Email, EmailAccount, CanvasAccount,
   PendingChange, NoteSection, Note, Resource, AvailabilityBlock, Lecture,
@@ -534,7 +542,7 @@ Not built — one deliberately flagged gap, unrelated to the phase plan:
 
 ## Verification
 
-- `npm test` — 223 unit tests in 17 files as of the 2026-09-30 data fixes (176 as of the 2026-09 security pass, 165 as of the Canvas materials sync)
+- `npm test` — 235 unit tests in 19 files as of the iPhone app work (223 after the 2026-09-30 data fixes, 176 as of the 2026-09 security pass, 165 as of the Canvas materials sync)
   update (12 test files; the newest cover Canvas resource
   classification/dedup/incremental-diff logic, retry/pagination against a
   stubbed Canvas API, and the PDF OCR fallback — see CLAUDE.md for where

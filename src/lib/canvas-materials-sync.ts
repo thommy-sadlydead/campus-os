@@ -306,11 +306,17 @@ async function upsertMaterial(
   return input.syncStatus === "FAILED" ? "failed" : "synced";
 }
 
+/** Whether a scanned PDF may be sent to Claude to read (the student allowed AI features). */
+export interface MaterialSyncOptions {
+  readScansWithAi: boolean;
+}
+
 async function processFileResource(
   prisma: PrismaClient,
   cfg: CanvasConfig,
   classId: string,
-  resource: DiscoveredResource
+  resource: DiscoveredResource,
+  options: MaterialSyncOptions
 ): Promise<"synced" | "failed"> {
   let meta: CanvasFile;
   try {
@@ -398,6 +404,9 @@ async function processFileResource(
     // and ask it to transcribe it.
     const isPdf = contentType.includes("pdf") || meta.display_name.toLowerCase().endsWith(".pdf");
     if (isPdf && (content === null || content.trim().length < 20)) {
+      if (!options.readScansWithAi) {
+        throw new Error("This PDF is a scan. Reading scans uses AI, which is turned off in Account.");
+      }
       content = await ocrPdf(buffer);
     }
 
@@ -545,12 +554,13 @@ async function processOneResource(
   cfg: CanvasConfig,
   courseId: number,
   classId: string,
-  resource: DiscoveredResource
+  resource: DiscoveredResource,
+  options: MaterialSyncOptions
 ): Promise<"synced" | "failed"> {
   try {
     switch (resource.resourceType) {
       case "file":
-        return await processFileResource(prisma, cfg, classId, resource);
+        return await processFileResource(prisma, cfg, classId, resource, options);
       case "page":
         return await processPageResource(prisma, cfg, courseId, classId, resource);
       case "syllabus":
@@ -584,7 +594,8 @@ export async function processCourseChunk(
   prisma: PrismaClient,
   cfg: CanvasConfig,
   cls: { id: string; canvasCourseId: string },
-  state: { id: string; status: string }
+  state: { id: string; status: string },
+  options: MaterialSyncOptions
 ): Promise<void> {
   const courseId = Number(cls.canvasCourseId);
   const isFirstRun = state.status === "PENDING";
@@ -638,7 +649,7 @@ export async function processCourseChunk(
   });
 
   await mapWithConcurrency(thisChunk, DOWNLOAD_CONCURRENCY, (resource) =>
-    processOneResource(prisma, cfg, courseId, cls.id, resource)
+    processOneResource(prisma, cfg, courseId, cls.id, resource, options)
   );
 
   const materialRows = await prisma.classMaterial.findMany({
@@ -713,7 +724,8 @@ export interface CourseSyncProgress {
 export async function advanceCanvasMaterialSync(
   prisma: PrismaClient,
   cfg: CanvasConfig,
-  userId: string
+  userId: string,
+  options: MaterialSyncOptions
 ): Promise<CourseSyncProgress[]> {
   const classes = await prisma.class.findMany({
     where: { userId, canvasCourseId: { not: null } },
@@ -726,7 +738,7 @@ export async function advanceCanvasMaterialSync(
 
   if (next?.canvasCourseId && next.syncState) {
     try {
-      await processCourseChunk(prisma, cfg, { id: next.id, canvasCourseId: next.canvasCourseId }, next.syncState);
+      await processCourseChunk(prisma, cfg, { id: next.id, canvasCourseId: next.canvasCourseId }, next.syncState, options);
     } catch (err) {
       console.error(`Canvas materials sync chunk failed for class ${next.id}:`, err);
       // This write can itself fail (confirmed live: a transient database

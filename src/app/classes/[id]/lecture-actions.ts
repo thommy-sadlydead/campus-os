@@ -9,6 +9,7 @@ import { requireUser } from "@/lib/auth";
 import { deleteAssemblyAITranscripts } from "@/lib/assemblyai";
 import { addLectureToNotes } from "@/lib/lecture-notes-sync";
 import { advanceLecture, generateNotes, submitTranscription } from "@/lib/lecture-pipeline";
+import { AI_CONSENT_MESSAGE, hasAiConsent } from "@/lib/ai-consent";
 import { LECTURE_LIMIT_MESSAGE, RATE_LIMITS, consumeRateLimit, isRateLimited } from "@/lib/rate-limit";
 import { MAX_MATERIAL_TITLE_LENGTH, MAX_MATERIAL_CONTENT_LENGTH } from "@/lib/lecture-notes";
 import { htmlToReadableText, extractHtmlTitle } from "@/lib/text";
@@ -47,6 +48,8 @@ const createLectureSchema = z.object({
  */
 export async function checkLectureLimitAction(): Promise<{ error?: string }> {
   const user = await requireUser();
+  // Transcripts (AssemblyAI) and notes (Claude) are AI, so ask before the upload.
+  if (!hasAiConsent(user)) return { error: AI_CONSENT_MESSAGE };
   return (await isRateLimited(`lecture:${user.id}`, RATE_LIMITS.lecture)) ? { error: LECTURE_LIMIT_MESSAGE } : {};
 }
 
@@ -62,6 +65,7 @@ export async function createLectureAction(
   input: { title: string; audioUrl: string }
 ): Promise<{ error?: string }> {
   const user = await requireUser();
+  if (!hasAiConsent(user)) return { error: AI_CONSENT_MESSAGE };
   await requireOwnedClass(classId, user.id);
   const parsed = createLectureSchema.parse(input);
   if (!(await consumeRateLimit(`lecture:${user.id}`, RATE_LIMITS.lecture))) {
@@ -92,6 +96,7 @@ export async function pollLectureStatusAction(lectureId: string) {
 
 export async function retryLectureAction(lectureId: string) {
   const user = await requireUser();
+  if (!hasAiConsent(user)) return;
   const lecture = await requireOwnedLecture(lectureId, user.id);
   if (lecture.status !== "FAILED") return;
 
@@ -164,6 +169,7 @@ export async function createLectureFromTranscriptAction(
   input: { title: string; transcriptText: string }
 ): Promise<{ error?: string }> {
   const user = await requireUser();
+  if (!hasAiConsent(user)) return { error: AI_CONSENT_MESSAGE };
   await requireOwnedClass(classId, user.id);
   const parsed = createLectureFromTranscriptSchema.parse(input);
   if (!(await consumeRateLimit(`lecture:${user.id}`, RATE_LIMITS.lecture))) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { defaultLectureTitle, localDayAndMinute, suggestClassToRecord, type ScheduleSlot } from "../src/lib/record-class";
+import { defaultLectureTitle, inboxPickTime, localDayAndMinute, suggestClassToRecord, type ScheduleSlot } from "../src/lib/record-class";
 import { markdownPreview } from "../src/lib/markdown";
 
 const TZ = "America/New_York";
@@ -82,5 +82,19 @@ describe("markdownPreview", () => {
     const preview = markdownPreview("word ".repeat(200), 50);
     expect(preview.length).toBeLessThanOrEqual(50);
     expect(preview.endsWith("…")).toBe(true);
+  });
+});
+
+describe("inboxPickTime", () => {
+  it("uses the middle of a shared recording, so one started before class still lands in it", () => {
+    // Started at 9:56 for a 10:00-10:50 class, 54 minutes long: middle is 10:23.
+    const when = inboxPickTime({ recordedAt: "2026-09-29T13:56:00Z", durationSeconds: 54 * 60 });
+    expect(when?.toISOString()).toBe("2026-09-29T14:23:00.000Z");
+  });
+
+  it("falls back to the start, and to nothing when the file doesn't say", () => {
+    expect(inboxPickTime({ recordedAt: "2026-09-29T13:56:00Z" })?.toISOString()).toBe("2026-09-29T13:56:00.000Z");
+    expect(inboxPickTime({})).toBeNull();
+    expect(inboxPickTime({ recordedAt: "not a date" })).toBeNull();
   });
 });

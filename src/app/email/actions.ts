@@ -8,6 +8,7 @@ import { revokeGoogleToken } from "@/lib/google-oauth";
 import { getValidAccessToken, listMessageIds, getMessage, type GmailMessageSummary } from "@/lib/gmail";
 import { classifyEmail, type ClassificationResult, type ExtractedFact } from "@/lib/email-intelligence";
 import { looksLikeNewsletter, SPECIFIC_CATEGORIES } from "@/lib/email-classify-heuristic";
+import { hasAiConsent } from "@/lib/ai-consent";
 import { proposeChange, resolvePendingChange, type EntityType } from "@/lib/pending-changes";
 
 /** Best-effort match of an extracted fact's free-text hint to an existing record in the class. */
@@ -159,6 +160,7 @@ export async function syncEmailAction(): Promise<SyncEmailResult> {
   let saved = 0;
   let attempted = 0;
   const deadline = Date.now() + SYNC_TIME_BUDGET_MS;
+  const useAi = hasAiConsent(user);
   const toRead = newIds.slice(0, MAX_NEW_PER_SYNC);
 
   // Read and classify a few at a time; save one at a time, so two emails
@@ -170,7 +172,7 @@ export async function syncEmailAction(): Promise<SyncEmailResult> {
       chunk.map(async (id): Promise<{ msg: GmailMessageSummary; result: ClassificationResult } | null> => {
         try {
           const msg = await getMessage(accessToken, id);
-          return { msg, result: await classifyEmail(msg, classes) };
+          return { msg, result: await classifyEmail(msg, classes, { useAi }) };
         } catch {
           return null; // not saved, so the next sync tries it again
         }
