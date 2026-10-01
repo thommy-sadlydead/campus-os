@@ -106,6 +106,21 @@ body {
 }
 
 /*
+ * iPhones zoom the whole page into any text box whose text is smaller than
+ * 16px when it's tapped, and don't zoom back out. Text boxes are 16px on
+ * touch screens so typing doesn't throw the layout around (in Safari and in
+ * the app alike); mouse-and-keyboard screens keep the smaller size.
+ */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea,
+  [contenteditable="true"] {
+    font-size: 16px;
+  }
+}
+
+/*
  * Voicewrite integration (2026-08-23) — merged per its own INTEGRATION.md,
  * using Campus OS's existing tokens in place of Voicewrite's standalone
  * --color-brand-* and --color-accent-* palette (which was never carried over).

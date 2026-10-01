@@ -7,6 +7,10 @@ import UIKit
 /// page's recorder can't do. The finished recording goes into the shared
 /// inbox, and the web app uploads it the same way as one shared from Voice
 /// Memos.
+///
+/// All recorder and audio-session work happens on one serial queue, never
+/// the main thread: turning the microphone on can take a moment, and on the
+/// main thread that would freeze the whole app.
 @objc(NativeRecorderPlugin)
 public class NativeRecorderPlugin: CAPPlugin, CAPBridgedPlugin, AVAudioRecorderDelegate {
     public let identifier = "NativeRecorderPlugin"
@@ -30,38 +34,45 @@ public class NativeRecorderPlugin: CAPPlugin, CAPBridgedPlugin, AVAudioRecorderD
         AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue
     ]
 
+    private let audioQueue = DispatchQueue(label: "com.campusos.recorder")
+    // Everything below is only touched on audioQueue.
     private var recorder: AVAudioRecorder?
     private var startedAt: Date?
     private var title = "Lecture"
-    private var meterTimer: Timer?
+    private var meterTimer: DispatchSourceTimer?
     private var pausedByInterruption = false
+    private var appIsActive = true
 
     override public func load() {
-        NotificationCenter.default.addObserver(
-            self, selector: #selector(handleInterruption(_:)),
-            name: AVAudioSession.interruptionNotification, object: AVAudioSession.sharedInstance()
-        )
+        let center = NotificationCenter.default
+        center.addObserver(self, selector: #selector(handleInterruption(_:)),
+                           name: AVAudioSession.interruptionNotification, object: AVAudioSession.sharedInstance())
+        center.addObserver(self, selector: #selector(appBecameActive),
+                           name: UIApplication.didBecomeActiveNotification, object: nil)
+        center.addObserver(self, selector: #selector(appResignedActive),
+                           name: UIApplication.willResignActiveNotification, object: nil)
     }
 
+    @objc private func appBecameActive() { audioQueue.async { self.appIsActive = true } }
+    @objc private func appResignedActive() { audioQueue.async { self.appIsActive = false } }
+
     @objc func start(_ call: CAPPluginCall) {
+        let title = call.getString("title")?.trimmingCharacters(in: .whitespacesAndNewlines).nonEmpty ?? "Lecture"
+        requestPermission { [weak self] granted in
+            guard let self = self else { return }
+            guard granted else {
+                call.reject("Campus OS isn't allowed to use the microphone.", "denied")
+                return
+            }
+            self.audioQueue.async { self.begin(call, title: title) }
+        }
+    }
+
+    private func begin(_ call: CAPPluginCall, title: String) {
         if recorder != nil {
             call.reject("Already recording.", "busy")
             return
         }
-        title = call.getString("title")?.trimmingCharacters(in: .whitespacesAndNewlines).nonEmpty ?? "Lecture"
-        requestPermission { [weak self] granted in
-            DispatchQueue.main.async {
-                guard let self = self else { return }
-                guard granted else {
-                    call.reject("Campus OS isn't allowed to use the microphone.", "denied")
-                    return
-                }
-                self.begin(call)
-            }
-        }
-    }
-
-    private func begin(_ call: CAPPluginCall) {
         do {
             let session = AVAudioSession.sharedInstance()
             try session.setCategory(.record, mode: .default)
@@ -76,6 +87,7 @@ public class NativeRecorderPlugin: CAPPlugin, CAPBridgedPlugin, AVAudioRecorderD
                 return
             }
             self.recorder = recorder
+            self.title = title
             startedAt = Date()
             pausedByInterruption = false
             startMeter()
@@ -86,14 +98,14 @@ public class NativeRecorderPlugin: CAPPlugin, CAPBridgedPlugin, AVAudioRecorderD
     }
 
     @objc func pause(_ call: CAPPluginCall) {
-        DispatchQueue.main.async {
+        audioQueue.async {
             self.recorder?.pause()
             call.resolve(self.statusObject())
         }
     }
 
     @objc func resume(_ call: CAPPluginCall) {
-        DispatchQueue.main.async {
+        audioQueue.async {
             guard let recorder = self.recorder else {
                 call.reject("Not recording.", "idle")
                 return
@@ -110,7 +122,7 @@ public class NativeRecorderPlugin: CAPPlugin, CAPBridgedPlugin, AVAudioRecorderD
 
     /// Finishes the file and puts it in the inbox; resolves with its id.
     @objc func stop(_ call: CAPPluginCall) {
-        DispatchQueue.main.async {
+        audioQueue.async {
             guard let recorder = self.recorder else {
                 call.reject("Not recording.", "idle")
                 return
@@ -118,12 +130,13 @@ public class NativeRecorderPlugin: CAPPlugin, CAPBridgedPlugin, AVAudioRecorderD
             let duration = recorder.currentTime
             let url = recorder.url
             let startedAt = self.startedAt
+            let title = self.title
             recorder.stop()
             self.finishSession()
             do {
                 let item = try SharedInbox.commit(
                     audioAt: url,
-                    title: self.title,
+                    title: title,
                     contentType: "audio/mp4",
                     recordedAt: startedAt,
                     durationSeconds: duration,
@@ -137,7 +150,7 @@ public class NativeRecorderPlugin: CAPPlugin, CAPBridgedPlugin, AVAudioRecorderD
     }
 
     @objc func discard(_ call: CAPPluginCall) {
-        DispatchQueue.main.async {
+        audioQueue.async {
             if let recorder = self.recorder {
                 recorder.stop()
                 recorder.deleteRecording()
@@ -148,7 +161,7 @@ public class NativeRecorderPlugin: CAPPlugin, CAPBridgedPlugin, AVAudioRecorderD
     }
 
     @objc func status(_ call: CAPPluginCall) {
-        DispatchQueue.main.async { call.resolve(self.statusObject()) }
+        audioQueue.async { call.resolve(self.statusObject()) }
     }
 
     private func statusObject() -> JSObject {
@@ -161,7 +174,7 @@ public class NativeRecorderPlugin: CAPPlugin, CAPBridgedPlugin, AVAudioRecorderD
     }
 
     private func finishSession() {
-        meterTimer?.invalidate()
+        meterTimer?.cancel()
         meterTimer = nil
         recorder = nil
         startedAt = nil
@@ -172,38 +185,40 @@ public class NativeRecorderPlugin: CAPPlugin, CAPBridgedPlugin, AVAudioRecorderD
     /// Sends the input level about ten times a second for the level meter,
     /// only while the app is on screen.
     private func startMeter() {
-        meterTimer?.invalidate()
-        meterTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
-            guard let self = self, let recorder = self.recorder, recorder.isRecording,
-                  UIApplication.shared.applicationState == .active else { return }
+        meterTimer?.cancel()
+        let timer = DispatchSource.makeTimerSource(queue: audioQueue)
+        timer.schedule(deadline: .now(), repeating: .milliseconds(100))
+        timer.setEventHandler { [weak self] in
+            guard let self = self, self.appIsActive, let recorder = self.recorder, recorder.isRecording else { return }
             recorder.updateMeters()
             let level = pow(10, Double(recorder.averagePower(forChannel: 0)) / 20)
             self.notifyListeners("level", data: ["level": level])
         }
+        timer.resume()
+        meterTimer = timer
     }
 
     /// A phone call or alarm pauses the recording. Pick it back up when
     /// the system says it's fine to; otherwise it stays paused and the page
     /// shows Resume.
     @objc private func handleInterruption(_ notification: Notification) {
-        guard let recorder = recorder,
-              let raw = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+        guard let raw = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
               let type = AVAudioSession.InterruptionType(rawValue: raw) else { return }
-        DispatchQueue.main.async {
+        let optionsRaw = notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
+        audioQueue.async {
+            guard let recorder = self.recorder else { return }
             switch type {
             case .began:
                 self.pausedByInterruption = true
-                self.notifyListeners("stateChange", data: self.statusObject())
             case .ended:
-                let optionsRaw = notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
                 if AVAudioSession.InterruptionOptions(rawValue: optionsRaw).contains(.shouldResume) {
                     try? AVAudioSession.sharedInstance().setActive(true)
                     if recorder.record() { self.pausedByInterruption = false }
                 }
-                self.notifyListeners("stateChange", data: self.statusObject())
             @unknown default:
-                break
+                return
             }
+            self.notifyListeners("stateChange", data: self.statusObject())
         }
     }
 

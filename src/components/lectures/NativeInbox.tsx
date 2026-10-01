@@ -103,7 +103,11 @@ export function NativeInbox({
         const draft = drafts[item.id] ?? { classId: "", title: item.title };
         const meta = [
           item.source === "share" ? "Shared from another app" : "Recorded in Campus OS",
-          item.durationSeconds ? formatMinutes(item.durationSeconds / 60) : null,
+          item.durationSeconds
+            ? item.durationSeconds < 60
+              ? "under a minute"
+              : formatMinutes(item.durationSeconds / 60)
+            : null,
           item.recordedAt ? formatInTimeZone(new Date(item.recordedAt), timezone, "EEE, MMM d 'at' h:mm a") : null,
         ].filter(Boolean);
         return (

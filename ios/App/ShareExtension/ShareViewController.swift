@@ -61,7 +61,7 @@ final class ShareViewController: UIViewController {
     private func importAudio(from provider: NSItemProvider) async throws -> InboxItem {
         guard let typeIdentifier = audioType(of: provider) else { throw InboxError.missing }
         let type = UTType(typeIdentifier)
-        let destination: URL = try await withCheckedThrowingContinuation { continuation in
+        let (destination, originalName): (URL, String) = try await withCheckedThrowingContinuation { continuation in
             // The file only exists while this callback runs, so copy it now.
             _ = provider.loadFileRepresentation(forTypeIdentifier: typeIdentifier) { url, error in
                 guard let url = url else {
@@ -72,7 +72,7 @@ final class ShareViewController: UIViewController {
                     let ext = url.pathExtension.isEmpty ? (type?.preferredFilenameExtension ?? "m4a") : url.pathExtension
                     let destination = try SharedInbox.newAudioURL(fileExtension: ext)
                     try FileManager.default.copyItem(at: url, to: destination)
-                    continuation.resume(returning: destination)
+                    continuation.resume(returning: (destination, url.deletingPathExtension().lastPathComponent))
                 } catch {
                     continuation.resume(throwing: error)
                 }
@@ -86,8 +86,9 @@ final class ShareViewController: UIViewController {
             recordedAt = try? await creation.load(.dateValue)
         }
 
-        let name = provider.suggestedName?.nonEmpty
-            ?? destination.deletingPathExtension().lastPathComponent
+        // Voice Memos names the shared item after the recording; Files
+        // doesn't, so fall back to the original file's name.
+        let name = provider.suggestedName?.nonEmpty ?? originalName
         let title = (name as NSString).deletingPathExtension.nonEmpty ?? "Recording"
         do {
             return try SharedInbox.commit(

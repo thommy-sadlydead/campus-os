@@ -40,7 +40,9 @@ export function planDueReminders(deadlines: ReminderDeadline[], now: Date, tz: s
   for (const deadline of deadlines) {
     if (deadline.dueAt.getTime() <= now.getTime()) continue;
     const day = dayKey(deadline.dueAt, tz);
-    byDay.set(day, [...(byDay.get(day) ?? []), deadline]);
+    // Canvas names sometimes carry stray spaces ("Reflection , and 2 more").
+    const tidy = { ...deadline, title: deadline.title.trim(), className: deadline.className.trim() };
+    byDay.set(day, [...(byDay.get(day) ?? []), tidy]);
   }
 
   const plans: PlannedReminder[] = [];
