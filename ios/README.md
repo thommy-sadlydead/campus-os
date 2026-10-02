@@ -39,16 +39,19 @@ To test against a local server instead of the live site, temporarily set
 
 ## Signing and release (needs the Apple Developer Program)
 
-1. In Xcode, select the project, then each target (**App** and
-   **ShareExtension**) → Signing & Capabilities → choose your Team. With
-   automatic signing Xcode registers the IDs:
-   - App: `com.campusos.app`
-   - Share extension: `com.campusos.app.share`
-   - App Group (both): `group.com.campusos.app` (the `CAMPUS_APP_GROUP`
+1. Both targets (**App** and **ShareExtension**) are signed with Reece's
+   team (`DEVELOPMENT_TEAM = 96XYBAQGPL`) using automatic signing, which
+   registers these IDs on the first signed build (`com.campusos.app` was
+   already taken by another developer):
+   - App: `com.reecebroderick.campusos`
+   - Share extension: `com.reecebroderick.campusos.share`
+   - App Group (both): `group.com.reecebroderick.campusos` (the `CAMPUS_APP_GROUP`
      build setting; change it there and in nothing else)
 
    The bundle IDs can be changed until the app is first uploaded; after
-   that they're permanent.
+   that they're permanent. Automatic signing also needs at least one
+   registered device: connect an iPhone once and build with
+   `-allowProvisioningDeviceRegistration` (or run it from Xcode).
 2. Bump `MARKETING_VERSION` (1.0, 1.1…) and `CURRENT_PROJECT_VERSION` (1, 2…)
    on **both** targets; they must match.
 3. Product → Archive, then Distribute App → App Store Connect. The build

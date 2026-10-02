@@ -37,7 +37,7 @@ enum InboxError: LocalizedError {
 /// them. Used by both targets.
 enum SharedInbox {
     static var appGroup: String {
-        Bundle.main.object(forInfoDictionaryKey: "CampusOSAppGroup") as? String ?? "group.com.campusos.app"
+        Bundle.main.object(forInfoDictionaryKey: "CampusOSAppGroup") as? String ?? "group.com.reecebroderick.campusos"
     }
 
     static var directory: URL? {
