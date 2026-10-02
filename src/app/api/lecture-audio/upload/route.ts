@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { getCurrentUser } from "@/lib/auth";
+import { hasAccess } from "@/lib/billing-server";
 import { ALLOWED_AUDIO_CONTENT_TYPES, MAX_AUDIO_BYTES } from "@/lib/lecture-notes";
 import { RATE_LIMITS, consumeRateLimit } from "@/lib/rate-limit";
 
@@ -17,6 +18,9 @@ export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "You need to be signed in to upload audio." }, { status: 401 });
+  }
+  if (!(await hasAccess(user.id))) {
+    return NextResponse.json({ error: "Your free trial has ended. Subscribe to keep using Campus OS." }, { status: 402 });
   }
 
   const body = (await request.json()) as HandleUploadBody;

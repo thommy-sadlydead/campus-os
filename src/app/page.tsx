@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
-import { isSignupOpen } from "@/lib/signup";
+import { inviteCodeRequired, isSignupOpen } from "@/lib/signup";
+import { TRIAL_DAYS } from "@/lib/billing";
 import { Logo } from "@/components/Logo";
 import { BrandBackdrop } from "@/components/ui/BrandBackdrop";
 import { ArrowRightIcon, LayersIcon, MailIcon, MicIcon, SparkIcon } from "@/components/icons";
@@ -43,7 +44,11 @@ export default async function RootPage() {
               <ArrowRightIcon className="h-4 w-4" />
             </Link>
             <span className="text-sm text-ink-faint">
-              {isSignupOpen() ? "New accounts need an invite code." : "Campus OS is invite-only right now."}
+              {!inviteCodeRequired()
+                ? `New here? Try it free for ${TRIAL_DAYS} days.`
+                : isSignupOpen()
+                  ? "New accounts need an invite code."
+                  : "Campus OS is invite-only right now."}
             </span>
           </div>
         </div>

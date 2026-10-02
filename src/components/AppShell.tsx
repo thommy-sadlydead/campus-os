@@ -3,15 +3,20 @@ import { logoutAction } from "@/app/login/actions";
 import { MobileNav } from "@/components/MobileNav";
 import { NativeAppBridge } from "@/components/NativeAppBridge";
 import { Logo, LogoMark } from "@/components/Logo";
+import { getCurrentUser } from "@/lib/auth";
+import { getAccess, paymentsEnabled } from "@/lib/billing-server";
 import {
+  AlertIcon,
   BookIcon,
   CalendarIcon,
   ChecklistIcon,
+  ChevronRightIcon,
   HomeIcon,
   LayersIcon,
   LogOutIcon,
   MailIcon,
   MicIcon,
+  SparkIcon,
   UserIcon,
 } from "@/components/icons";
 
@@ -59,6 +64,39 @@ function NavLink({
       {label}
     </Link>
   );
+}
+
+/** During the free trial, or when a renewal payment failed. */
+async function BillingBanner() {
+  const user = paymentsEnabled() ? await getCurrentUser() : null;
+  const access = user ? await getAccess(user.id) : null;
+  if (access?.kind === "trial") {
+    return (
+      <Link
+        href="/subscribe"
+        className="mb-5 flex items-center gap-3 rounded-xl2 bg-accent-soft px-4 py-3 text-sm text-accent-ink"
+      >
+        <SparkIcon className="h-[18px] w-[18px] flex-none" />
+        <span className="flex-1 font-medium">
+          Free trial · {access.daysLeft} day{access.daysLeft === 1 ? "" : "s"} left
+        </span>
+        <span className="flex items-center gap-0.5 font-medium">
+          See plans
+          <ChevronRightIcon className="h-4 w-4" />
+        </span>
+      </Link>
+    );
+  }
+  if (access?.kind === "subscribed" && access.subscription.status === "past_due") {
+    return (
+      <Link href="/account#plan" className="mb-5 flex items-center gap-3 rounded-xl2 bg-danger-soft px-4 py-3 text-sm text-danger">
+        <AlertIcon className="h-[18px] w-[18px] flex-none" />
+        <span className="flex-1 font-medium">Your last payment didn&apos;t go through. Update it to keep Campus OS.</span>
+        <ChevronRightIcon className="h-4 w-4 flex-none" />
+      </Link>
+    );
+  }
+  return null;
 }
 
 export function AppShell({
@@ -161,6 +199,7 @@ export function AppShell({
         {/* Bottom padding keeps the last thing on a page above the tab bar. */}
         <main className="mx-auto max-w-6xl px-4 pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-5 sm:px-6 lg:px-10 lg:pb-16 lg:pt-10">
           <NativeAppBridge />
+          <BillingBanner />
           {children}
         </main>
       </div>

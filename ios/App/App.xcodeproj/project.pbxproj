@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		CA0500000000000000000035 /* NativeStorePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500000000000000000034 /* NativeStorePlugin.swift */; };
 		CA0500000000000000000031 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = CA0500000000000000000030 /* PrivacyInfo.xcprivacy */; };
 		CA0500000000000000000033 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = CA0500000000000000000032 /* PrivacyInfo.xcprivacy */; };
 		CA050000000000000000000C /* SharedInbox.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500000000000000000001 /* SharedInbox.swift */; };
@@ -53,6 +54,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		CA0500000000000000000034 /* NativeStorePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeStorePlugin.swift; sourceTree = "<group>"; };
 		CA0500000000000000000030 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		CA0500000000000000000032 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		CA0500000000000000000001 /* SharedInbox.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedInbox.swift; sourceTree = "<group>"; };
@@ -125,6 +127,7 @@
 				CA0500000000000000000002 /* SharedInboxPlugin.swift */,
 				CA0500000000000000000004 /* NativeRecorderPlugin.swift */,
 				CA0500000000000000000003 /* AuthSessionPlugin.swift */,
+				CA0500000000000000000034 /* NativeStorePlugin.swift */,
 				CA0500000000000000000006 /* App.entitlements */,
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
 				504EC3071FED79650016851F /* AppDelegate.swift */,
@@ -280,6 +283,7 @@
 				CA050000000000000000000D /* SharedInboxPlugin.swift in Sources */,
 				CA050000000000000000000F /* NativeRecorderPlugin.swift in Sources */,
 				CA050000000000000000000E /* AuthSessionPlugin.swift in Sources */,
+				CA0500000000000000000035 /* NativeStorePlugin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

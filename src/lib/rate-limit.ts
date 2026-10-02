@@ -34,6 +34,8 @@ export const RATE_LIMITS = {
   // uploads that never become a lecture.
   lecture: { limit: 15, windowMs: DAY },
   upload: { limit: 20, windowMs: DAY },
+  // Free-access code guesses per account (src/app/account/actions.ts).
+  freeAccessCode: { limit: 10, windowMs: 60 * MINUTE },
 } satisfies Record<string, RateLimitRule>;
 
 export const AI_LIMIT_MESSAGE = `You've used the AI features ${RATE_LIMITS.ai.limit} times in the last 24 hours, which is the daily limit. They'll work again tomorrow.`;

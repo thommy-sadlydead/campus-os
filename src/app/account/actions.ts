@@ -6,7 +6,8 @@ import { prisma } from "@/lib/prisma";
 import { destroyOtherSessions, destroySession, hashPassword, requireUser, verifyPassword } from "@/lib/auth";
 import { changePasswordSchema, DELETE_CONFIRMATION_WORD } from "@/lib/account-forms";
 import { deleteUserAndData } from "@/lib/account-deletion";
-import { RATE_LIMITS, clearRateLimit, isRateLimited, recordRateLimitEvent } from "@/lib/rate-limit";
+import { RATE_LIMITS, clearRateLimit, consumeRateLimit, isRateLimited, recordRateLimitEvent } from "@/lib/rate-limit";
+import { freeAccessCodeMatches, isAppRequest, paymentsEnabled } from "@/lib/billing-server";
 
 export type AccountActionState = { error?: string; success?: string } | undefined;
 
@@ -30,7 +31,7 @@ async function checkCurrentPassword(
 }
 
 export async function changePasswordAction(_prev: AccountActionState, formData: FormData): Promise<AccountActionState> {
-  const user = await requireUser();
+  const user = await requireUser({ allowWithoutAccess: true });
   const parsed = changePasswordSchema.safeParse({
     currentPassword: formData.get("currentPassword"),
     newPassword: formData.get("newPassword"),
@@ -52,7 +53,7 @@ export async function changePasswordAction(_prev: AccountActionState, formData: 
 }
 
 export async function deleteAccountAction(_prev: AccountActionState, formData: FormData): Promise<AccountActionState> {
-  const user = await requireUser();
+  const user = await requireUser({ allowWithoutAccess: true });
   if (String(formData.get("confirmation") ?? "").trim() !== DELETE_CONFIRMATION_WORD) {
     return { error: `Type ${DELETE_CONFIRMATION_WORD} to confirm.` };
   }
@@ -73,7 +74,28 @@ export async function deleteAccountAction(_prev: AccountActionState, formData: F
 
 /** Allows or turns off AI features (User.aiConsentAt; see src/lib/ai-consent.ts). */
 export async function setAiConsentAction(allow: boolean): Promise<void> {
-  const user = await requireUser();
+  const user = await requireUser({ allowWithoutAccess: true });
   await prisma.user.update({ where: { id: user.id }, data: { aiConsentAt: allow ? new Date() : null } });
   revalidatePath("/", "layout");
 }
+
+/**
+ * Website only: FREE_ACCESS_CODE (Reece hands it to friends) makes the
+ * account free for good. Apple doesn't allow unlocking features with a code
+ * inside the iPhone app, so the app never shows this; an account unlocked
+ * here is unlocked in the app too.
+ */
+export async function redeemFreeAccessCodeAction(_prev: AccountActionState, formData: FormData): Promise<AccountActionState> {
+  const user = await requireUser({ allowWithoutAccess: true });
+  if (!paymentsEnabled()) return { error: "Codes aren't needed right now." };
+  if (await isAppRequest()) return { error: "Enter codes on the Campus OS website." };
+  if (!(await consumeRateLimit(`free-code:${user.id}`, RATE_LIMITS.freeAccessCode))) {
+    return { error: "Too many tries. Wait an hour and try again." };
+  }
+  if (!freeAccessCodeMatches(String(formData.get("code") ?? ""))) return { error: "That code isn't right." };
+
+  await prisma.user.update({ where: { id: user.id }, data: { freeAccessAt: new Date() } });
+  revalidatePath("/", "layout");
+  return { success: "Code accepted. Campus OS is free on this account." };
+}
+

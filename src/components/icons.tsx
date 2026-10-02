@@ -314,3 +314,12 @@ export function LockIcon(props: IconProps) {
     </Svg>
   );
 }
+
+export function CardIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x="3" y="5.5" width="18" height="13" rx="2.5" />
+      <path d="M3 10h18M7 15h3" />
+    </Svg>
+  );
+}

@@ -2,8 +2,10 @@ import "server-only";
 import crypto from "node:crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { cache } from "react";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { getAccess, paymentsEnabled } from "@/lib/billing-server";
 
 const SESSION_COOKIE = "campusos_session";
 const SESSION_TTL_DAYS = 30;
@@ -69,7 +71,8 @@ export async function destroyOtherSessions(userId: string): Promise<void> {
   });
 }
 
-export async function getCurrentUser() {
+// Once per request: pages call it, and so does AppShell for the trial banner.
+export const getCurrentUser = cache(async () => {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token) return null;
 
@@ -83,13 +86,21 @@ export async function getCurrentUser() {
   }
 
   return session.user;
-}
+});
 
-// For server components / pages that require a logged-in user.
-export async function requireUser() {
+/**
+ * For pages and actions that need a signed-in user. With payments on, an
+ * account whose trial has ended without a subscription is sent to
+ * /subscribe; the account and subscribe pages pass allowWithoutAccess so
+ * it can still subscribe, manage its plan, or delete itself.
+ */
+export async function requireUser(options: { allowWithoutAccess?: boolean } = {}) {
   const user = await getCurrentUser();
   if (!user) {
     redirect("/login");
+  }
+  if (!options.allowWithoutAccess && paymentsEnabled() && (await getAccess(user.id)).kind === "none") {
+    redirect("/subscribe");
   }
   return user;
 }

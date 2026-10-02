@@ -61,10 +61,35 @@ Website changes reach the app immediately without a new build. A new build is
 only needed for native changes (anything under `ios/` or a new Capacitor
 plugin).
 
+## Subscriptions (in-app purchase)
+
+Apple requires its own in-app purchase for subscriptions bought inside the
+app, so the app sells them through StoreKit (`NativeStorePlugin.swift`) and
+the website sells the same plans through Stripe. One account works on both.
+
+1. App Store Connect → Business: the Paid Apps agreement, with banking and
+   tax info. Nothing can be sold (or tested in the sandbox) until it's active.
+2. The app → Subscriptions: one subscription group with two auto-renewable
+   subscriptions, product IDs `com.reecebroderick.campusos.monthly` (1 month)
+   and `com.reecebroderick.campusos.yearly` (1 year), matching
+   `APPLE_PRODUCT_IDS` in `src/lib/billing.ts`. The free trial is Campus OS's
+   own (it starts at sign-up), so don't add an introductory offer.
+3. The app → App Information → App Store Server Notifications: Version 2,
+   with `https://<site>/api/apple/notifications` as both the Production and
+   Sandbox URL. Renewals, refunds and cancellations arrive there.
+4. Test from TestFlight: purchases there use Apple's sandbox and are free.
+
+Every purchase carries the account's `appAccountToken`, and the server
+only unlocks an account after checking Apple's signature on the
+transaction (`src/lib/apple-iap.ts`). Free-access codes are redeemed on the
+website only: Apple doesn't allow unlocking features with codes in the app.
+
 ## App Store review notes
 
-- **Demo account.** Sign-up is invite-only, so give reviewers a working
-  login (with classes already synced) in App Review Information.
+- **Demo account.** Reviewers can't sync Canvas, so give them a working
+  login with classes already in it in App Review Information, ideally with
+  free access so they see everything, plus a note that subscriptions can be
+  tested in the sandbox.
 - **AI permission (guideline 5.1.2(i)).** The app asks before sending
   anything to Anthropic or AssemblyAI (`src/lib/ai-consent.ts`), and it can
   be turned off under Account → AI features.

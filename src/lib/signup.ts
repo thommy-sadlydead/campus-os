@@ -1,12 +1,19 @@
 import "server-only";
 import crypto from "node:crypto";
+import { paymentsEnabled } from "@/lib/billing-server";
 
-// Sign-up is invite-only. A new account needs SIGNUP_INVITE_CODE, which
-// Reece hands out to the people he invites; with the variable unset,
-// sign-up is closed entirely. Existing accounts can always log in.
+// With payments on (PAYMENTS_ENABLED=1), anyone can sign up and starts a
+// free trial. Before that, sign-up is invite-only: a new account needs
+// SIGNUP_INVITE_CODE, which Reece hands out to the people he invites, and
+// with the variable unset, sign-up is closed entirely. Existing accounts
+// can always log in.
 
 export function isSignupOpen(): boolean {
-  return Boolean(process.env.SIGNUP_INVITE_CODE?.trim());
+  return paymentsEnabled() || Boolean(process.env.SIGNUP_INVITE_CODE?.trim());
+}
+
+export function inviteCodeRequired(): boolean {
+  return !paymentsEnabled();
 }
 
 /**

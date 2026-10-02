@@ -3,8 +3,10 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { createSession, destroySession, hashPassword, verifyPassword } from "@/lib/auth";
-import { loginSchema, registerSchema } from "@/lib/account-forms";
-import { inviteCodeMatches, isSignupOpen } from "@/lib/signup";
+import { loginSchema, openRegisterSchema, registerSchema } from "@/lib/account-forms";
+import { inviteCodeMatches, inviteCodeRequired, isSignupOpen } from "@/lib/signup";
+import { paymentsEnabled } from "@/lib/billing-server";
+import { trialEndFrom } from "@/lib/billing";
 import {
   RATE_LIMITS,
   clearRateLimit,
@@ -54,19 +56,21 @@ export async function registerAction(_prev: AuthActionState, formData: FormData)
     return { error: "Too many sign-up attempts. Try again in an hour.", email };
   }
 
-  const parsed = registerSchema.safeParse({
+  const fields = {
     email,
     password: formData.get("password"),
     confirmPassword: formData.get("confirmPassword"),
     inviteCode: formData.get("inviteCode"),
-  });
+  };
+  const inviteOnly = inviteCodeRequired();
+  const parsed = inviteOnly ? registerSchema.safeParse(fields) : openRegisterSchema.safeParse(fields);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Check the form and try again.", email };
   }
 
   // Checked before looking the email up, so someone without a valid code
   // can't use this form to find out which addresses already have accounts.
-  if (!inviteCodeMatches(parsed.data.inviteCode)) {
+  if (inviteOnly && !inviteCodeMatches(String(fields.inviteCode ?? ""))) {
     return { error: "That invite code isn't right.", email };
   }
 
@@ -77,7 +81,7 @@ export async function registerAction(_prev: AuthActionState, formData: FormData)
 
   const passwordHash = await hashPassword(parsed.data.password);
   const user = await prisma.user.create({
-    data: { email: parsed.data.email, passwordHash },
+    data: { email: parsed.data.email, passwordHash, trialEndsAt: paymentsEnabled() ? trialEndFrom(new Date()) : null },
   });
 
   await createSession(user.id);

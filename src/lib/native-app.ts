@@ -54,12 +54,30 @@ interface AuthSessionPlugin {
   start(options: { url: string; callbackScheme?: string }): Promise<{ url: string }>;
 }
 
+export interface NativeStoreProduct {
+  id: string;
+  displayName: string;
+  /** Localized by the App Store, like "$9.99". */
+  displayPrice: string;
+}
+
+/** Apple in-app purchase (ios/App/App/NativeStorePlugin.swift). Each transaction is a JWS for the server to verify. */
+interface NativeStorePlugin {
+  products(options: { productIds: string[] }): Promise<{ products: NativeStoreProduct[] }>;
+  purchase(options: { productId: string; accountToken: string }): Promise<
+    { status: "purchased"; jws: string } | { status: "pending" } | { status: "cancelled" }
+  >;
+  restore(): Promise<{ transactions: string[] }>;
+  addListener(event: "transaction", listener: (data: { jws: string }) => void): Promise<PluginListenerHandle>;
+}
+
 export const SharedInbox = registerPlugin<SharedInboxPlugin>("SharedInbox");
 export const NativeRecorder = registerPlugin<NativeRecorderPlugin>("NativeRecorder");
 export const AuthSession = registerPlugin<AuthSessionPlugin>("AuthSession");
+export const NativeStore = registerPlugin<NativeStorePlugin>("NativeStore");
 
 /** True in an app build that has this native plugin (an older build might not). */
-export function hasNativePlugin(name: "SharedInbox" | "NativeRecorder" | "AuthSession"): boolean {
+export function hasNativePlugin(name: "SharedInbox" | "NativeRecorder" | "AuthSession" | "NativeStore"): boolean {
   return isNativeApp() && Capacitor.isPluginAvailable(name);
 }
 

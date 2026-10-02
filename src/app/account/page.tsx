@@ -4,18 +4,26 @@ import { AppShell } from "@/components/AppShell";
 import { ChangePasswordForm, DeleteAccountForm } from "@/components/account/AccountForms";
 import { AiFeaturesSettings } from "@/components/account/AiConsent";
 import { formatInTimeZone } from "date-fns-tz";
+import { getAccess, isAppRequest, paymentsEnabled } from "@/lib/billing-server";
+import { PlanSection } from "@/components/billing/PlanSection";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { CardHeader } from "@/components/ui/CardHeader";
 import { AlertIcon, LockIcon, SparkIcon } from "@/components/icons";
 
-export default async function AccountPage() {
-  const user = await requireUser();
+export default async function AccountPage({ searchParams }: { searchParams: Promise<{ subscribed?: string }> }) {
+  // Reachable after a trial ends, so the account can subscribe or be deleted.
+  const user = await requireUser({ allowWithoutAccess: true });
+  const { subscribed } = await searchParams;
+  const payments = paymentsEnabled();
+  const [access, inApp] = payments ? await Promise.all([getAccess(user.id), isAppRequest()]) : [null, false];
 
   return (
     <AppShell active="/account" userName={user.name ?? user.email}>
       <PageHeader title="Account" description={`Signed in as ${user.email}`} />
 
       <div className="flex max-w-2xl flex-col gap-6">
+        {access && <PlanSection access={access} inApp={inApp} timezone={user.timezone} justSubscribed={subscribed === "1"} />}
+
         <section id="ai" className="card card-pad scroll-mt-24">
           <CardHeader icon={<SparkIcon className="h-[18px] w-[18px]" />} title="AI features" />
           <AiFeaturesSettings
@@ -44,6 +52,12 @@ export default async function AccountPage() {
             emails, and your Canvas and Gmail connections. Gmail access is revoked at Google, and lecture transcripts
             are deleted from the transcription service. This can&apos;t be undone.
           </p>
+          {payments && (
+            <p className="mt-2 text-sm leading-relaxed text-ink-soft">
+              A website subscription is canceled along with the account. One bought in the iPhone app is billed by
+              Apple, so cancel it first in your iPhone&apos;s Settings → your name → Subscriptions.
+            </p>
+          )}
           <p className="mt-2 text-sm leading-relaxed text-ink-soft">
             Your Canvas access token lives in Canvas too. Delete it there under Account → Settings → Approved
             Integrations. See the{" "}

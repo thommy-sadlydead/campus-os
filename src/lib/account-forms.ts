@@ -13,17 +13,24 @@ export const loginSchema = z.object({
   password: z.string().min(1),
 });
 
-export const registerSchema = z
-  .object({
-    email: z.string().trim().email("Enter a valid email address."),
-    password,
-    confirmPassword: z.string(),
-    inviteCode: z.string().trim().min(1, "Enter your invite code."),
-  })
-  .refine((d) => d.password === d.confirmPassword, {
-    message: "The two passwords don't match.",
-    path: ["confirmPassword"],
-  });
+const newAccount = z.object({
+  email: z.string().trim().email("Enter a valid email address."),
+  password,
+  confirmPassword: z.string(),
+});
+
+const passwordsMatch = {
+  message: "The two passwords don't match.",
+  path: ["confirmPassword"],
+};
+
+/** Invite-only sign-up (payments off). */
+export const registerSchema = newAccount
+  .extend({ inviteCode: z.string().trim().min(1, "Enter your invite code.") })
+  .refine((d) => d.password === d.confirmPassword, passwordsMatch);
+
+/** Open sign-up, once payments are on: the free trial replaces the invite code. */
+export const openRegisterSchema = newAccount.refine((d) => d.password === d.confirmPassword, passwordsMatch);
 
 export const changePasswordSchema = z
   .object({

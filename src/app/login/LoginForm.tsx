@@ -40,10 +40,16 @@ function Field({
 
 export function LoginForm({
   signupOpen,
+  inviteRequired,
+  trialDays,
   showDemoHint,
   notice,
 }: {
   signupOpen: boolean;
+  /** Sign-up is invite-only until payments go live. */
+  inviteRequired: boolean;
+  /** The free trial's length, once payments are live. */
+  trialDays: number | null;
   showDemoHint: boolean;
   notice: string | null;
 }) {
@@ -66,7 +72,11 @@ export function LoginForm({
             {registering ? "Create your account" : "Welcome back"}
           </h1>
           <p className="mb-6 mt-1.5 text-center text-sm text-ink-soft">
-            {registering ? "Use your school email and your invite code." : "Log in to Campus OS."}
+            {registering
+              ? trialDays
+                ? `Free for ${trialDays} days. No payment details needed to start.`
+                : "Use your school email and your invite code."
+              : "Log in to Campus OS."}
           </p>
 
           {notice && <p className="mb-4 rounded-lg bg-ok-soft px-3 py-2 text-sm text-ok">{notice}</p>}
@@ -107,13 +117,13 @@ export function LoginForm({
                   autoComplete="new-password"
                   placeholder="••••••••"
                 />
-                <Field id="inviteCode" label="Invite code" type="text" required autoComplete="off" />
+                {inviteRequired && <Field id="inviteCode" label="Invite code" type="text" required autoComplete="off" />}
               </>
             )}
 
             {state?.error && <p className="rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">{state.error}</p>}
 
-            <SubmitButton label={registering ? "Create account" : "Log in"} />
+            <SubmitButton label={registering ? (trialDays ? "Start free trial" : "Create account") : "Log in"} />
           </form>
 
           {signupOpen ? (
@@ -121,7 +131,11 @@ export function LoginForm({
               onClick={() => setMode(registering ? "login" : "register")}
               className="mt-4 w-full text-center text-sm text-ink-soft hover:text-ink"
             >
-              {registering ? "Already have an account? Log in" : "Have an invite code? Create an account"}
+              {registering
+                ? "Already have an account? Log in"
+                : inviteRequired
+                  ? "Have an invite code? Create an account"
+                  : "New here? Create an account"}
             </button>
           ) : (
             <p className="mt-4 text-center text-sm text-ink-faint">Campus OS is invite-only right now.</p>

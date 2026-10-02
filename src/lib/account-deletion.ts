@@ -4,14 +4,18 @@ import { prisma } from "@/lib/prisma";
 import { deleteAssemblyAITranscripts } from "@/lib/assemblyai";
 import { decryptSecret } from "@/lib/crypto";
 import { revokeGoogleToken } from "@/lib/google-oauth";
+import { stripeConfigured, stripeRequest } from "@/lib/stripe";
 
 /**
  * Deletes a user and everything tied to them. Database rows go through the
  * schema's onDelete: Cascade relations (every model hangs off User directly
  * or through Class). Copies held by outside services are cleaned up first:
  * lecture audio in Vercel Blob, transcripts at AssemblyAI, and the Gmail
- * grant at Google. Each of those is best effort, logged on failure, and
- * never blocks the account itself from being deleted.
+ * grant at Google, and website subscriptions at Stripe (canceled so they
+ * stop charging). Each of those is best effort, logged on failure, and
+ * never blocks the account itself from being deleted. An App Store
+ * subscription can only be canceled by its owner in iPhone Settings; the
+ * Account page says so before deleting.
  *
  * The Canvas access token is a personal token the user created in Canvas.
  * Canvas has no endpoint to revoke it without its token id, so deleting
@@ -19,14 +23,28 @@ import { revokeGoogleToken } from "@/lib/google-oauth";
  * tells users where to delete it in Canvas.
  */
 export async function deleteUserAndData(userId: string): Promise<void> {
-  const [user, lectures, emailAccount] = await Promise.all([
+  const [user, lectures, emailAccount, stripeSubscriptions] = await Promise.all([
     prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { email: true } }),
     prisma.lecture.findMany({
       where: { class: { userId } },
       select: { audioUrl: true, assemblyaiId: true },
     }),
     prisma.emailAccount.findUnique({ where: { userId } }),
+    prisma.subscription.findMany({
+      where: { userId, source: "stripe", status: { in: ["active", "past_due"] } },
+      select: { externalId: true },
+    }),
   ]);
+
+  if (stripeConfigured()) {
+    for (const sub of stripeSubscriptions) {
+      try {
+        await stripeRequest("DELETE", `/subscriptions/${sub.externalId}`);
+      } catch (err) {
+        console.error("Account deletion: Stripe cancel failed:", err);
+      }
+    }
+  }
 
   const audioUrls = lectures.map((l) => l.audioUrl).filter((url): url is string => Boolean(url));
   if (audioUrls.length > 0) {
@@ -53,7 +71,13 @@ export async function deleteUserAndData(userId: string): Promise<void> {
     prisma.rateLimitEvent.deleteMany({
       where: {
         key: {
-          in: [`ai:${userId}`, `lecture:${userId}`, `upload:${userId}`, `login-email:${user.email.toLowerCase()}`],
+          in: [
+            `ai:${userId}`,
+            `lecture:${userId}`,
+            `upload:${userId}`,
+            `free-code:${userId}`,
+            `login-email:${user.email.toLowerCase()}`,
+          ],
         },
       },
     }),

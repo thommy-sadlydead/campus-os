@@ -167,6 +167,16 @@ session cookies, no third-party auth.
   `email-classify-heuristic.ts`, `email-intelligence.ts`,
   `change-rules.ts` + `pending-changes.ts` (the only code path allowed to
   write an email-derived fact into Class/Assignment/Exam/ScheduleEvent).
+- **Payments**: `billing.ts` (pure trial/subscription rules, tested) +
+  `billing-server.ts` (`PAYMENTS_ENABLED`, `getAccess`, free-access code) +
+  `stripe.ts` (hand-rolled REST client, webhook signatures) + `apple-iap.ts`
+  (App Store JWS verification against Apple Root CA - G3) +
+  `subscriptions.ts` (webhook/purchase → `Subscription` rows). Pages call
+  `requireUser()`, which sends an account without access to `/subscribe`;
+  only pages and actions an expired account must still reach (account,
+  subscribe) pass `{ allowWithoutAccess: true }`. Inside the iPhone app,
+  never offer Stripe or the free-access code (Apple guideline 3.1.1):
+  check `isAppRequest()` on the server and `isNativeApp()` on the client.
 - **AI permission**: `ai-consent.ts`. Every feature that sends a student's
   data to Anthropic or AssemblyAI checks `hasAiConsent(user)` on the server
   first (App Store guideline 5.1.2(i)). A new AI feature must too.
@@ -179,7 +189,7 @@ session cookies, no third-party auth.
 ## Verifying a change before calling it done
 
 1. `npx tsc --noEmit` (after `npx prisma generate` if the schema changed)
-2. `npx vitest run` — 238 tests as of this writing across 20 files
+2. `npx vitest run` — 268 tests as of this writing across 23 files
 3. Clean build: `rm -rf .next && npx next build` (use `next build` directly
    to skip the `db push` the `npm run build` script triggers, if you're not
    ready to push schema changes yet)

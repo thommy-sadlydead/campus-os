@@ -537,6 +537,25 @@ status, file types and pins. Each class has a colored initials tile
 pages use the same look, and the iPhone app's launch screen and offline
 page use the new colors. No features were added or removed.
 
+**Payments (2026-10).** A 7-day free trial from sign-up (no payment
+details), then a monthly or yearly subscription: through Stripe on the
+website and Apple's in-app purchase in the iPhone app (Apple requires its
+own there), with one account unlocked on both. `FREE_ACCESS_CODE` makes an
+account free for good; it's redeemed on the website under Account, since
+Apple doesn't allow codes that unlock features inside the app. Everything
+is off until `PAYMENTS_ENABLED=1`, which also opens sign-up to everyone.
+The rules are in `src/lib/billing.ts` (pure, tested); `requireUser()`
+sends an account without access to `/subscribe` (the account and subscribe
+pages opt out with `allowWithoutAccess`), and the upload routes check it
+too. `Subscription` rows are kept current by `/api/stripe/webhook`
+(signature-checked) and `/api/apple/notifications` (App Store Server
+Notifications V2, with Apple's certificate chain and signature verified in
+`src/lib/apple-iap.ts`, no new dependency). A Terms of Use page and the
+privacy policy cover subscriptions. Setup: `.env.example` (Stripe) and
+`ios/README.md` (App Store Connect). Schema changes: `User.trialEndsAt`,
+`freeAccessAt`, `appleAccountToken`, `stripeCustomerId` (all nullable) and
+the new `Subscription` table.
+
 **Known limits, not gaps in this app:** Gmail (`GOOGLE_CLIENT_ID` etc.) and
 the AI assistants (`ANTHROPIC_API_KEY`) both require credentials you
 create yourself — see "AI features (optional)" above and `.env.example`
@@ -559,7 +578,7 @@ Not built — one deliberately flagged gap, unrelated to the phase plan:
 
 ## Verification
 
-- `npm test` — 238 unit tests in 20 files as of the redesign (235 after the iPhone app work, 223 after the 2026-09-30 data fixes, 176 as of the 2026-09 security pass, 165 as of the Canvas materials sync)
+- `npm test` — 268 unit tests in 23 files as of payments (238 after the redesign, 235 after the iPhone app work, 223 after the 2026-09-30 data fixes, 176 as of the 2026-09 security pass, 165 as of the Canvas materials sync)
   update (12 test files; the newest cover Canvas resource
   classification/dedup/incremental-diff logic, retry/pagination against a
   stubbed Canvas API, and the PDF OCR fallback — see CLAUDE.md for where

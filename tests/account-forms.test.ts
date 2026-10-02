@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { changePasswordSchema, loginSchema, registerSchema } from "../src/lib/account-forms";
 import { inviteCodeMatches, isSignupOpen } from "../src/lib/signup";
 
@@ -67,9 +67,22 @@ describe("changePasswordSchema", () => {
 
 describe("invite codes", () => {
   const original = process.env.SIGNUP_INVITE_CODE;
+  const originalPayments = process.env.PAYMENTS_ENABLED;
+  // Invite codes only matter while payments are off (a local .env may turn them on).
+  beforeEach(() => {
+    delete process.env.PAYMENTS_ENABLED;
+  });
   afterEach(() => {
     if (original === undefined) delete process.env.SIGNUP_INVITE_CODE;
     else process.env.SIGNUP_INVITE_CODE = original;
+    if (originalPayments === undefined) delete process.env.PAYMENTS_ENABLED;
+    else process.env.PAYMENTS_ENABLED = originalPayments;
+  });
+
+  it("opens sign-up to everyone once payments are on", () => {
+    delete process.env.SIGNUP_INVITE_CODE;
+    process.env.PAYMENTS_ENABLED = "1";
+    expect(isSignupOpen()).toBe(true);
   });
 
   it("closes sign-up when no code is configured", () => {

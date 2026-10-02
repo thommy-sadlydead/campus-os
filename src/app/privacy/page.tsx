@@ -32,7 +32,7 @@ export default function PrivacyPage() {
         <header>
           <p className="eyebrow">Legal</p>
           <h1 className="mt-2 font-display text-3xl font-semibold text-ink sm:text-4xl">Privacy policy</h1>
-          <p className="mt-1 text-xs text-ink-faint">Last updated September 30, 2026</p>
+          <p className="mt-1 text-xs text-ink-faint">Last updated October 2, 2026</p>
           <p className="mt-4">
             Campus OS is a personal academic organizer. It pulls your classes and assignments from Canvas, reads
             school-related email from Gmail if you connect it, and turns lecture recordings into notes. This page
@@ -66,6 +66,11 @@ export default function PrivacyPage() {
             <li>
               <strong className="text-ink">What you add yourself:</strong> notes, schedule, resources, exams and
               availability.
+            </li>
+            <li>
+              <strong className="text-ink">Your plan, if you subscribe:</strong> which plan, its status and renewal
+              date, and the ID Stripe or Apple uses for the subscription. Campus OS never sees or stores your card
+              number.
             </li>
           </ul>
         </Section>
@@ -101,6 +106,11 @@ export default function PrivacyPage() {
               sorted without AI and nothing is sent to either service.
             </li>
             <li>
+              <strong className="text-ink">Stripe</strong> processes payments on the website, and{" "}
+              <strong className="text-ink">Apple</strong> processes payments in the iPhone and iPad app. Your payment
+              details go straight to them.
+            </li>
+            <li>
               <strong className="text-ink">Google (Gmail)</strong> and <strong className="text-ink">your school&apos;s
               Canvas</strong> are where your data comes from. Campus OS only reads from them. It can&apos;t send,
               delete or change your email, or change anything in Canvas.
@@ -129,7 +139,8 @@ export default function PrivacyPage() {
             <li>
               <strong className="text-ink">Everything:</strong> Account → Delete account. This removes your account
               and all of its data, deletes your lecture audio and any transcripts still at AssemblyAI, and revokes
-              Campus OS&apos;s Gmail access at Google.
+              Campus OS&apos;s Gmail access at Google. It also cancels a subscription bought on the website. One bought
+              in the app is billed by Apple, so cancel it in your device&apos;s Settings → your name → Subscriptions.
             </li>
             <li>
               <strong className="text-ink">Gmail only:</strong> Email → Disconnect deletes the stored tokens and

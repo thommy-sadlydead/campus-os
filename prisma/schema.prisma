@@ -35,14 +35,32 @@ model User {
   // they haven't (or turned it off), and nothing is sent; see
   // src/lib/ai-consent.ts. Required by App Store guideline 5.1.2(i).
   aiConsentAt  DateTime?
+  // Payments (src/lib/billing.ts), enforced only when PAYMENTS_ENABLED=1.
+  // trialEndsAt: end of the free trial; set at sign-up, or on the first
+  // visit after payments went live for accounts made before. Null means
+  // not started yet. freeAccessAt: when the account redeemed
+  // FREE_ACCESS_CODE, which makes it free for good.
+  trialEndsAt       DateTime?
+  freeAccessAt      DateTime?
+  // StoreKit's appAccountToken: a UUID the iPhone app attaches to every
+  // purchase, so an Apple subscription can only ever unlock this account.
+  // Indexed, not @unique: adding a unique constraint to the existing User
+  // table makes `prisma db push` stop for confirmation, which fails the
+  // Vercel build. A random UUID and Stripe's customer ID don't collide.
+  appleAccountToken String?
+  stripeCustomerId  String?
 
   sessions            Session[]
+  subscriptions       Subscription[]
   classes             Class[]
   availabilityBlocks  AvailabilityBlock[]
   emailAccount        EmailAccount?
   canvasAccount       CanvasAccount?
   emails              Email[]
   pendingChanges      PendingChange[]
+
+  @@index([appleAccountToken])
+  @@index([stripeCustomerId])
 }
 
 model Session {
@@ -466,4 +484,31 @@ model RateLimitEvent {
   createdAt DateTime @default(now())
 
   @@index([key, createdAt])
+}
+
+// A paid subscription, bought on the website (Stripe) or in the iPhone app
+// (Apple). One row per Stripe subscription or Apple original transaction,
+// kept current by their webhooks (src/app/api/stripe/webhook,
+// src/app/api/apple/notifications).
+//   source: "stripe" | "apple"
+//   plan:   "monthly" | "yearly"
+//   status: "active" | "past_due" | "canceled" | "expired"
+// It unlocks the app while status is active or past_due and
+// currentPeriodEnd hasn't passed (accessFor in src/lib/billing.ts).
+model Subscription {
+  id                String   @id @default(cuid())
+  userId            String
+  source            String
+  externalId        String
+  plan              String
+  status            String
+  currentPeriodEnd  DateTime
+  cancelAtPeriodEnd Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([source, externalId])
+  @@index([userId])
 }

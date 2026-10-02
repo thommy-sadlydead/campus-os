@@ -5,7 +5,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { App } from "@capacitor/app";
 import { LocalNotifications } from "@capacitor/local-notifications";
-import { hasNativePlugin, isNativeApp, NativeRecorder, SharedInbox } from "@/lib/native-app";
+import { hasNativePlugin, isNativeApp, NativeRecorder, NativeStore, SharedInbox } from "@/lib/native-app";
+import { recordAppleTransactionsAction } from "@/app/subscribe/actions";
 import { ChevronRightIcon, MicIcon } from "@/components/icons";
 
 const AUTO_OPENED_KEY = "campusos-auto-opened";
@@ -33,6 +34,16 @@ export function NativeAppBridge() {
       if (typeof route === "string" && route.startsWith("/")) router.push(route);
     });
     return () => void tap.then((handle) => handle.remove());
+  }, [router]);
+
+  // App Store renewals, refunds and approved Ask to Buy purchases arrive
+  // while the app is open; the server records them (webhooks do too).
+  useEffect(() => {
+    if (!hasNativePlugin("NativeStore")) return;
+    const listener = NativeStore.addListener("transaction", ({ jws }) => {
+      void recordAppleTransactionsAction([jws]).then(() => router.refresh());
+    });
+    return () => void listener.then((handle) => handle.remove());
   }, [router]);
 
   useEffect(() => {
