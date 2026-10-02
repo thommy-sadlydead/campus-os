@@ -151,8 +151,9 @@ function MaterialsSection({ classId, materials }: { classId: string; materials: 
       )}
 
       {failed.length > 0 && (
-        <details className="mt-4 rounded-xl bg-warn-soft p-3.5" open={failed.length <= 5}>
-          <summary className="cursor-pointer select-none text-sm font-medium text-warn">
+        <details className="group/failed mt-4 rounded-xl bg-warn-soft p-3.5" open={failed.length <= 5}>
+          <summary className="flex cursor-pointer select-none list-none items-center gap-1.5 text-sm font-medium text-warn [&::-webkit-details-marker]:hidden">
+            <ChevronRightIcon className="h-4 w-4 flex-none transition-transform group-open/failed:rotate-90" />
             {failed.length} file{failed.length === 1 ? "" : "s"} couldn&apos;t be imported from Canvas
           </summary>
           <p className="mt-1 text-xs text-ink-soft">

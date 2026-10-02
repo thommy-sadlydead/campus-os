@@ -559,7 +559,7 @@ Not built — one deliberately flagged gap, unrelated to the phase plan:
 
 ## Verification
 
-- `npm test` — 235 unit tests in 19 files as of the iPhone app work (223 after the 2026-09-30 data fixes, 176 as of the 2026-09 security pass, 165 as of the Canvas materials sync)
+- `npm test` — 238 unit tests in 20 files as of the redesign (235 after the iPhone app work, 223 after the 2026-09-30 data fixes, 176 as of the 2026-09 security pass, 165 as of the Canvas materials sync)
   update (12 test files; the newest cover Canvas resource
   classification/dedup/incremental-diff logic, retry/pagination against a
   stubbed Canvas API, and the PDF OCR fallback — see CLAUDE.md for where

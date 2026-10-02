@@ -218,12 +218,16 @@ export default async function SchedulePage() {
                             {entry.kind === "exam" ? <PencilIcon className="h-4 w-4" /> : <ChecklistIcon className="h-4 w-4" />}
                           </span>
                           <div className="min-w-0 flex-1">
-                            <p className="flex items-center gap-2 text-sm font-medium text-ink">
-                              <span className="truncate">{entry.title}</span>
-                              {entry.kind === "exam" && <span className="badge flex-none bg-danger-soft text-danger">Exam</span>}
+                            <p className="text-sm font-medium leading-snug text-ink">
+                              <span className="line-clamp-2">{entry.title}</span>
                             </p>
-                            <p className="mt-0.5 truncate text-[13px] text-ink-soft">
-                              Due {entry.timeLabel} · {entry.className}
+                            <p className="mt-0.5 flex items-center gap-1.5 text-[13px] text-ink-soft">
+                              {entry.kind === "exam" && (
+                                <span className="badge flex-none bg-danger-soft px-2 py-0 text-[11px] text-danger">Exam</span>
+                              )}
+                              <span className="truncate">
+                                Due {entry.timeLabel} · {entry.className}
+                              </span>
                             </p>
                           </div>
                           {entry.canvasUrl && (
@@ -231,10 +235,11 @@ export default async function SchedulePage() {
                               href={entry.canvasUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="btn btn-ghost btn-sm flex-none"
+                              aria-label={`Open ${entry.title} in Canvas`}
+                              className="btn btn-ghost btn-sm flex-none px-2 sm:px-3"
                             >
-                              Canvas
-                              <ExternalIcon className="h-3.5 w-3.5" />
+                              <span className="hidden sm:inline">Canvas</span>
+                              <ExternalIcon className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
                             </a>
                           )}
                         </li>
