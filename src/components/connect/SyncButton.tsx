@@ -1,10 +1,16 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { syncCanvasAction } from "@/app/canvas/actions";
 import { RefreshIcon } from "@/components/icons";
 
-export function SyncButton({ lastSyncedLabel }: { lastSyncedLabel: string }) {
+/** "Sync now" for any connected LMS; `action` is that LMS's sync Server Action. */
+export function SyncButton({
+  action,
+  lastSyncedLabel,
+}: {
+  action: () => Promise<{ ok: boolean; message: string }>;
+  lastSyncedLabel: string;
+}) {
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -14,7 +20,7 @@ export function SyncButton({ lastSyncedLabel }: { lastSyncedLabel: string }) {
         {message ?? lastSyncedLabel}
       </span>
       <button
-        onClick={() => startTransition(async () => setMessage((await syncCanvasAction()).message))}
+        onClick={() => startTransition(async () => setMessage((await action()).message))}
         disabled={pending}
         className="btn btn-primary"
       >

@@ -133,8 +133,9 @@ session cookies, no third-party auth.
   response instead of holding a request open for minutes.
 - **Secrets encrypted at rest with one shared helper**
   (`src/lib/crypto.ts`, AES-256-GCM, key derived from `AUTH_SECRET`) — used
-  for `CanvasAccount.accessTokenEnc` and `EmailAccount.accessTokenEnc`/
-  `refreshTokenEnc`. Reuse this rather than adding a second encryption
+  for `CanvasAccount.accessTokenEnc`, `LmsConnection.credentialsEnc` (a
+  Schoology key, or calendar feed links, which carry their own token) and
+  `EmailAccount.accessTokenEnc`/`refreshTokenEnc`. Reuse this rather than adding a second encryption
   scheme. Note: `crypto.ts` (and anything that imports it, e.g.
   `canvas-materials-sync.ts` via `pdf-ocr.ts` → `anthropic.ts`) has
   `import "server-only"`, so a standalone script run via plain `node`/`tsx`
@@ -176,6 +177,30 @@ session cookies, no third-party auth.
   comments) on top of `materials-sync.ts` (the provider-neutral materials
   engine: planning, `upsertMaterial`, OCR fallback, the per-course status
   machine).
+- **Schoology** (`src/lib/lms/`): `schoology.ts` (OAuth 1.0a PLAINTEXT
+  client: re-signs redirects by hand, never sends the key off
+  api.schoology.com, throttles to Schoology's 50 requests/5s, reads its
+  local-time dates in the account's `tz_name`), `schoology-sync.ts`
+  (sections → classes; grade items → assignments; graded from the
+  gradebook, turned-in from the dropbox for current work only; exams from
+  `is_final`, names and the calendar), `schoology-materials.ts` (documents,
+  pages and attachments on the shared materials engine).
+- **Brightspace and Blackboard, by calendar feed** (`src/lib/lms/`):
+  `ics.ts` (iCalendar reader), `feed-courses.ts` (which course each item
+  belongs to, and whether it's a deadline, an exam or noise; pure, tested),
+  `feed-sync.ts` (fetch, preview, apply the student's choices). Their APIs
+  need the school to register an app, so don't "upgrade" these to API
+  connectors without that — and never collect a student's LMS password.
+- **Connections** (`src/lib/lms/connections.ts`): reading/saving
+  `LmsConnection`, `runLmsSync` (never throws; stores the report), and the
+  nav label. Pages and actions are in `src/app/connect/`.
+- **Fetching anything a user typed or pasted goes through
+  `src/lib/lms/safe-fetch.ts`** (`fetchPublic`, `assertPublicHost`): public
+  addresses only, checked when connecting and on every redirect, with size
+  and time caps. Plain `fetch()` on a user-supplied URL is an SSRF hole.
+  For local testing only (ignored in production): `SCHOOLOGY_API_URL`
+  points the Schoology client at a stand-in server, and
+  `LMS_ALLOW_LOCAL_URLS=1` lets feeds and the Canvas address be localhost.
 - **Documents**: `office-text.ts` (PDF/PPTX/DOCX/EPUB text extraction) →
   `pdf-ocr.ts` (fallback when a PDF has no text layer — sends the whole PDF
   to Claude as a native `document` content block; **do not** reintroduce
@@ -223,7 +248,7 @@ session cookies, no third-party auth.
 ## Verifying a change before calling it done
 
 1. `npx tsc --noEmit` (after `npx prisma generate` if the schema changed)
-2. `npx vitest run` — 302 tests as of this writing across 26 files
+2. `npx vitest run` — 337 tests as of this writing across 29 files
 3. Clean build: `rm -rf .next && npx next build` (use `next build` directly
    to skip the `db push` the `npm run build` script triggers, if you're not
    ready to push schema changes yet)
@@ -262,6 +287,19 @@ Two known-good workarounds, both used this session:
 
 ## Known limitations (not bugs — don't "fix" without new information)
 
+- **Brightspace and Blackboard calendar feeds** carry due dates and exams,
+  not directions, submission status or files, and they aren't laid out the
+  same at every school. The course-detection rules in `feed-courses.ts`
+  were written from Brightspace's and Blackboard's documented feed
+  features without a real school's feed to test against; the student's
+  preview (rename/leave out) is the safety net. When a real feed comes
+  in that groups badly, add it (anonymized) as a test case and adjust the
+  rules — don't guess.
+- **Schoology**: turned-in status is only checked for work due from a week
+  ago to a month out (one request per assignment, under its rate limit);
+  graded status covers everything. An edited Schoology page isn't
+  re-imported (pages only have a creation time). A graded discussion's
+  link goes to the course's materials page.
 - A file/page/syllabus resource with no reliable Canvas-side `updated_at`
   (an external link, a syllabus, a file only discoverable via
   Modules/Pages rather than the Files endpoint) can't be detected as

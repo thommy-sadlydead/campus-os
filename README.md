@@ -24,22 +24,37 @@ as out of scope.
   requires.
 - **Data model** for the whole app (`prisma/schema.prisma`): User, Class,
   ScheduleEvent, Assignment, Task, Exam, Email, EmailAccount, CanvasAccount,
-  PendingChange, NoteSection, Note, Resource, AvailabilityBlock, Lecture,
-  ClassMaterial, MaterialSyncState — see
+  LmsConnection, PendingChange, NoteSection, Note, Resource,
+  AvailabilityBlock, Lecture, ClassMaterial, MaterialSyncState — see
   [Data architecture](#data-architecture).
 - **Auth**: email/password, hashed with bcrypt, session cookies (httpOnly,
   signed) — no third-party auth dependency, since Gmail OAuth is a
   *separate*, narrowly-scoped connection, not your login method.
-- **Canvas connection** (`/canvas`): paste a Canvas access token right in
-  the app — no terminal needed — to pull in your real courses and
-  assignments, with a **Sync now** button to re-pull any time, and a report
-  of what each sync brought in (and why any course didn't come in: not open
-  yet, an invitation not accepted, assignments Canvas won't show). Exams
-  come from assignment names and the course calendar. The token is
-  encrypted at rest the same way Gmail's is. `scripts/sync-canvas.ts` (`npm
-  run canvas:sync`) still exists as an env-var/cron-friendly alternative for
-  anyone who wants it — both paths share the same sync logic
-  (`src/lib/canvas-sync.ts`), so they can't drift apart.
+- **LMS connections** (`/connect`): Canvas, Schoology, D2L Brightspace or
+  Blackboard, each connected right in the app — no terminal needed — with
+  a **Sync now** button to re-pull any time and a report of what each sync
+  brought in (and why any course didn't come in: not open yet, an
+  invitation not accepted, assignments the LMS won't show).
+  - **Canvas** (`/connect/canvas`): a personal access token. Courses,
+    assignments with directions, due dates, the student's own submission
+    status, exams (from assignment names and the course calendar), and
+    course materials. `scripts/sync-canvas.ts` (`npm run canvas:sync`)
+    still exists as an env-var/cron-friendly alternative — both paths share
+    `src/lib/canvas-sync.ts`.
+  - **Schoology** (`/connect/schoology`): the student's own API key from
+    their school's `/api` page. Sections, assignments/tests/graded
+    discussions with directions, due dates (in the account's time zone),
+    graded status from the gradebook, turned-in status from the dropbox
+    for current work, exams (midterm/final flags, names, the calendar), and
+    course materials (documents, pages, attachments).
+  - **Brightspace and Blackboard** (`/connect/brightspace`,
+    `/connect/blackboard`): their APIs only open to apps a school's IT
+    department registers, so a student connects their calendar feed link
+    instead. Classes, due dates and exams come in; the student previews
+    the classes found (renaming or leaving any out) before connecting.
+    Directions, submissions and files aren't in a feed, so the page says so.
+  Every credential (token, key, feed link) is encrypted at rest the same
+  way Gmail's is.
 - **Command Center dashboard**: a ranked "what should I do" list, a
   **"What should I do right now?"** button, an **"I have X minutes"**
   finder, a workload summary (overdue / due today / due tomorrow, remaining
@@ -115,17 +130,20 @@ as out of scope.
   browser → Blob → `addClassMaterialFromBlobAction`, since Vercel caps
   requests at 4.5 MB), or **automatic Canvas sync** (see next bullet).
   Imports that failed are listed first, with the reason.
-- **Automatic Canvas course material sync** (`/canvas`, "Go fetch
-  materials"): after connecting Canvas, discovers and imports each course's
+- **Automatic course material sync** (Canvas and Schoology, "Go fetch
+  materials"): after connecting, discovers and imports each course's
   real documents on its own — scanning Files, Modules, Pages, Assignment
   attachments, and the Syllabus (not just the Files tab, which instructors
   sometimes hide) — instead of requiring every material to be added by
   hand. Incremental: re-running only imports what's new or changed,
   verified idempotent against a real connected account. Scanned/image-only
   PDFs (no text layer) are OCR'd via Claude's native PDF document support.
-  See `src/lib/canvas-materials.ts` (pure classification/dedup/diff logic)
-  and `src/lib/canvas-materials-sync.ts` (discovery + sync orchestration)
-  for the implementation, and CLAUDE.md for known limitations.
+  For Schoology it's a section's documents, pages and assignment
+  attachments. See `src/lib/canvas-materials.ts` (pure
+  classification/dedup/diff logic), `src/lib/materials-sync.ts` (the
+  shared engine), and `src/lib/canvas-materials-sync.ts` /
+  `src/lib/lms/schoology-materials.ts` (each LMS's discovery) for the
+  implementation, and CLAUDE.md for known limitations.
 
 ## Quick start
 
@@ -323,18 +341,20 @@ User ─┬─ Class ─┬─ ScheduleEvent
       │         └─ Email
       ├─ EmailAccount (Gmail OAuth link — one per user)
       ├─ CanvasAccount (Canvas access token — one per user)
+      ├─ LmsConnection (Schoology key or Brightspace/Blackboard feed — one per LMS)
       ├─ Email ─── PendingChange (conflict-resolution queue)
       └─ AvailabilityBlock (explicit free-time entries)
 ```
 
 Two design decisions worth knowing about:
 
-- **Canvas owns Class/Assignment/Exam.** `lmsCourseId` / `lmsItemId`
-  make sync idempotent and mean Canvas is always the source of truth for
-  what exists — the app extends that data (tasks, notes, estimates) rather
-  than replacing it. They're unique per account, not globally: classmates
-  share the same Canvas ids, and each gets their own rows. Fields Canvas
-  never provides at all (professor, room, current grade, meeting times)
+- **The LMS owns Class/Assignment/Exam.** `lmsProvider` / `lmsCourseId` /
+  `lmsItemId` make sync idempotent and mean the LMS is always the source of
+  truth for what exists — the app extends that data (tasks, notes,
+  estimates) rather than replacing it. They're unique per account, not
+  globally: classmates share the same ids, and each gets their own rows.
+  Every LMS's sync writes through one function (`src/lib/lms/apply.ts`).
+  Fields no LMS provides (professor, room, current grade, meeting times)
   are either typed in directly from a class's Overview/Schedule tabs, or
   filled in from an email via the PendingChange path above.
 - **Email never writes directly into your schedule/assignments.** Every
@@ -598,6 +618,39 @@ other LMSs, and the materials engine is split the same way
 indexes, and `CanvasSyncCourseState` is `MaterialSyncState` in code
 (`@@map`, same table).
 
+**Schoology, Brightspace and Blackboard (2026-10-05).** Students whose
+school doesn't use Canvas can connect the LMS it does use, from a new
+Connect page (`/connect`; `/canvas` redirects to `/connect/canvas`) that
+says what each one brings in. Everything goes through the same writer as
+Canvas, so the per-account rules, per-course isolation and sync report
+apply to all of them.
+- **Schoology** uses the student's own API key (two-legged OAuth 1.0a,
+  PLAINTEXT signature over HTTPS, as Schoology documents; a hand-rolled
+  client in `src/lib/lms/schoology.ts` that re-signs redirects, never sends
+  the key off api.schoology.com, and stays under Schoology's 50 requests per
+  5 seconds). It has the same reach as Canvas, materials included
+  (`schoology-materials.ts` on the shared engine).
+- **Brightspace and Blackboard** only open their APIs to apps a school
+  registers, and a student's password is never something Campus OS should
+  hold, so they connect through the student's calendar feed link.
+  `src/lib/lms/ics.ts` reads iCalendar; `feed-courses.ts` works out which
+  course each item belongs to (the course id in its link, its categories, a
+  course code in its title, or its location) and what it is (a deadline, an
+  exam, or something to skip like "available from" or a class meeting).
+  Feeds aren't laid out the same everywhere, so the student sees the
+  classes found, and can rename or leave any out, before connecting, and
+  again later under "Edit classes" (a class left out is hidden, not
+  deleted).
+- Links students paste are fetched by `src/lib/lms/safe-fetch.ts`, which
+  only reaches public addresses (checked at connect time and on every
+  redirect) with size and time caps; the existing "add a material from a
+  link" feature now uses it too, and a Canvas address must be a public
+  https host.
+- The navigation's LMS entry is named for what's connected ("Brightspace"),
+  and the onboarding, empty states, privacy policy and terms cover all four.
+Schema change: the new `LmsConnection` table (credentials encrypted, the
+student's preview choices in `settings`, and the last sync report).
+
 **Known limits, not gaps in this app:** Gmail (`GOOGLE_CLIENT_ID` etc.) and
 the AI assistants (`ANTHROPIC_API_KEY`) both require credentials you
 create yourself — see "AI features (optional)" above and `.env.example`
@@ -620,7 +673,7 @@ Not built — one deliberately flagged gap, unrelated to the phase plan:
 
 ## Verification
 
-- `npm test` — 302 unit tests in 26 files as of the per-student sync fix (273 as of payments, 238 after the redesign, 235 after the iPhone app work, 223 after the 2026-09-30 data fixes, 176 as of the 2026-09 security pass, 165 as of the Canvas materials sync)
+- `npm test` — 337 unit tests in 29 files as of Schoology/Brightspace/Blackboard (302 after the per-student sync fix, 273 as of payments, 238 after the redesign, 235 after the iPhone app work, 223 after the 2026-09-30 data fixes, 176 as of the 2026-09 security pass, 165 as of the Canvas materials sync)
   update (12 test files; the newest cover Canvas resource
   classification/dedup/incremental-diff logic, retry/pagination against a
   stubbed Canvas API, and the PDF OCR fallback — see CLAUDE.md for where

@@ -11,7 +11,7 @@ export default async function AssignmentsPage() {
   const user = await requireUser();
 
   const assignments = await prisma.assignment.findMany({
-    where: { class: { userId: user.id } },
+    where: { class: { userId: user.id, archived: false } },
     include: { class: true, tasks: { orderBy: { order: "asc" } } },
     orderBy: [{ dueAt: "asc" }],
   });
@@ -20,14 +20,14 @@ export default async function AssignmentsPage() {
     <AppShell active="/assignments" userName={user.name ?? user.email}>
       <PageHeader
         title="Assignments"
-        description="Every assignment across your classes, from Canvas. Open one to see its directions, break it into steps, or mark it done."
+        description="Every assignment across your classes. Open one to see its directions, break it into steps, or mark it done."
       />
 
       {assignments.length === 0 ? (
         <div className="empty">
           Nothing here yet.{" "}
-          <Link href="/canvas" className="font-medium text-accent-ink underline">
-            Connect Canvas
+          <Link href="/connect" className="font-medium text-accent-ink underline">
+            Connect your classes
           </Link>{" "}
           to bring in your assignments.
         </div>

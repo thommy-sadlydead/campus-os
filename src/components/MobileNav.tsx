@@ -28,16 +28,17 @@ const TABS = [
   { href: "/schedule", label: "Schedule", Icon: CalendarIcon },
 ];
 
-const MORE_LINKS = [
-  { href: "/assignments", label: "Assignments", Icon: ChecklistIcon },
-  { href: "/email", label: "Email", Icon: MailIcon },
-  { href: "/canvas", label: "Canvas", Icon: LayersIcon },
-  { href: "/account", label: "Account", Icon: UserIcon },
-];
-
-export function MobileNav({ active }: { active: string }) {
+export function MobileNav({ active, lms }: { active: string; lms: { href: string; label: string } }) {
   const [moreOpen, setMoreOpen] = useState(false);
-  const moreActive = MORE_LINKS.some((link) => link.href === active);
+  // `match` is the `active` value each link's pages pass: every LMS page
+  // passes "/connect".
+  const moreLinks = [
+    { href: "/assignments", label: "Assignments", Icon: ChecklistIcon, match: "/assignments" },
+    { href: "/email", label: "Email", Icon: MailIcon, match: "/email" },
+    { href: lms.href, label: lms.label, Icon: LayersIcon, match: "/connect" },
+    { href: "/account", label: "Account", Icon: UserIcon, match: "/account" },
+  ];
+  const moreActive = moreLinks.some((link) => link.match === active);
 
   useEffect(() => {
     if (!moreOpen) return;
@@ -126,14 +127,14 @@ export function MobileNav({ active }: { active: string }) {
           <div className="absolute inset-x-0 bottom-0 rounded-t-[28px] border-t border-border-soft bg-surface px-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-3 shadow-pop">
             <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-border" aria-hidden />
             <ul className="mx-auto flex max-w-lg flex-col gap-0.5">
-              {MORE_LINKS.map(({ href, label, Icon }) => (
+              {moreLinks.map(({ href, label, Icon, match }) => (
                 <li key={href}>
                   <Link
                     href={href}
                     onClick={() => setMoreOpen(false)}
-                    aria-current={active === href ? "page" : undefined}
+                    aria-current={active === match ? "page" : undefined}
                     className={`flex items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-medium ${
-                      active === href ? "bg-surface-2 text-ink" : "text-ink hover:bg-surface-2"
+                      active === match ? "bg-surface-2 text-ink" : "text-ink hover:bg-surface-2"
                     }`}
                   >
                     <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-surface-2 text-ink-soft">

@@ -17,6 +17,7 @@ import {
   type ClassMaterialType,
 } from "@/lib/lecture-notes";
 import { CardHeader } from "@/components/ui/CardHeader";
+import { lmsName } from "@/lib/lms/providers";
 import { ChevronRightIcon, ExternalIcon, FileIcon, LayersIcon, LinkIcon, PlusIcon, SearchIcon, XIcon } from "@/components/icons";
 
 export interface ResourceRow {
@@ -60,23 +61,24 @@ const GROUP_TITLES: Record<ClassMaterialType, string> = {
   NOTES: "Handouts and notes",
 };
 
-// Only Canvas-synced materials carry a non-READY syncStatus.
+// Only materials synced from an LMS carry a non-READY syncStatus.
 const STATUS_NOTE: Record<string, string> = {
   EXTERNAL: "Link",
   SKIPPED_TOO_LARGE: "Too large to import",
   SKIPPED_UNSUPPORTED: "Can't read this file type",
   FAILED: "Couldn't import",
-  MISSING: "No longer in Canvas",
 };
 
 function statusNote(m: ClassMaterialRow): string | null {
-  if (m.provider !== "canvas" || !m.syncStatus) return null;
+  const lms = lmsName(m.provider);
+  if (!lms || !m.syncStatus) return null;
+  if (m.syncStatus === "MISSING") return `No longer in ${lms}`;
   return STATUS_NOTE[m.syncStatus] ?? null;
 }
 
 /**
  * Everything to read for a class in one place: books, slides, syllabi and
- * handouts (ClassMaterial: imported from Canvas or added by hand, and read
+ * handouts (ClassMaterial: imported from Canvas or Schoology or added by hand, and read
  * by the AI when it writes lecture notes), then saved links (Resource).
  */
 export function ResourcesPanel({
@@ -103,6 +105,8 @@ function MaterialsSection({ classId, materials }: { classId: string; materials: 
   const [adding, setAdding] = useState(materials.length === 0);
 
   const failed = materials.filter((m) => m.syncStatus === "FAILED");
+  // A class syncs from one LMS, so its failed imports all came from it.
+  const failedFrom = lmsName(failed[0]?.provider) ?? "your school's site";
   const q = query.trim().toLowerCase();
   const visible = useMemo(
     () => materials.filter((m) => m.syncStatus !== "FAILED" && (!q || m.title.toLowerCase().includes(q))),
@@ -146,7 +150,7 @@ function MaterialsSection({ classId, materials }: { classId: string; materials: 
 
       {materials.length === 0 && (
         <p className="mt-4 text-sm text-ink-soft">
-          Nothing here yet. Connecting Canvas imports these automatically, or add your own above.
+          Nothing here yet. Connecting Canvas or Schoology imports these automatically, or add your own above.
         </p>
       )}
 
@@ -154,10 +158,10 @@ function MaterialsSection({ classId, materials }: { classId: string; materials: 
         <details className="group/failed mt-4 rounded-xl bg-warn-soft p-3.5" open={failed.length <= 5}>
           <summary className="flex cursor-pointer select-none list-none items-center gap-1.5 text-sm font-medium text-warn [&::-webkit-details-marker]:hidden">
             <ChevronRightIcon className="h-4 w-4 flex-none transition-transform group-open/failed:rotate-90" />
-            {failed.length} file{failed.length === 1 ? "" : "s"} couldn&apos;t be imported from Canvas
+            {failed.length} file{failed.length === 1 ? "" : "s"} couldn&apos;t be imported from {failedFrom}
           </summary>
           <p className="mt-1 text-xs text-ink-soft">
-            Open one in Canvas to read it there, or paste its text in with Add so Campus OS can use it.
+            Open one in {failedFrom} to read it there, or paste its text in with Add so Campus OS can use it.
           </p>
           <ul className="mt-2 flex flex-col gap-2">
             {failed.map((m) => (

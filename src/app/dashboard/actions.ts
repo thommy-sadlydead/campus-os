@@ -17,13 +17,13 @@ import { buildCrossAppPrompt } from "@/lib/cross-app-context";
  * Toggle a work item's completion.
  *
  * Note on `kind: "assignment"`: a bare assignment (no subtasks) has no
- * dedicated "done" state in the schema distinct from Canvas's own
+ * dedicated "done" state in the schema distinct from the LMS's own
  * SUBMITTED/GRADED — rather than add a parallel, possibly-conflicting
  * notion of "done," checking it off here sets status to SUBMITTED. That
- * means "no longer actionable," same as Canvas reporting it submitted; the
- * Canvas sync script never downgrades a manually-set status, so this
- * sticks until Canvas itself confirms grading. Tasks (subtasks) have
- * their own `completed` boolean and don't share this ambiguity.
+ * means "no longer actionable," same as the LMS reporting it submitted; an
+ * LMS sync keeps a mark made here unless the LMS reports otherwise (see
+ * src/lib/lms/status.ts). Tasks (subtasks) have their own `completed`
+ * boolean and don't share this ambiguity.
  */
 export async function toggleWorkItemAction(kind: "assignment" | "task", id: string) {
   const user = await requireUser();

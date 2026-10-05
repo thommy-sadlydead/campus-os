@@ -10,11 +10,14 @@ import { canvasMaterialsSource } from "@/lib/canvas-materials-sync";
 import { advanceMaterialSync, queueCourseMaterialSync, type CourseSyncProgress } from "@/lib/materials-sync";
 import { failedReport, summarizeReport, type SyncReport } from "@/lib/lms/report";
 import { hasAiConsent } from "@/lib/ai-consent";
+import { consumeRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { assertPublicHost, SafeFetchError } from "@/lib/lms/safe-fetch";
 
 export type { CourseSyncProgress };
 
 function revalidateSyncedPages() {
-  revalidatePath("/canvas");
+  revalidatePath("/connect/canvas");
+  revalidatePath("/connect");
   revalidatePath("/dashboard");
   revalidatePath("/assignments");
   revalidatePath("/classes");
@@ -31,14 +34,30 @@ export async function connectCanvasAction(
 ): Promise<ConnectCanvasState> {
   const user = await requireUser();
 
-  const baseUrl = String(formData.get("baseUrl") ?? "").trim().replace(/\/$/, "");
+  const typed = String(formData.get("baseUrl") ?? "").trim();
   const token = String(formData.get("accessToken") ?? "").trim();
 
-  if (!baseUrl || !/^https?:\/\/.+/.test(baseUrl)) {
-    return { error: "Enter your school's full Canvas URL, e.g. https://cedarville.instructure.com", baseUrl };
+  // Just the school's address: "school.instructure.com/courses" becomes
+  // "https://school.instructure.com".
+  let baseUrl: string;
+  try {
+    const url = new URL(/^https?:\/\//i.test(typed) ? typed : `https://${typed}`);
+    if (!typed || !url.hostname.includes(".")) throw new Error("no host");
+    baseUrl = url.origin;
+  } catch {
+    return { error: "Enter your school's Canvas address, like yourschool.instructure.com.", baseUrl: typed };
   }
   if (!token) {
     return { error: "Paste the access token you generated in Canvas.", baseUrl };
+  }
+  if (!(await consumeRateLimit(`lms-connect:${user.id}`, RATE_LIMITS.lmsConnect))) {
+    return { error: "That's a lot of tries in a short time. Wait a bit and try again.", baseUrl };
+  }
+  // The server calls this address from now on, so it has to be a public one.
+  try {
+    await assertPublicHost(baseUrl);
+  } catch (err) {
+    return { error: err instanceof SafeFetchError ? err.message : "Couldn't check that address.", baseUrl };
   }
 
   const cfg: CanvasConfig = { baseUrl, token };
@@ -77,7 +96,8 @@ export async function connectCanvasAction(
     );
   }
 
-  revalidateSyncedPages();
+  // The navigation names the connected LMS, so every page changes.
+  revalidatePath("/", "layout");
   return undefined;
 }
 
@@ -132,7 +152,7 @@ export async function startCanvasMaterialSyncAction(): Promise<{ error?: string 
   if (!account) return { error: "No Canvas account connected." };
 
   await queueCourseMaterialSync(prisma, user.id, "canvas");
-  revalidatePath("/canvas");
+  revalidatePath("/connect/canvas");
   return {};
 }
 
@@ -161,5 +181,5 @@ export async function continueCanvasMaterialSyncAction(): Promise<CourseSyncProg
 export async function disconnectCanvasAction(): Promise<void> {
   const user = await requireUser();
   await prisma.canvasAccount.delete({ where: { userId: user.id } }).catch(() => {});
-  revalidatePath("/canvas");
+  revalidatePath("/", "layout");
 }

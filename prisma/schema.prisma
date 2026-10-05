@@ -61,6 +61,7 @@ model User {
   availabilityBlocks  AvailabilityBlock[]
   emailAccount        EmailAccount?
   canvasAccount       CanvasAccount?
+  lmsConnections      LmsConnection[]
   emails              Email[]
   pendingChanges      PendingChange[]
 
@@ -387,7 +388,7 @@ model Lecture {
 }
 
 // ---------------------------------------------------------------------------
-// Canvas connection (in-app "Connect Canvas")
+// LMS connections (the Connect page: Canvas, Schoology, Brightspace, Blackboard)
 // ---------------------------------------------------------------------------
 
 // One linked Canvas account per user. Unlike Gmail, Canvas doesn't offer a
@@ -408,6 +409,36 @@ model CanvasAccount {
   lastSyncReport String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// A connection to Schoology, D2L Brightspace or Blackboard (Canvas keeps
+// its own CanvasAccount, above). One per provider per account.
+//   provider: "schoology" | "brightspace" | "blackboard"
+//   baseUrl: the school's address in that LMS, for links and display.
+//   credentialsEnc: JSON, encrypted with src/lib/crypto.ts. Schoology: the
+//     student's own API key and secret (from <school>.schoology.com/api).
+//     Brightspace/Blackboard: calendar feed links, which carry their own
+//     access token, so they're secrets too. Neither LMS lets a student
+//     use its API without the school registering the app first.
+//   settings: JSON, per-provider (Schoology: the account's user id and
+//     time zone; calendar feeds: course names and skipped courses).
+//   lastSyncReport: JSON, what the last sync found (SyncReport in
+//     src/lib/lms/report.ts).
+// See src/lib/lms/ for each provider.
+model LmsConnection {
+  id             String    @id @default(cuid())
+  userId         String
+  provider       String
+  baseUrl        String
+  credentialsEnc String
+  settings       String?
+  connectedAt    DateTime  @default(now())
+  lastSyncedAt   DateTime?
+  lastSyncReport String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
 }
 
 // ---------------------------------------------------------------------------

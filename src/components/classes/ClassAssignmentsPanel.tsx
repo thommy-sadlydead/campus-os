@@ -7,7 +7,7 @@ export function ClassAssignmentsPanel({ assignments, tz }: { assignments: ClassA
   if (assignments.length === 0) {
     return (
       <div className="empty">
-        No assignments for this class yet. They come in from Canvas.
+        No assignments for this class yet. They come in when you sync your classes.
       </div>
     );
   }

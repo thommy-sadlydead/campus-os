@@ -5,7 +5,7 @@
 //
 // This is the env-var/CLI path for anyone who prefers it (e.g. a cron job).
 // Most users don't need this at all — the in-app "Connect Canvas" page
-// (/canvas) does the same sync from a token pasted into the app, with no
+// (/connect/canvas) does the same sync from a token pasted into the app, with no
 // terminal access required. Both paths share the same sync logic
 // (src/lib/canvas-sync.ts) so they can't drift apart.
 //

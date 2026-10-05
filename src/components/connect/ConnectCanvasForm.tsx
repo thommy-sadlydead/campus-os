@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { connectCanvasAction, type ConnectCanvasState } from "@/app/canvas/actions";
+import { connectCanvasAction, type ConnectCanvasState } from "@/app/connect/canvas/actions";
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -17,7 +17,7 @@ function SubmitButton() {
   );
 }
 
-export function ConnectCanvasForm({ defaultBaseUrl }: { defaultBaseUrl: string }) {
+export function ConnectCanvasForm() {
   const [state, formAction] = useActionState<ConnectCanvasState, FormData>(connectCanvasAction, undefined);
 
   return (
@@ -29,11 +29,17 @@ export function ConnectCanvasForm({ defaultBaseUrl }: { defaultBaseUrl: string }
         <input
           id="baseUrl"
           name="baseUrl"
-          type="url"
+          type="text"
+          inputMode="url"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
           required
-          defaultValue={state?.baseUrl ?? defaultBaseUrl}
+          placeholder="yourschool.instructure.com"
+          defaultValue={state?.baseUrl ?? ""}
           className="field"
         />
+        <p className="mt-1.5 text-xs text-ink-faint">The address you use to open Canvas.</p>
       </div>
       <div className="flex flex-col">
         <label htmlFor="accessToken" className="field-label">

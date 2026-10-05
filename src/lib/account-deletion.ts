@@ -17,10 +17,11 @@ import { stripeConfigured, stripeRequest } from "@/lib/stripe";
  * subscription can only be canceled by its owner in iPhone Settings; the
  * Account page says so before deleting.
  *
- * The Canvas access token is a personal token the user created in Canvas.
- * Canvas has no endpoint to revoke it without its token id, so deleting
- * our encrypted copy (via the cascade) is all we can do; the privacy page
- * tells users where to delete it in Canvas.
+ * The Canvas access token, Schoology API key and Brightspace/Blackboard
+ * calendar links are the user's own credentials, made in those systems.
+ * None of them can be revoked from here, so deleting our encrypted copies
+ * (via the cascade) is all we can do; the privacy page tells users where to
+ * revoke them.
  */
 export async function deleteUserAndData(userId: string): Promise<void> {
   const [user, lectures, emailAccount, stripeSubscriptions] = await Promise.all([

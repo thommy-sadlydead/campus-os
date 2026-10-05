@@ -26,8 +26,12 @@ const nextConfig = {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
   // Voicewrite was removed; old bookmarks land on the dashboard instead of a 404.
+  // The Canvas page moved under Connect when more LMSs were added.
   async redirects() {
-    return [{ source: "/voicewrite", destination: "/dashboard", permanent: false }];
+    return [
+      { source: "/voicewrite", destination: "/dashboard", permanent: false },
+      { source: "/canvas", destination: "/connect/canvas", permanent: false },
+    ];
   },
 };
 

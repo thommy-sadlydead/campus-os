@@ -63,10 +63,10 @@ export default async function ClassesPage() {
       {classRows.length === 0 ? (
         <div className="empty">
           No classes yet.{" "}
-          <Link href="/canvas" className="font-medium text-accent-ink underline">
-            Connect Canvas
+          <Link href="/connect" className="font-medium text-accent-ink underline">
+            Connect your classes
           </Link>{" "}
-          to bring in your courses.
+          from Canvas, Schoology, Brightspace or Blackboard.
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">

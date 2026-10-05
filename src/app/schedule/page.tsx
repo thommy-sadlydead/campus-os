@@ -58,20 +58,20 @@ export default async function SchedulePage() {
   const [classes, events, assignments, exams] = await Promise.all([
     prisma.class.findMany({ where: { userId: user.id, archived: false }, orderBy: { name: "asc" } }),
     prisma.scheduleEvent.findMany({
-      where: { class: { userId: user.id } },
+      where: { class: { userId: user.id, archived: false } },
       include: { class: true },
       orderBy: [{ dayOfWeek: "asc" }, { startMinute: "asc" }],
     }),
     prisma.assignment.findMany({
       where: {
-        class: { userId: user.id },
+        class: { userId: user.id, archived: false },
         dueAt: { not: null },
         status: { notIn: ["SUBMITTED", "GRADED"] },
       },
       include: { class: true },
     }),
     prisma.exam.findMany({
-      where: { class: { userId: user.id }, examAt: { not: null } },
+      where: { class: { userId: user.id, archived: false }, examAt: { not: null } },
       include: { class: true },
     }),
   ]);
@@ -158,14 +158,14 @@ export default async function SchedulePage() {
     <AppShell active="/schedule" userName={user.name ?? user.email}>
       <PageHeader
         title="Schedule"
-        description="The next 7 days: your recurring class meetings alongside real assignment and exam due dates. Canvas doesn't provide meeting times, so add those yourself, here or on a class's Overview tab."
+        description="The next 7 days: your recurring class meetings alongside real assignment and exam due dates. School systems don't share meeting times, so add those yourself, here or on a class's Overview tab."
       />
 
       {classes.length === 0 ? (
         <div className="empty">
           No classes yet.{" "}
-          <Link href="/canvas" className="font-medium text-accent-ink underline">
-            Connect Canvas
+          <Link href="/connect" className="font-medium text-accent-ink underline">
+            Connect your classes
           </Link>{" "}
           to bring in your courses, then add their meeting times here.
         </div>

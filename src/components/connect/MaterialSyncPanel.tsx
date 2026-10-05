@@ -2,11 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import {
-  continueCanvasMaterialSyncAction,
-  startCanvasMaterialSyncAction,
-  type CourseSyncProgress,
-} from "@/app/canvas/actions";
+import type { CourseSyncProgress } from "@/lib/materials-sync";
 import { CardHeader } from "@/components/ui/CardHeader";
 import { FileIcon } from "@/components/icons";
 
@@ -35,15 +31,25 @@ function isTerminal(status: string): boolean {
 }
 
 /**
- * Self-contained, like SyncButton — fetches its own status via server
- * actions rather than taking server-rendered props, so this can just be
- * dropped onto the Canvas page. Polls automatically whenever any course
- * isn't in a terminal state yet: right after a fresh Canvas connect (see
- * connectCanvasAction, which queues every course before this ever mounts),
- * and also on every later page visit, so a sync interrupted by a closed
- * tab picks back up instead of staying stuck.
+ * Self-contained, like SyncButton — fetches its own status via the LMS's
+ * server actions (`start` queues every course, `advance` does one chunk
+ * and returns progress) rather than taking server-rendered props, so this
+ * can just be dropped onto a Connect page. Polls automatically whenever
+ * any course isn't in a terminal state yet: right after a fresh connect
+ * (the connect action queues every course before this ever mounts), and
+ * also on every later page visit, so a sync interrupted by a closed tab
+ * picks back up instead of staying stuck.
  */
-export function MaterialSyncPanel() {
+export function MaterialSyncPanel({
+  lmsName,
+  start,
+  advance,
+}: {
+  /** "Canvas" */
+  lmsName: string;
+  start: () => Promise<{ error?: string }>;
+  advance: () => Promise<CourseSyncProgress[]>;
+}) {
   const [courses, setCourses] = useState<CourseSyncProgress[] | null>(null);
   const [starting, setStarting] = useState(false);
   const [generation, setGeneration] = useState(0);
@@ -62,7 +68,7 @@ export function MaterialSyncPanel() {
     async function pollOnce() {
       let result: CourseSyncProgress[];
       try {
-        result = await continueCanvasMaterialSyncAction();
+        result = await advance();
       } catch (err) {
         // A single tick can fail transiently (e.g. a momentary database
         // connection hiccup — confirmed live under sustained load) without
@@ -72,7 +78,7 @@ export function MaterialSyncPanel() {
         // letting the poll loop die here, is what makes that self-healing
         // actually reach the UI instead of leaving it stuck on "Syncing…"
         // forever with no further progress.
-        console.error("Canvas materials sync poll failed, will retry:", err);
+        console.error("Materials sync poll failed, will retry:", err);
         if (cancelled) return;
         timeoutId = setTimeout(pollOnce, POLL_INTERVAL_MS);
         return;
@@ -89,12 +95,13 @@ export function MaterialSyncPanel() {
       cancelled = true;
       clearTimeout(timeoutId);
     };
+    // `advance` is a Server Action reference, stable for the page's life.
   }, [generation]);
 
   async function handleStart() {
     setStarting(true);
     try {
-      await startCanvasMaterialSyncAction();
+      await start();
       // Show every course as queued right away. Otherwise the list keeps its
       // old finished statuses (and the button reads "Go fetch materials"
       // again) until the first chunk of work comes back, which looks like
@@ -114,7 +121,7 @@ export function MaterialSyncPanel() {
         <CardHeader
           icon={<FileIcon className="h-[18px] w-[18px]" />}
           title="Course materials"
-          description="Automatically finds and imports books, slides, syllabi, and other documents from each course in Canvas."
+          description={`Automatically finds and imports books, slides, syllabi, and other documents from each course in ${lmsName}.`}
         />
         <button onClick={handleStart} disabled={starting || polling} className="btn btn-secondary flex-none">
           {polling ? "Syncing…" : starting ? "Starting…" : "Go fetch materials"}
@@ -124,7 +131,7 @@ export function MaterialSyncPanel() {
       {courses === null ? (
         <p className="mt-4 text-xs text-ink-faint">Checking sync status…</p>
       ) : courses.length === 0 ? (
-        <p className="mt-4 text-xs text-ink-faint">No Canvas courses to sync yet.</p>
+        <p className="mt-4 text-xs text-ink-faint">No {lmsName} courses to sync yet.</p>
       ) : (
         <ul className="mt-5 flex flex-col divide-y divide-border-soft border-t border-border-soft">
           {courses.map((c) => (

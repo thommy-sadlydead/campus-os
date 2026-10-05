@@ -50,10 +50,10 @@ export function RecordLecture({
     return (
       <div className="empty">
         Recordings are saved to a class, and you don&apos;t have any yet.{" "}
-        <Link href="/canvas" className="font-medium text-accent-ink underline">
-          Connect Canvas
+        <Link href="/connect" className="font-medium text-accent-ink underline">
+          Connect your classes
         </Link>{" "}
-        to bring in your classes.
+        to bring them in.
       </div>
     );
   }

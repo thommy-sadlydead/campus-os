@@ -1,7 +1,7 @@
 // Canvas course/assignment sync — used by both the standalone CLI script
 // (scripts/sync-canvas.ts, for cron jobs / anyone who prefers env vars)
 // and the in-app "Connect Canvas" / "Sync now" server actions
-// (src/app/canvas/actions.ts). One implementation so the two paths
+// (src/app/connect/canvas/actions.ts). One implementation so the two paths
 // can't drift apart. Deliberately not "server only" since the CLI script
 // isn't part of the Next.js request lifecycle (see the same note in
 // canvas.ts).

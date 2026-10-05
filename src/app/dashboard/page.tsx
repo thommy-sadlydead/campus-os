@@ -97,8 +97,8 @@ export default async function DashboardPage() {
     const steps = [
       {
         Icon: LayersIcon,
-        title: "Connect Canvas",
-        body: "You'll paste an access token from your Canvas settings; the Canvas page shows you where to find it.",
+        title: "Connect your classes",
+        body: "From Canvas, Schoology, Brightspace or Blackboard. You'll paste a key or a calendar link, and the page shows you where to find it.",
       },
       {
         Icon: CalendarIcon,
@@ -133,8 +133,8 @@ export default async function DashboardPage() {
               <p className="eyebrow mt-5">Welcome to Campus OS</p>
               <h1 className="mt-1.5 font-display text-2xl font-semibold text-ink sm:text-[28px]">Let&apos;s bring in your classes</h1>
               <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">
-                Your dashboard is built from Canvas: classes, assignments, due dates and course files. Setting it up
-                takes about a minute.
+                Your dashboard is built from your school&apos;s course site: classes, assignments, due dates and
+                more. Setting it up takes about a minute.
               </p>
               <ol className="mt-6 flex flex-col gap-4">
                 {steps.map(({ Icon, title, body }, i) => (
@@ -152,8 +152,8 @@ export default async function DashboardPage() {
                   </li>
                 ))}
               </ol>
-              <Link href="/canvas" className="btn btn-primary btn-lg mt-7 w-full sm:w-auto">
-                Connect Canvas
+              <Link href="/connect" className="btn btn-primary btn-lg mt-7 w-full sm:w-auto">
+                Connect your classes
                 <ArrowRightIcon className="h-4 w-4" />
               </Link>
             </div>
@@ -217,7 +217,7 @@ export default async function DashboardPage() {
 
         <div className="flex flex-col gap-6 lg:col-start-1 lg:row-span-2 lg:row-start-1">
           {ranked.length === 0 ? (
-            <div className="empty">Nothing open right now. New assignments show up here after a Canvas sync.</div>
+            <div className="empty">Nothing open right now. New assignments show up here after a sync.</div>
           ) : (
             SECTION_ORDER.filter((b) => grouped.has(b)).map((bucket) => (
               <section key={bucket} className="card overflow-hidden">

@@ -5,6 +5,7 @@ import { NativeAppBridge } from "@/components/NativeAppBridge";
 import { Logo, LogoMark } from "@/components/Logo";
 import { getCurrentUser } from "@/lib/auth";
 import { getAccess, paymentsEnabled } from "@/lib/billing-server";
+import { lmsNavItem } from "@/lib/lms/connections";
 import {
   AlertIcon,
   BookIcon,
@@ -31,10 +32,6 @@ const WORKSPACE = [
   { href: "/schedule", label: "Schedule", Icon: CalendarIcon },
 ];
 
-const CONNECTIONS = [
-  { href: "/email", label: "Email", Icon: MailIcon },
-  { href: "/canvas", label: "Canvas", Icon: LayersIcon },
-];
 
 function initials(name: string): string {
   const parts = name.replace(/@.*/, "").split(/[\s._-]+/).filter(Boolean);
@@ -99,7 +96,7 @@ async function BillingBanner() {
   return null;
 }
 
-export function AppShell({
+export async function AppShell({
   active,
   userName,
   children,
@@ -108,6 +105,15 @@ export function AppShell({
   userName: string;
   children: React.ReactNode;
 }) {
+  // The LMS entry is named for the one the student connected ("Brightspace"),
+  // and its pages all pass active="/connect".
+  const user = await getCurrentUser();
+  const lms = user ? await lmsNavItem(user.id) : { href: "/connect", label: "Connect classes" };
+  const connections = [
+    { href: "/email", label: "Email", Icon: MailIcon, match: "/email" },
+    { href: lms.href, label: lms.label, Icon: LayersIcon, match: "/connect" },
+  ];
+
   return (
     <div className="min-h-screen bg-bg text-ink">
       {/* A soft wash of the brand colors at the top of the canvas. */}
@@ -145,8 +151,8 @@ export function AppShell({
           <div>
             <p className="eyebrow mb-2 px-3">Connections</p>
             <div className="flex flex-col gap-0.5">
-              {CONNECTIONS.map((item) => (
-                <NavLink key={item.href} {...item} active={active === item.href} />
+              {connections.map(({ match, ...item }) => (
+                <NavLink key={item.href} {...item} active={active === match} />
               ))}
             </div>
           </div>
@@ -203,7 +209,7 @@ export function AppShell({
           {children}
         </main>
       </div>
-      <MobileNav active={active} />
+      <MobileNav active={active} lms={lms} />
     </div>
   );
 }

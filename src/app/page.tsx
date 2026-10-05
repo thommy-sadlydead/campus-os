@@ -12,7 +12,7 @@ import { ArrowRightIcon, LayersIcon, MailIcon, MicIcon, SparkIcon } from "@/comp
 // homepage that isn't just a login form and links the privacy policy.
 
 const FEATURES = [
-  { Icon: LayersIcon, text: "Classes, assignments, due dates and course files synced from Canvas" },
+  { Icon: LayersIcon, text: "Classes, assignments and due dates synced from Canvas, Schoology, Brightspace or Blackboard" },
   { Icon: SparkIcon, text: "A dashboard that tells you what to work on next" },
   { Icon: MailIcon, text: "School email from Gmail, sorted by class, with date changes flagged for you to approve" },
   { Icon: MicIcon, text: "Lecture recordings turned into transcripts and notes" },

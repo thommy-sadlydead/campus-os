@@ -32,7 +32,7 @@ export default function TermsPage() {
         <header>
           <p className="eyebrow">Legal</p>
           <h1 className="mt-2 font-display text-3xl font-semibold text-ink sm:text-4xl">Terms of Use</h1>
-          <p className="mt-1 text-xs text-ink-faint">Last updated October 2, 2026</p>
+          <p className="mt-1 text-xs text-ink-faint">Last updated October 5, 2026</p>
           <p className="mt-4">
             These terms cover your use of Campus OS on the website and in the iPhone and iPad app. By creating an
             account you agree to them. The{" "}
@@ -45,7 +45,8 @@ export default function TermsPage() {
 
         <Section title="What Campus OS is">
           <p>
-            Campus OS is a personal academic organizer. It brings in your classes and assignments from Canvas, can read
+            Campus OS is a personal academic organizer. It brings in your classes and assignments from your school&apos;s
+            learning system (Canvas, Schoology, D2L Brightspace or Blackboard), can read
             school email from Gmail, and turns lecture recordings into notes. It&apos;s a study aid: always check due
             dates, grades and instructions with your school and instructors. Notes, summaries and suggestions written by
             AI can be wrong or incomplete.
@@ -95,10 +96,12 @@ export default function TermsPage() {
           </p>
         </Section>
 
-        <Section title="Canvas and Gmail">
+        <Section title="Your school's systems and Gmail">
           <p>
-            When you connect Canvas or Gmail, you let Campus OS read from them on your behalf. Their own terms still
-            apply to your use of those services, and you can disconnect either one at any time.
+            When you connect Canvas, Schoology, Brightspace, Blackboard or Gmail, you let Campus OS read from it on
+            your behalf. Their own terms, and your school&apos;s rules for them, still apply to your use of those
+            services, and you can disconnect any of them at any time. Campus OS isn&apos;t made by or affiliated with
+            any of them.
           </p>
         </Section>
 

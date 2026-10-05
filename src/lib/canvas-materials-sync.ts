@@ -4,7 +4,7 @@
 // engine in materials-sync.ts decides what's new/changed/gone and drives
 // the per-course status machine; this file is the Canvas MaterialsSource
 // it calls (canvasMaterialsSource), driven by
-// src/app/canvas/actions.ts.
+// src/app/connect/canvas/actions.ts.
 //
 // Unlike canvas.ts/canvas-sync.ts, this module IS effectively server-only
 // (transitively, via materials-sync.ts → pdf-ocr.ts's Anthropic client) —

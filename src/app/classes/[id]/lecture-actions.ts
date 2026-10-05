@@ -16,6 +16,7 @@ import { htmlToReadableText, extractHtmlTitle } from "@/lib/text";
 import { classifyCanvasUrl, fetchCanvasFileContent, MAX_DOCUMENT_FILE_BYTES, type CanvasConfig } from "@/lib/canvas";
 import { extractDocumentText } from "@/lib/office-text";
 import { decryptSecret } from "@/lib/crypto";
+import { fetchPublic, SafeFetchError, type PublicResponse } from "@/lib/lms/safe-fetch";
 
 async function requireOwnedClass(classId: string, userId: string) {
   const cls = await prisma.class.findUnique({ where: { id: classId } });
@@ -218,18 +219,6 @@ export async function addClassMaterialAction(classId: string, formData: FormData
   revalidatePath(`/classes/${classId}`);
 }
 
-// Basic SSRF guard for a server-side fetch of a user-supplied URL — not
-// exhaustive (doesn't cover DNS rebinding or a redirect chain that lands on
-// an internal address), but a reasonable floor for a personal single-user
-// app rather than no check at all.
-function isFetchableUrl(url: URL): boolean {
-  if (url.protocol !== "http:" && url.protocol !== "https:") return false;
-  const host = url.hostname.toLowerCase();
-  if (host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "169.254.169.254") return false;
-  if (/^10\.|^192\.168\.|^172\.(1[6-9]|2\d|3[01])\./.test(host)) return false;
-  return true;
-}
-
 const FETCH_TIMEOUT_MS = 15_000;
 const MAX_FETCH_BYTES = 5 * 1024 * 1024; // plenty for an HTML page; guards against something absurd
 
@@ -237,48 +226,45 @@ const MAX_FETCH_BYTES = 5 * 1024 * 1024; // plenty for an HTML page; guards agai
  * Fetches a URL once and extracts readable text — used only at add-time
  * (see addClassMaterialFromUrlAction). The result is stored as-is; the link
  * itself is never fetched again, so a page changing or disappearing later
- * doesn't affect what was already saved.
+ * doesn't affect what was already saved. fetchPublic only reaches public
+ * addresses, checking every redirect and the address each name resolves to
+ * (src/lib/lms/safe-fetch.ts).
  */
 async function fetchReadableTextFromUrl(rawUrl: string): Promise<{ title: string | null; content: string }> {
-  let url: URL;
   try {
-    url = new URL(rawUrl);
+    const url = new URL(rawUrl);
+    if (url.protocol !== "http:" && url.protocol !== "https:") throw new Error("not a web link");
   } catch {
     throw new Error("That doesn't look like a valid URL.");
   }
-  if (!isFetchableUrl(url)) {
-    throw new Error("That URL can't be fetched.");
-  }
 
-  let res: Response;
+  let page: PublicResponse;
   try {
-    res = await fetch(url, {
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; CampusOS/1.0)" },
-      redirect: "follow",
+    page = await fetchPublic(rawUrl, {
+      maxBytes: MAX_FETCH_BYTES,
+      timeoutMs: FETCH_TIMEOUT_MS,
+      allowHttp: true,
+      accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.5",
+      userAgent: "Mozilla/5.0 (compatible; CampusOS/1.0)",
     });
   } catch (err) {
+    if (err instanceof SafeFetchError && err.code === "http-error") {
+      throw new Error(`That link returned an error (${err.status}). Check the URL and try again.`);
+    }
+    if (err instanceof SafeFetchError && err.code === "too-large") throw new Error("That page is too large to read.");
+    if (err instanceof SafeFetchError && err.code === "not-public") throw new Error("That URL can't be fetched.");
     console.error("Class material URL fetch failed:", err);
     throw new Error("Couldn't reach that link. Check the URL and try again.");
   }
 
-  if (!res.ok) {
-    throw new Error(`That link returned an error (${res.status}). Check the URL and try again.`);
-  }
-
-  const contentType = res.headers.get("content-type") || "";
+  const contentType = page.contentType;
   if (!contentType.includes("text/html") && !contentType.includes("application/xhtml")) {
     throw new Error(
       `That link doesn't look like a webpage we can read (got "${contentType.split(";")[0] || "unknown"}"). Try pasting the text directly instead.`
     );
   }
 
-  const contentLength = Number(res.headers.get("content-length") || 0);
-  if (contentLength > MAX_FETCH_BYTES) {
-    throw new Error("That page is too large to read.");
-  }
-
-  const html = await res.text();
+  const html = page.body.toString("utf8");
   const title = extractHtmlTitle(html);
   const content = htmlToReadableText(html).slice(0, MAX_MATERIAL_CONTENT_LENGTH);
 

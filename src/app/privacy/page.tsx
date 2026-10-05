@@ -32,9 +32,10 @@ export default function PrivacyPage() {
         <header>
           <p className="eyebrow">Legal</p>
           <h1 className="mt-2 font-display text-3xl font-semibold text-ink sm:text-4xl">Privacy policy</h1>
-          <p className="mt-1 text-xs text-ink-faint">Last updated October 2, 2026</p>
+          <p className="mt-1 text-xs text-ink-faint">Last updated October 5, 2026</p>
           <p className="mt-4">
-            Campus OS is a personal academic organizer. It pulls your classes and assignments from Canvas, reads
+            Campus OS is a personal academic organizer. It pulls your classes and assignments from your school&apos;s
+            learning system (Canvas, Schoology, D2L Brightspace or Blackboard), reads
             school-related email from Gmail if you connect it, and turns lecture recordings into notes. This page
             covers what it stores, which outside services see your data, and how to delete it.
           </p>
@@ -51,6 +52,17 @@ export default function PrivacyPage() {
               (encrypted), your courses, assignments, due dates and submission status, and the text of course files,
               pages and syllabi it imports. Files you upload yourself keep only their text; the file is deleted once
               the text is read.
+            </li>
+            <li>
+              <strong className="text-ink">Schoology, if you connect it:</strong> your Schoology address and API key
+              and secret (encrypted), your Schoology user ID and time zone, your courses, assignments, due dates,
+              whether you&apos;ve turned work in, which work is graded, and the text of course files and pages it
+              imports.
+            </li>
+            <li>
+              <strong className="text-ink">Brightspace or Blackboard, if you connect one:</strong> your calendar link
+              (encrypted, since it works like a password for your calendar), and the classes, due dates and exams on
+              that calendar, with any class names you change.
             </li>
             <li>
               <strong className="text-ink">Gmail, if you connect it:</strong> read-only access tokens (encrypted). Each
@@ -112,8 +124,9 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong className="text-ink">Google (Gmail)</strong> and <strong className="text-ink">your school&apos;s
-              Canvas</strong> are where your data comes from. Campus OS only reads from them. It can&apos;t send,
-              delete or change your email, or change anything in Canvas.
+              learning system</strong> (Canvas, Schoology, Brightspace or Blackboard) are where your data comes from.
+              Campus OS only reads from them. It can&apos;t send, delete or change your email, or change anything in
+              your courses.
             </li>
           </ul>
           <p>Campus OS doesn&apos;t sell your data, show ads, or use your data to train AI models.</p>
@@ -151,15 +164,22 @@ export default function PrivacyPage() {
               .
             </li>
             <li>
-              <strong className="text-ink">Canvas only:</strong> Canvas → Disconnect deletes the stored token. Delete
-              the token in Canvas as well, under Account → Settings → Approved Integrations.
+              <strong className="text-ink">Canvas only:</strong> Connect → Canvas → Disconnect deletes the stored token.
+              Delete the token in Canvas as well, under Account → Settings → Approved Integrations.
+            </li>
+            <li>
+              <strong className="text-ink">Schoology, Brightspace or Blackboard only:</strong> Connect → that system →
+              Disconnect deletes the stored key or calendar link. To stop the key or link working entirely, reset your
+              API key on Schoology&apos;s /api page, or turn off or reset calendar sharing in Brightspace or Blackboard.
+              Classes and assignments already brought in stay in Campus OS until you delete them or your account.
             </li>
           </ul>
         </Section>
 
         <Section title="Security">
           <p>
-            Passwords are hashed with bcrypt. Canvas and Gmail tokens are encrypted with AES-256-GCM. Sessions are
+            Passwords are hashed with bcrypt. Canvas tokens, Schoology keys, calendar links and Gmail tokens are
+            encrypted with AES-256-GCM. Sessions are
             stored as keyed hashes, so a copy of the database alone can&apos;t sign anyone in. All traffic uses HTTPS.
           </p>
         </Section>
