@@ -32,6 +32,8 @@ export function SubscribePanel({ webPrices }: { webPrices: Record<Plan, string |
   const router = useRouter();
   const [inApp, setInApp] = useState(false);
   const [storeReady, setStoreReady] = useState<boolean | null>(null);
+  // An app build from before in-app purchase, which can't sell at all.
+  const [outdatedApp, setOutdatedApp] = useState(false);
   const [applePrices, setApplePrices] = useState<Partial<Record<Plan, string>>>({});
   const [message, setMessage] = useState<{ tone: "error" | "info"; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
@@ -40,6 +42,7 @@ export function SubscribePanel({ webPrices }: { webPrices: Record<Plan, string |
     if (!isNativeApp()) return;
     setInApp(true);
     if (!hasNativePlugin("NativeStore")) {
+      setOutdatedApp(true);
       setStoreReady(false);
       return;
     }
@@ -126,9 +129,12 @@ export function SubscribePanel({ webPrices }: { webPrices: Record<Plan, string |
 
       {unavailable ? (
         <p className="rounded-xl2 bg-surface-2 px-4 py-3 text-sm text-ink-soft">
-          {inApp
-            ? "Subscriptions aren't available in this version of the app yet. Update Campus OS from the App Store, or subscribe on the Campus OS website."
-            : "Subscriptions aren't available yet. Check back soon."}
+          {/* In the app, never point to another way to pay (App Store guideline 3.1.1). */}
+          {!inApp
+            ? "Subscriptions aren't available yet. Check back soon."
+            : outdatedApp
+              ? "Update Campus OS from the App Store to subscribe."
+              : "The App Store isn't offering subscriptions right now. Try again in a little while."}
         </p>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
