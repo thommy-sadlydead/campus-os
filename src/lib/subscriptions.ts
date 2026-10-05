@@ -8,7 +8,13 @@ import {
   type AppleRenewalInfo,
   type AppleTransaction,
 } from "@/lib/apple-iap";
-import { planForStripePrice, stripePeriodEnd, stripeStatus, type StripeSubscription } from "@/lib/stripe";
+import {
+  planForStripePrice,
+  stripeCancellation,
+  stripePeriodEnd,
+  stripeStatus,
+  type StripeSubscription,
+} from "@/lib/stripe";
 
 // Turns what Stripe and Apple report into Subscription rows, attached to
 // the right account. Called from the webhooks and from the iPhone app's
@@ -54,8 +60,9 @@ export async function recordAppleTransaction(
 export async function recordStripeSubscription(sub: StripeSubscription, userId?: string | null): Promise<void> {
   const status = stripeStatus(sub.status);
   const plan = planForStripePrice(sub.items.data[0]?.price.id);
-  const currentPeriodEnd = stripePeriodEnd(sub);
-  if (!status || !plan || !currentPeriodEnd) return;
+  const periodEnd = stripePeriodEnd(sub);
+  if (!status || !plan || !periodEnd) return;
+  const { cancelAtPeriodEnd, accessEnds } = stripeCancellation(sub, periodEnd);
 
   const owner =
     userId ?? sub.metadata?.userId ??
@@ -73,7 +80,7 @@ export async function recordStripeSubscription(sub: StripeSubscription, userId?:
     externalId: sub.id,
     plan,
     status,
-    currentPeriodEnd,
-    cancelAtPeriodEnd: sub.cancel_at_period_end,
+    currentPeriodEnd: accessEnds,
+    cancelAtPeriodEnd,
   });
 }

@@ -86,6 +86,9 @@ export interface StripeSubscription {
   status: string;
   customer: string;
   cancel_at_period_end: boolean;
+  // A scheduled cancellation. Newer API versions (and the customer portal)
+  // set this, at the period end, instead of cancel_at_period_end.
+  cancel_at?: number | null;
   // Top-level before Stripe's 2025-03-31 API version, per item after it.
   current_period_end?: number;
   items: { data: Array<{ price: { id: string }; current_period_end?: number }> };
@@ -114,6 +117,18 @@ export function stripeStatus(status: string): SubscriptionStatus | null {
 export function stripePeriodEnd(sub: StripeSubscription): Date | null {
   const seconds = sub.current_period_end ?? sub.items.data[0]?.current_period_end;
   return seconds ? new Date(seconds * 1000) : null;
+}
+
+/**
+ * Whether a subscription is set to end instead of renewing, and when
+ * access ends: the period end, or an earlier cancel_at.
+ */
+export function stripeCancellation(sub: StripeSubscription, periodEnd: Date): { cancelAtPeriodEnd: boolean; accessEnds: Date } {
+  const cancelAt = sub.cancel_at ? new Date(sub.cancel_at * 1000) : null;
+  return {
+    cancelAtPeriodEnd: sub.cancel_at_period_end || cancelAt !== null,
+    accessEnds: cancelAt && cancelAt < periodEnd ? cancelAt : periodEnd,
+  };
 }
 
 export function stripePriceId(plan: Plan): string | undefined {

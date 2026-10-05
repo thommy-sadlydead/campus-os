@@ -1,6 +1,13 @@
 import crypto from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { encodeStripeParams, stripePeriodEnd, stripeStatus, verifyStripeSignature, type StripeSubscription } from "@/lib/stripe";
+import {
+  encodeStripeParams,
+  stripeCancellation,
+  stripePeriodEnd,
+  stripeStatus,
+  verifyStripeSignature,
+  type StripeSubscription,
+} from "@/lib/stripe";
 
 describe("encodeStripeParams", () => {
   it("encodes nested objects and arrays the way Stripe expects", () => {
@@ -63,3 +70,22 @@ describe("stripePeriodEnd", () => {
     expect(stripePeriodEnd(sub)?.getTime()).toBe(1_800_000_000_000);
   });
 });
+
+describe("stripeCancellation", () => {
+  const base: StripeSubscription = { id: "sub_1", status: "active", customer: "cus_1", cancel_at_period_end: false, items: { data: [] } };
+  const periodEnd = new Date(1_800_000_000_000);
+
+  it("renews when nothing is scheduled", () => {
+    expect(stripeCancellation(base, periodEnd)).toEqual({ cancelAtPeriodEnd: false, accessEnds: periodEnd });
+  });
+
+  it("ends at the period end with cancel_at_period_end (older API versions)", () => {
+    expect(stripeCancellation({ ...base, cancel_at_period_end: true }, periodEnd).cancelAtPeriodEnd).toBe(true);
+  });
+
+  it("ends at cancel_at, which the customer portal sets in newer API versions", () => {
+    expect(stripeCancellation({ ...base, cancel_at: 1_800_000_000 }, periodEnd)).toEqual({ cancelAtPeriodEnd: true, accessEnds: periodEnd });
+    expect(stripeCancellation({ ...base, cancel_at: 1_700_000_000 }, periodEnd).accessEnds).toEqual(new Date(1_700_000_000_000));
+  });
+});
+
