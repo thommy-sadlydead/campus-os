@@ -15,9 +15,24 @@ export function stripeConfigured(): boolean {
 }
 
 export class StripeError extends Error {
-  constructor(message: string, readonly status: number) {
+  constructor(
+    message: string,
+    readonly status: number,
+    /** Stripe's error code and the parameter it's about, e.g. "resource_missing" and "customer". */
+    readonly code?: string,
+    readonly param?: string
+  ) {
     super(message);
   }
+}
+
+/**
+ * The customer ID doesn't exist in this Stripe mode: saved while test keys
+ * were in use, then the site switched to live keys (or the customer was
+ * deleted in the dashboard).
+ */
+export function isMissingCustomer(err: unknown): boolean {
+  return err instanceof StripeError && err.code === "resource_missing" && err.param === "customer";
 }
 
 /** Stripe's form encoding: nested objects and arrays become key[a][0][b]=value. */
@@ -50,8 +65,10 @@ export async function stripeRequest<T>(
     body: method === "POST" ? query : undefined,
     cache: "no-store",
   });
-  const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
-  if (!res.ok) throw new StripeError(body?.error?.message ?? `Stripe returned ${res.status}.`, res.status);
+  const body = (await res.json().catch(() => null)) as { error?: { message?: string; code?: string; param?: string } } | null;
+  if (!res.ok) {
+    throw new StripeError(body?.error?.message ?? `Stripe returned ${res.status}.`, res.status, body?.error?.code, body?.error?.param);
+  }
   return body as T;
 }
 

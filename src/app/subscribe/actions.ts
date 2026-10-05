@@ -12,7 +12,7 @@ import {
   paymentsEnabled,
   requestOrigin,
 } from "@/lib/billing-server";
-import { stripeConfigured, stripePriceId, stripeRequest } from "@/lib/stripe";
+import { isMissingCustomer, stripeConfigured, stripePriceId, stripeRequest } from "@/lib/stripe";
 import { recordAppleTransaction } from "@/lib/subscriptions";
 import { AppleJwsError } from "@/lib/apple-iap";
 
@@ -33,27 +33,36 @@ export async function startCheckoutAction(plan: Plan): Promise<BillingActionResu
   }
   if (current?.source === "stripe") return openBillingPortalAction();
 
+  const newCustomer = async () => {
+    const customer = await stripeRequest<{ id: string }>("POST", "/customers", {
+      email: user.email,
+      metadata: { userId: user.id },
+    });
+    await prisma.user.update({ where: { id: user.id }, data: { stripeCustomerId: customer.id } });
+    return customer.id;
+  };
+
   let url: string;
   try {
-    let customerId = user.stripeCustomerId;
-    if (!customerId) {
-      const customer = await stripeRequest<{ id: string }>("POST", "/customers", {
-        email: user.email,
-        metadata: { userId: user.id },
-      });
-      customerId = customer.id;
-      await prisma.user.update({ where: { id: user.id }, data: { stripeCustomerId: customerId } });
-    }
     const origin = await requestOrigin();
-    const session = await stripeRequest<{ url: string }>("POST", "/checkout/sessions", {
-      mode: "subscription",
-      customer: customerId,
-      client_reference_id: user.id,
-      line_items: [{ price: stripePriceId(plan), quantity: 1 }],
-      subscription_data: { metadata: { userId: user.id } },
-      success_url: `${origin}/account?subscribed=1`,
-      cancel_url: `${origin}/subscribe`,
-    });
+    const openCheckout = (customerId: string) =>
+      stripeRequest<{ url: string }>("POST", "/checkout/sessions", {
+        mode: "subscription",
+        customer: customerId,
+        client_reference_id: user.id,
+        line_items: [{ price: stripePriceId(plan), quantity: 1 }],
+        subscription_data: { metadata: { userId: user.id } },
+        success_url: `${origin}/account?subscribed=1`,
+        cancel_url: `${origin}/subscribe`,
+      });
+    let session: { url: string };
+    try {
+      session = await openCheckout(user.stripeCustomerId ?? (await newCustomer()));
+    } catch (err) {
+      // A customer saved under Stripe's test keys doesn't exist with the live ones.
+      if (!isMissingCustomer(err)) throw err;
+      session = await openCheckout(await newCustomer());
+    }
     url = session.url;
   } catch (err) {
     console.error("Stripe checkout failed:", err);
@@ -75,6 +84,7 @@ export async function openBillingPortalAction(): Promise<BillingActionResult> {
     });
     url = session.url;
   } catch (err) {
+    if (isMissingCustomer(err)) return { error: "There's no website subscription to manage." };
     console.error("Stripe billing portal failed:", err);
     return { error: "Couldn't open billing. Try again in a moment." };
   }

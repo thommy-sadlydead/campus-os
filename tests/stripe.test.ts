@@ -2,6 +2,8 @@ import crypto from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
   encodeStripeParams,
+  isMissingCustomer,
+  StripeError,
   stripeCancellation,
   stripePeriodEnd,
   stripeStatus,
@@ -86,6 +88,18 @@ describe("stripeCancellation", () => {
   it("ends at cancel_at, which the customer portal sets in newer API versions", () => {
     expect(stripeCancellation({ ...base, cancel_at: 1_800_000_000 }, periodEnd)).toEqual({ cancelAtPeriodEnd: true, accessEnds: periodEnd });
     expect(stripeCancellation({ ...base, cancel_at: 1_700_000_000 }, periodEnd).accessEnds).toEqual(new Date(1_700_000_000_000));
+  });
+});
+
+describe("isMissingCustomer", () => {
+  it("spots a customer ID that doesn't exist in this Stripe mode", () => {
+    expect(isMissingCustomer(new StripeError("No such customer: 'cus_123'", 400, "resource_missing", "customer"))).toBe(true);
+  });
+
+  it("ignores other errors", () => {
+    expect(isMissingCustomer(new StripeError("No such price: 'price_1'", 400, "resource_missing", "line_items[0][price]"))).toBe(false);
+    expect(isMissingCustomer(new StripeError("Your card was declined.", 402, "card_declined"))).toBe(false);
+    expect(isMissingCustomer(new Error("network down"))).toBe(false);
   });
 });
 
