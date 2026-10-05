@@ -16,8 +16,10 @@ There is **no dev/prod split**. `DATABASE_URL` (Prisma Postgres) points at
 the *same* real database Reece's deployed app uses, whether you're running
 `npm run dev` locally or not. There are no `prisma/migrations/` — schema
 changes go out via `npx prisma db push`, and **`npm run build` runs
-`prisma db push --skip-generate && next build`**, so a normal build applies
-pending schema changes to production automatically. Real users exist in
+`next build`, then `prisma/pre-push.sql`, then `prisma db push
+--skip-generate`**, so a normal build applies pending schema changes to
+production automatically (compiling first means a build that fails to
+compile never touches the database). Real users exist in
 this database today (`reecebroderick@cedarville.edu` is the primary one,
 plus a few others) with real Canvas-synced data. Treat any schema change or
 data-touching script accordingly — verify against a throwaway class/record
@@ -27,7 +29,19 @@ when possible, not by mutating a real user's rows directly, and always run
 If a `db push` reports a possible data-loss warning, don't reflexively add
 `--accept-data-loss` — check what it actually means first (e.g. a new
 nullable column can never lose data even though Prisma warns generically
-about any new unique constraint).
+about any new unique constraint). Non-interactive `db push` (the Vercel
+build) *fails* on those warnings, so a unique index on a table that already
+has rows goes in **`prisma/pre-push.sql`** instead: idempotent SQL the build
+runs first, creating the index under the exact name Prisma would use, so
+`db push` then finds nothing to do. Get the name and SQL from `npx prisma
+migrate diff --from-schema-datamodel <old schema> --to-schema-datamodel
+prisma/schema.prisma --script`, and before shipping, run the whole build
+against a local copy of the current schema with rows in it (old schema →
+`db push`, insert data, then `npm run build` with `DATABASE_URL` pointed at
+it) and confirm `prisma migrate diff --from-url … --exit-code` is clean
+afterwards. Remember the old deployment keeps serving while the build runs,
+so a schema change must not break the code that's live (dropping a column
+it reads, say) — make it additive, or tolerate a short window.
 
 ## Tech stack
 
@@ -52,7 +66,7 @@ session cookies, no third-party auth.
 - **Minimal dependencies, hand-roll small things.** PDF/OOXML/EPUB parsing
   uses `unpdf`/`jszip`/regex extraction instead of full parser libraries;
   bounded-concurrency work uses a ~15-line hand-rolled worker pool
-  (`mapWithConcurrency` in `canvas-materials-sync.ts`), not a new `p-limit`
+  (`mapWithConcurrency` in `materials-sync.ts`), not a new `p-limit`
   dependency. Ask "does the codebase already do something like this?"
   before reaching for a new package.
 - **Server Actions catch their own errors and return `{error: string} |
@@ -109,8 +123,8 @@ session cookies, no third-party auth.
 - **Long-running work is a bounded status machine + client polling, not a
   background job queue.** There's no Redis/queue/cron in this app. Both the
   `Lecture` model (`UPLOADED → TRANSCRIBING → GENERATING_NOTES →
-  READY/FAILED`) and `CanvasSyncCourseState`
-  (`PENDING → DISCOVERING → DOWNLOADING → READY/PARTIAL/FAILED`) follow
+  READY/FAILED`) and `MaterialSyncState` (table `CanvasSyncCourseState`;
+  `PENDING → DISCOVERING → DOWNLOADING → READY/PARTIAL/FAILED`) follow
   this shape: a server action advances the state by one small bounded chunk
   and returns immediately; the client re-invokes it on an interval until
   every tracked item reaches a terminal state. Lectures also advance
@@ -135,13 +149,33 @@ session cookies, no third-party auth.
 
 ## Key files by area
 
+- **LMS sync, shared by every provider** (`src/lib/lms/`): `apply.ts`
+  writes what an LMS reported into the student's classes/assignments/exams
+  (`applyLmsCourses`), `status.ts` decides an assignment's status from the
+  student's own submission (pure, tested), `report.ts` is the per-sync
+  report shown on the connect page, `exams.ts` the exam-name rules,
+  `providers.ts` the provider list and "Open in Canvas" links.
+  - **LMS ids are per account, never global.** A class is unique on
+    (userId, lmsProvider, lmsCourseId) and an assignment/exam on
+    (classId, lmsItemId). Until October 2026 `canvasCourseId` and
+    `canvasAssignmentId` were globally `@unique`, so a classmate's sync
+    updated the first student's class (and marked their work submitted)
+    instead of making their own: students were missing every class they
+    shared with an earlier user. Don't reintroduce a global unique on an
+    external id. The columns keep their Canvas-era names via `@map`.
+  - One course failing must not stop the rest: each course is fetched and
+    written on its own, and a course whose assignments couldn't load keeps
+    what's stored (`assignments: null`) and says why in the report.
 - **Canvas**: `canvas.ts` (REST client: pagination via `Link` header,
   retry/backoff on 429/5xx, never on 401/403/404) → `canvas-sync.ts`
-  (course/assignment sync, shared by the in-app action and
-  `scripts/sync-canvas.ts`) and `canvas-materials.ts` +
-  `canvas-materials-sync.ts` (materials discovery/dedup/incremental sync
-  across Files/Modules/Pages/Assignments/Syllabus — the bulk of the recent
-  work; see its own extensive module comments).
+  (turns Canvas courses, assignments and calendar exams into
+  `applyLmsCourses` input; shared by the in-app action and
+  `scripts/sync-canvas.ts`), and `canvas-materials.ts` +
+  `canvas-materials-sync.ts` (materials discovery across
+  Files/Modules/Pages/Assignments/Syllabus — see its own extensive module
+  comments) on top of `materials-sync.ts` (the provider-neutral materials
+  engine: planning, `upsertMaterial`, OCR fallback, the per-course status
+  machine).
 - **Documents**: `office-text.ts` (PDF/PPTX/DOCX/EPUB text extraction) →
   `pdf-ocr.ts` (fallback when a PDF has no text layer — sends the whole PDF
   to Claude as a native `document` content block; **do not** reintroduce
@@ -189,7 +223,7 @@ session cookies, no third-party auth.
 ## Verifying a change before calling it done
 
 1. `npx tsc --noEmit` (after `npx prisma generate` if the schema changed)
-2. `npx vitest run` — 273 tests as of this writing across 23 files
+2. `npx vitest run` — 302 tests as of this writing across 26 files
 3. Clean build: `rm -rf .next && npx next build` (use `next build` directly
    to skip the `db push` the `npm run build` script triggers, if you're not
    ready to push schema changes yet)
@@ -215,10 +249,11 @@ Two known-good workarounds, both used this session:
   set up, so tests importing these modules work normally.
 - For a one-off standalone script (e.g. to run the Canvas sync engine
   directly against real data without going through the browser), the
-  functions in `canvas-materials-sync.ts` (`queueCourseMaterialSync`,
-  `advanceCanvasMaterialSync`, `processCourseChunk`,
-  `discoverCourseResources`) all take a `PrismaClient` + `CanvasConfig` as
-  plain arguments and don't need the Next.js request context — you just
+  functions in `materials-sync.ts` (`queueCourseMaterialSync`,
+  `advanceMaterialSync`, `processCourseChunk`) and `canvas-materials-sync.ts`
+  (`canvasMaterialsSource`, `discoverCourseResources`) all take a
+  `PrismaClient` + `CanvasConfig` as plain arguments and don't need the
+  Next.js request context — you just
   need the `server-only` import itself to not throw for the duration of
   the script. Temporarily swap `node_modules/server-only/index.js`'s
   content for `module.exports = {};`, run the script, then restore the

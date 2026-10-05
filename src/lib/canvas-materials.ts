@@ -1,7 +1,8 @@
-// Pure logic for Canvas materials discovery/sync — classification, dedup,
-// and the incremental-sync diff decision. Kept free of any Canvas API
-// calls or Prisma access (those live in canvas.ts and
-// canvas-materials-sync.ts) specifically so this stays unit-testable the
+// Pure logic for materials discovery/sync — classification, dedup, and the
+// incremental-sync diff decision. Written for Canvas and shared with
+// Schoology (schoology-materials.ts). Kept free of any LMS API calls or
+// Prisma access (those live in canvas.ts, materials-sync.ts and the
+// providers' discovery code) specifically so this stays unit-testable the
 // same way the rest of src/lib's pure logic is (see tests/canvas-materials.test.ts).
 import crypto from "node:crypto";
 
@@ -11,9 +12,9 @@ export type MaterialType = "BOOK" | "SLIDES" | "SYLLABUS" | "NOTES";
 // "file" covers anything file-backed regardless of whether it was
 // discovered via the Files list, a Module item, a Page's body, an
 // assignment description, or the syllabus — a file found through two of
-// those collapses into one "file" entry with the same canvasResourceId
-// (the Canvas file id) either way, which is what makes cross-source
-// dedup automatic rather than a special case.
+// those collapses into one "file" entry with the same resourceId (the
+// Canvas file id) either way, which is what makes cross-source dedup
+// automatic rather than a special case.
 export type ResourceType = "file" | "page" | "syllabus" | "external";
 
 export interface ClassificationInput {
@@ -115,7 +116,7 @@ export function classifyResource(input: ClassificationInput): ClassificationResu
 /**
  * The stable dedup identity for a discovered resource — "canvas_account +
  * course_id + canvas_file_id" from the spec, adapted: classId already maps
- * 1:1 to a Canvas course, so (classId, canvasResourceId) alone is enough;
+ * 1:1 to a Canvas course, so (classId, resourceId) alone is enough;
  * see the @@unique on ClassMaterial. Non-file resources get a synthetic
  * but still stable id, since Canvas gives them no file id at all.
  */
@@ -141,20 +142,21 @@ export function deriveCanvasResourceId(input: {
 }
 
 export interface DiscoveredResource {
-  canvasResourceId: string;
+  /** Stable within the course: ClassMaterial.lmsResourceId. */
+  resourceId: string;
   resourceType: ResourceType;
   title: string;
   filename: string;
   contentType?: string;
   size?: number;
-  updatedAt: string | null; // Canvas's ISO updated_at, or null when Canvas gives none (e.g. an external link)
+  updatedAt: string | null; // the LMS's ISO last-modified time, or null when it gives none (e.g. an external link)
   sourceUrl: string;
 }
 
 /**
- * Collapses resources discovered through more than one Canvas location
+ * Collapses resources discovered through more than one LMS location
  * (Files + a Module item pointing at the same file, most commonly) into
- * one entry per canvasResourceId — this is what makes "same file
+ * one entry per resourceId — this is what makes "same file
  * referenced from Files and Modules" import exactly once. When two
  * discoveries share an id, the one with richer metadata (content-type,
  * size — present from the Files endpoint, absent from a bare file-id
@@ -163,17 +165,17 @@ export interface DiscoveredResource {
 export function dedupeDiscovered(resources: DiscoveredResource[]): DiscoveredResource[] {
   const byId = new Map<string, DiscoveredResource>();
   for (const resource of resources) {
-    const existing = byId.get(resource.canvasResourceId);
+    const existing = byId.get(resource.resourceId);
     if (!existing || (!existing.contentType && resource.contentType)) {
-      byId.set(resource.canvasResourceId, resource);
+      byId.set(resource.resourceId, resource);
     }
   }
   return [...byId.values()];
 }
 
 export interface ExistingMaterialRecord {
-  canvasResourceId: string;
-  canvasUpdatedAt: Date | null;
+  resourceId: string;
+  lmsUpdatedAt: Date | null;
   // Optional so callers that never track it (e.g. a hand-built test
   // fixture) don't have to pass it — undefined is treated the same as any
   // non-"MISSING" status.
@@ -195,15 +197,15 @@ export interface SyncPlan {
  * future synchronization use the same underlying sync engine" means here.
  */
 export function planSync(existing: ExistingMaterialRecord[], discovered: DiscoveredResource[]): SyncPlan {
-  const existingById = new Map(existing.map((e) => [e.canvasResourceId, e]));
-  const discoveredIds = new Set(discovered.map((d) => d.canvasResourceId));
+  const existingById = new Map(existing.map((e) => [e.resourceId, e]));
+  const discoveredIds = new Set(discovered.map((d) => d.resourceId));
 
   const toCreate: DiscoveredResource[] = [];
   const toUpdate: DiscoveredResource[] = [];
   const toSkip: DiscoveredResource[] = [];
 
   for (const resource of discovered) {
-    const prior = existingById.get(resource.canvasResourceId);
+    const prior = existingById.get(resource.resourceId);
     if (!prior) {
       toCreate.push(resource);
       continue;
@@ -212,15 +214,15 @@ export function planSync(existing: ExistingMaterialRecord[], discovered: Discove
       // It disappeared from a previous sync and has now reappeared —
       // always reprocess rather than trusting a timestamp comparison
       // against a record that's been stale since whenever it first went
-      // missing (its canvasUpdatedAt reflects the last time it was
+      // missing (its lmsUpdatedAt reflects the last time it was
       // actually seen, not "unchanged since").
       toUpdate.push(resource);
       continue;
     }
-    const priorTime = prior.canvasUpdatedAt?.getTime() ?? 0;
+    const priorTime = prior.lmsUpdatedAt?.getTime() ?? 0;
     const newTime = resource.updatedAt ? new Date(resource.updatedAt).getTime() : NaN;
     // No reliable timestamp to compare (e.g. an external link, which has
-    // no Canvas-side updated_at) — treat as unchanged rather than
+    // no LMS-side updated_at) — treat as unchanged rather than
     // re-processing it every single sync.
     if (Number.isNaN(newTime) || newTime <= priorTime) {
       toSkip.push(resource);
@@ -229,7 +231,7 @@ export function planSync(existing: ExistingMaterialRecord[], discovered: Discove
     }
   }
 
-  const toMarkMissing = existing.map((e) => e.canvasResourceId).filter((id) => !discoveredIds.has(id));
+  const toMarkMissing = existing.map((e) => e.resourceId).filter((id) => !discoveredIds.has(id));
 
   return { toCreate, toUpdate, toSkip, toMarkMissing };
 }

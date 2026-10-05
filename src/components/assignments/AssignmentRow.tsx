@@ -7,6 +7,7 @@ import { breakdownAssignmentAction, deleteTaskAction } from "@/app/assignments/a
 import { formatDueLabel, formatMinutes } from "@/lib/time";
 import { stripHtml } from "@/lib/text";
 import { ASSIGNMENT_STATUS_LABEL, type AssignmentStatus } from "@/lib/assignment-status";
+import type { LmsLink } from "@/lib/lms/providers";
 import { assignmentGridColumns } from "./assignment-grid";
 import { CheckIcon, ChevronRightIcon, ExternalIcon, SparkIcon, XIcon } from "@/components/icons";
 
@@ -26,10 +27,10 @@ export interface AssignmentRowData {
   estimatedMinutes: number | null;
   status: AssignmentRowStatus;
   tasks: AssignmentRowTask[];
-  /** Raw HTML from Canvas, or null (added by hand / not synced). Rendered with stripHtml(). */
+  /** Raw HTML from the LMS, or null (added by hand, or the LMS gave none). Rendered with stripHtml(). */
   description: string | null;
-  /** "See in Canvas" link, or null when this assignment has no known Canvas id. */
-  canvasUrl: string | null;
+  /** "Open in Canvas" link, or null when the assignment didn't come from an LMS (or it gave no link). */
+  lmsLink: LmsLink | null;
 }
 
 export const ASSIGNMENT_STATUS_TONE: Record<AssignmentRowStatus, string> = {
@@ -44,7 +45,7 @@ export const ASSIGNMENT_STATUS_TONE: Record<AssignmentRowStatus, string> = {
  * Shared by the Assignments page and each class's Assignments tab (pass
  * `classLabel` on the former to show which class it's for).
  *
- * Opening it shows the real Canvas directions, a "See in Canvas" link,
+ * Opening it shows the LMS's directions, an "Open in Canvas" link,
  * Mark as done, and its steps. "Break down with AI" creates steps
  * (breakdownAssignmentAction); checking one off is the same
  * toggleWorkItemAction the dashboard uses, and steps can be deleted.
@@ -164,17 +165,20 @@ export function AssignmentRow({
           <div className="mb-3">
             <div className="eyebrow mb-1">Directions</div>
             <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink-soft">
-              {description || "No directions for this assignment in Canvas."}
+              {description ||
+                (assignment.lmsLink
+                  ? `No directions here. Open it in ${assignment.lmsLink.name} for the details.`
+                  : "No directions for this assignment.")}
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
-              {assignment.canvasUrl && (
+              {assignment.lmsLink && (
                 <a
-                  href={assignment.canvasUrl}
+                  href={assignment.lmsLink.url}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 text-sm font-medium text-accent-ink hover:underline"
                 >
-                  See in Canvas
+                  Open in {assignment.lmsLink.name}
                   <ExternalIcon className="h-3.5 w-3.5" />
                 </a>
               )}

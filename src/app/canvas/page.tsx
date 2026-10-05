@@ -8,6 +8,8 @@ import { MaterialSyncPanel } from "@/components/canvas/MaterialSyncPanel";
 import { disconnectCanvasAction } from "@/app/canvas/actions";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { CardHeader } from "@/components/ui/CardHeader";
+import { SyncReportCard } from "@/components/connect/SyncReportCard";
+import { parseReport } from "@/lib/lms/report";
 import { CheckCircleIcon, LayersIcon } from "@/components/icons";
 
 // continueCanvasMaterialSyncAction (invoked from MaterialSyncPanel) can now
@@ -106,6 +108,8 @@ export default async function CanvasPage() {
           assignments instead of duplicating them.
         </p>
       </div>
+
+      <SyncReportCard report={parseReport(account.lastSyncReport)} lmsName="Canvas" tz={user.timezone} />
 
       <MaterialSyncPanel />
     </AppShell>

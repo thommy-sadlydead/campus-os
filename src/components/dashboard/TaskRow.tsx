@@ -5,6 +5,7 @@ import { toggleWorkItemAction } from "@/app/dashboard/actions";
 import { formatMinutes } from "@/lib/time";
 import { stripHtml } from "@/lib/text";
 import type { PriorityColor } from "@/lib/priority-engine";
+import type { LmsLink } from "@/lib/lms/providers";
 import { CheckIcon, ChevronDownIcon, ClockIcon, ExternalIcon } from "@/components/icons";
 
 const DOT_CLASS: Record<PriorityColor, string> = {
@@ -24,15 +25,15 @@ export function TaskRow(props: {
   dueLabel: string;
   estimatedMinutes: number | null;
   reason: string;
-  /** Raw HTML from Canvas (rendered with stripHtml()), or null. For a "task" this is the parent assignment's description. */
+  /** Raw HTML from the LMS (rendered with stripHtml()), or null. For a "task" this is the parent assignment's description. */
   description: string | null;
-  /** "See in Canvas" link, or null when there's no known Canvas assignment id. */
-  canvasUrl: string | null;
+  /** "Open in Canvas" link, or null when the item didn't come from an LMS. */
+  lmsLink: LmsLink | null;
 }) {
   const [pending, startTransition] = useTransition();
   const [expanded, setExpanded] = useState(false);
 
-  const hasDetails = !!props.description || !!props.canvasUrl;
+  const hasDetails = !!props.description || !!props.lmsLink;
   const description = props.description ? stripHtml(props.description) : "";
 
   return (
@@ -80,14 +81,14 @@ export function TaskRow(props: {
         {expanded && hasDetails && (
           <div className="mt-3 rounded-lg border border-border-soft bg-surface-2 p-3">
             {description && <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-ink-soft">{description}</p>}
-            {props.canvasUrl && (
+            {props.lmsLink && (
               <a
-                href={props.canvasUrl}
+                href={props.lmsLink.url}
                 target="_blank"
                 rel="noopener noreferrer"
                 className={`inline-flex items-center gap-1.5 text-[13px] font-medium text-accent-ink hover:underline ${description ? "mt-2" : ""}`}
               >
-                See in Canvas
+                Open in {props.lmsLink.name}
                 <ExternalIcon className="h-3.5 w-3.5" />
               </a>
             )}

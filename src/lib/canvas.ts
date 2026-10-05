@@ -5,11 +5,15 @@
 // request lifecycle.
 import { extractDocumentText } from "./office-text";
 import { MAX_DOCUMENT_FILE_BYTES } from "./lecture-notes";
+import type { LmsSubmission } from "./lms/status";
 
 export interface CanvasCourse {
   id: number;
-  name: string;
-  course_code: string;
+  // Both missing when access_restricted_by_date is set: Canvas then only
+  // says the course exists (a term that hasn't started, or has ended).
+  name?: string;
+  course_code?: string;
+  access_restricted_by_date?: boolean;
 }
 
 export interface CanvasAssignment {
@@ -19,7 +23,20 @@ export interface CanvasAssignment {
   due_at: string | null;
   points_possible: number | null;
   html_url: string;
-  submission?: { workflow_state?: string };
+  // "online_upload", "on_paper", "none", "external_tool", ...
+  submission_types?: string[];
+  // The student's own submission (include[]=submission).
+  submission?: { workflow_state?: string; excused?: boolean | null };
+}
+
+export interface CanvasCalendarEvent {
+  id: number;
+  title: string;
+  start_at: string | null;
+  location_name: string | null;
+  context_code: string; // "course_123"
+  html_url: string;
+  workflow_state?: string; // "active" | "locked" | "deleted"
 }
 
 export interface CanvasConfig {
@@ -121,6 +138,11 @@ export async function fetchActiveCourses(cfg: CanvasConfig): Promise<CanvasCours
   return canvasGetAllPages<CanvasCourse>(cfg, "/api/v1/courses?enrollment_state=active");
 }
 
+/** Courses the student was invited to but hasn't accepted yet; Canvas hides their work until they do. */
+export async function fetchPendingCourses(cfg: CanvasConfig): Promise<CanvasCourse[]> {
+  return canvasGetAllPages<CanvasCourse>(cfg, "/api/v1/courses?enrollment_state=invited_or_pending");
+}
+
 export async function fetchCourseAssignments(cfg: CanvasConfig, courseId: number): Promise<CanvasAssignment[]> {
   return canvasGetAllPages<CanvasAssignment>(
     cfg,
@@ -129,34 +151,98 @@ export async function fetchCourseAssignments(cfg: CanvasConfig, courseId: number
 }
 
 /**
- * Whether a Canvas assignment is an exam, from its name. Plain "final" used
- * to count, which made "Final Draft: Rhetorical Analysis" and "Final
- * Presentation" exams; now it takes "exam", "midterm" or "final exam"
- * ("Final Exam" contains "exam"). Things about an exam that aren't the exam
- * itself (a review, a practice exam, an exam wrapper) don't count.
+ * Calendar events (not assignments) in these courses between two dates:
+ * where professors often put an in-class exam. Canvas takes at most 10
+ * courses per request.
  */
-export function isExamLikeName(name: string): boolean {
-  if (!/\b(exams?|examination|midterms?|mid-terms?)\b/i.test(name)) return false;
-  return !/\b(review|prep|practice|study guide|wrapper|reflection|corrections?)\b/i.test(name);
+export async function fetchCourseCalendarEvents(
+  cfg: CanvasConfig,
+  courseIds: number[],
+  start: Date,
+  end: Date
+): Promise<CanvasCalendarEvent[]> {
+  const events: CanvasCalendarEvent[] = [];
+  for (let i = 0; i < courseIds.length; i += 10) {
+    const contexts = courseIds
+      .slice(i, i + 10)
+      .map((id) => `context_codes[]=course_${id}`)
+      .join("&");
+    events.push(
+      ...(await canvasGetAllPages<CanvasCalendarEvent>(
+        cfg,
+        `/api/v1/calendar_events?type=event&${contexts}&start_date=${start.toISOString()}&end_date=${end.toISOString()}`
+      ))
+    );
+  }
+  return events;
 }
 
-/**
- * The real Canvas URL for an assignment ("See in Canvas"), built from the
- * course/assignment ids we already store for sync idempotency
- * (Class.canvasCourseId, Assignment.canvasAssignmentId /
- * Exam.canvasAssignmentId) rather than a stored URL — one less field to
- * keep in sync, and Canvas's assignment URL shape
- * (`/courses/:course_id/assignments/:assignment_id`) has been stable for
- * years. Returns null (never a guess) when either id is missing — e.g. an
- * assignment added by hand rather than synced from Canvas.
- */
-export function canvasAssignmentUrl(
-  canvasCourseId: string | null | undefined,
-  canvasAssignmentId: string | null | undefined
-): string | null {
-  if (!canvasCourseId || !canvasAssignmentId) return null;
-  const base = (process.env.CANVAS_BASE_URL || "https://cedarville.instructure.com").replace(/\/$/, "");
-  return `${base}/courses/${canvasCourseId}/assignments/${canvasAssignmentId}`;
+// Submission types Canvas records a submission for, so "unsubmitted" really
+// means the student hasn't turned it in (unlike "on_paper" or "none").
+const TRACKED_SUBMISSION_TYPES = new Set([
+  "online_upload",
+  "online_text_entry",
+  "online_url",
+  "online_quiz",
+  "media_recording",
+  "student_annotation",
+  "discussion_topic",
+]);
+
+export function canvasTracksSubmissions(a: CanvasAssignment): boolean {
+  return (a.submission_types ?? []).some((type) => TRACKED_SUBMISSION_TYPES.has(type));
+}
+
+/** What Canvas says about the student's own submission; null when it didn't include one. */
+export function canvasSubmissionState(a: CanvasAssignment): LmsSubmission | null {
+  const submission = a.submission;
+  if (!submission) return null;
+  // Excused: nothing left to do, the same as graded.
+  if (submission.excused) return "graded";
+  switch (submission.workflow_state) {
+    case "graded":
+      return "graded";
+    case "submitted":
+    case "pending_review":
+      return "submitted";
+    case "unsubmitted":
+      return "unsubmitted";
+    default:
+      return null;
+  }
+}
+
+/** A short reason for the sync report when one course's assignments couldn't be loaded. */
+export function describeCanvasCourseError(err: unknown): string {
+  if (err instanceof CanvasApiError) {
+    if (err.status === 401 || err.status === 403) return "Canvas isn't letting students see this course's assignments.";
+    if (err.status === 404) return "Canvas couldn't find this course's assignments.";
+    return `Canvas had a problem loading this course's assignments (error ${err.status}). Sync again later.`;
+  }
+  return "Couldn't reach Canvas for this course. Sync again in a minute.";
+}
+
+/** Why a whole sync failed: Canvas refused the token, couldn't be reached, or something broke partway. */
+export function describeCanvasSyncError(err: unknown): string {
+  if (err instanceof CanvasApiError && err.status === 401) {
+    return "Canvas stopped accepting your access token (it may have expired or been deleted). Disconnect, then connect again with a new token.";
+  }
+  if (err instanceof CanvasApiError) return describeCanvasConnectError(err);
+  if (err instanceof Error && (err instanceof TypeError || err.name === "TimeoutError" || err.name === "AbortError")) {
+    return "Couldn't reach Canvas. Check your connection and sync again.";
+  }
+  return "The sync stopped partway through. Sync again to finish it.";
+}
+
+/** What to tell the student when Canvas won't list their courses at all (the token or the address is wrong). */
+export function describeCanvasConnectError(err: unknown): string {
+  if (err instanceof CanvasApiError) {
+    if (err.status === 401) return "Canvas didn't accept that access token. Make a new one in Canvas and paste it here.";
+    if (err.status === 403) return "Canvas wouldn't let that access token list your courses.";
+    if (err.status === 404) return "That doesn't look like your school's Canvas address. Check the URL you use to open Canvas.";
+    return `Canvas returned an error (${err.status}). Try again in a minute.`;
+  }
+  return "Couldn't reach Canvas at that address. Check the URL and try again.";
 }
 
 export type CanvasUrlClassification =
@@ -186,11 +272,6 @@ export function classifyCanvasUrl(url: URL, canvasBaseUrl: string | undefined): 
   if (url.hostname !== canvasHost) return { kind: "external" };
   const match = url.pathname.match(/\/files\/(\d+)/);
   return match ? { kind: "file", fileId: match[1] } : { kind: "canvas-page" };
-}
-
-export function canvasSubmissionIsDone(a: CanvasAssignment): boolean {
-  const state = a.submission?.workflow_state;
-  return state === "submitted" || state === "graded";
 }
 
 // ---------------------------------------------------------------------------

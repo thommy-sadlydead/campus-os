@@ -2,8 +2,8 @@
 // (the same snapshot the Fall Ledger artifact used) so the app is useful
 // to explore immediately, without needing Canvas credentials first. Once
 // you have a Canvas token, `npm run canvas:sync` takes over as the live
-// source of truth for the same classes (matched by canvasCourseId, so it
-// updates these rows rather than duplicating them).
+// source of truth for the same classes (matched by the account and Canvas
+// course id, so it updates these rows rather than duplicating them).
 //
 // Deliberately does NOT seed any AvailabilityBlock rows — "today's free
 // time" must come from the student, never be invented — so the demo
@@ -15,7 +15,7 @@ import path from "node:path";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { heuristicEstimateMinutes } from "../src/lib/priority-engine";
-import { isExamLikeName } from "../src/lib/canvas";
+import { isExamLikeName } from "../src/lib/lms/exams";
 
 const prisma = new PrismaClient();
 
@@ -44,13 +44,16 @@ async function main() {
   const classByCode: Record<string, { id: string }> = {};
   for (const [code, info] of Object.entries(COURSES)) {
     const cls = await prisma.class.upsert({
-      where: { canvasCourseId: info.canvasCourseId },
+      where: {
+        userId_lmsProvider_lmsCourseId: { userId: user.id, lmsProvider: "canvas", lmsCourseId: info.canvasCourseId },
+      },
       update: { name: info.name, code },
       create: {
         userId: user.id,
         code,
         name: info.name,
-        canvasCourseId: info.canvasCourseId,
+        lmsProvider: "canvas",
+        lmsCourseId: info.canvasCourseId,
         color: info.color,
       },
     });
@@ -76,15 +79,15 @@ async function main() {
     const cls = classByCode[code];
     if (!cls) continue;
 
-    const canvasAssignmentId = String(assignmentId);
+    const lmsItemId = String(assignmentId);
     const estimatedMinutes = heuristicEstimateMinutes({ name, pointsPossible: points });
 
     await prisma.assignment.upsert({
-      where: { canvasAssignmentId },
+      where: { classId_lmsItemId: { classId: cls.id, lmsItemId } },
       update: {},
       create: {
         classId: cls.id,
-        canvasAssignmentId,
+        lmsItemId,
         name,
         dueAt: dueAtIso ? new Date(dueAtIso) : null,
         pointsPossible: points,
@@ -96,11 +99,11 @@ async function main() {
 
     if (isExamLikeName(name)) {
       await prisma.exam.upsert({
-        where: { canvasAssignmentId },
+        where: { classId_lmsItemId: { classId: cls.id, lmsItemId } },
         update: {},
         create: {
           classId: cls.id,
-          canvasAssignmentId,
+          lmsItemId,
           name,
           examAt: dueAtIso ? new Date(dueAtIso) : null,
         },

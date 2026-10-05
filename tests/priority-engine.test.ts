@@ -26,7 +26,7 @@ function item(overrides: Partial<WorkItem>): WorkItem {
     status: "NOT_STARTED",
     isExamLinked: false,
     description: null,
-    canvasUrl: null,
+    lmsLink: null,
     ...overrides,
   };
 }

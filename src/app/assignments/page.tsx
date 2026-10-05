@@ -4,7 +4,7 @@ import { AppShell } from "@/components/AppShell";
 import Link from "next/link";
 import type { AssignmentRowStatus } from "@/components/assignments/AssignmentRow";
 import { AssignmentList } from "@/components/assignments/AssignmentList";
-import { canvasAssignmentUrl } from "@/lib/canvas";
+import { lmsLink } from "@/lib/lms/providers";
 import { PageHeader } from "@/components/ui/PageHeader";
 
 export default async function AssignmentsPage() {
@@ -42,7 +42,7 @@ export default async function AssignmentsPage() {
             status: a.status as AssignmentRowStatus,
             estimatedMinutes: a.estimatedMinutes,
             description: a.description,
-            canvasUrl: canvasAssignmentUrl(a.class.canvasCourseId, a.canvasAssignmentId),
+            lmsLink: lmsLink(a.lmsUrl, a.class.lmsProvider),
             classLabel: a.class.name,
             tasks: a.tasks.map((t) => ({
               id: t.id,

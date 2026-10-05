@@ -7,6 +7,7 @@
 // Prisma -> WorkItem mapping lives in src/lib/workload.ts.
 
 import { hoursUntil, isSameTzDay } from "@/lib/time";
+import type { LmsLink } from "@/lib/lms/providers";
 
 export type WorkStatus = "NOT_STARTED" | "IN_PROGRESS" | "SUBMITTED" | "GRADED" | "DONE";
 
@@ -27,10 +28,10 @@ export interface WorkItem {
   pointsPossible: number | null;
   status: WorkStatus;
   isExamLinked: boolean;
-  /** Raw (HTML) assignment description from Canvas, or null if added by hand / not synced. Render with stripHtml(). */
+  /** Raw (HTML) assignment description from the LMS, or null if added by hand / not synced. Render with stripHtml(). */
   description: string | null;
-  /** "See in Canvas" link, or null when this item has no known Canvas assignment id. */
-  canvasUrl: string | null;
+  /** "Open in Canvas" link, or null when the item didn't come from an LMS (or it gave no link). */
+  lmsLink: LmsLink | null;
 }
 
 export interface PriorityResult {

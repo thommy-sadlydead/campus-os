@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { AppShell } from "@/components/AppShell";
 import { ScheduleAddForm } from "@/components/schedule/ScheduleAddForm";
 import { deleteScheduleEventAction } from "@/app/classes/[id]/actions";
-import { canvasAssignmentUrl } from "@/lib/canvas";
+import { lmsLink, type LmsLink } from "@/lib/lms/providers";
 import { dayKey, formatTzTime } from "@/lib/time";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { ChecklistIcon, ExternalIcon, PencilIcon, XIcon } from "@/components/icons";
@@ -48,7 +48,7 @@ type AgendaEntry =
       className: string;
       color: number;
       timeLabel: string;
-      canvasUrl: string | null;
+      lmsLink: LmsLink | null;
     };
 
 export default async function SchedulePage() {
@@ -101,7 +101,7 @@ export default async function SchedulePage() {
       className: a.class.name,
       color: a.class.color,
       timeLabel: formatTzTime(a.dueAt, user.timezone),
-      canvasUrl: canvasAssignmentUrl(a.class.canvasCourseId, a.canvasAssignmentId),
+      lmsLink: lmsLink(a.lmsUrl, a.class.lmsProvider),
     });
     dueByDayKey.set(key, list);
   }
@@ -118,7 +118,7 @@ export default async function SchedulePage() {
       className: e.class.name,
       color: e.class.color,
       timeLabel: formatTzTime(e.examAt, user.timezone),
-      canvasUrl: canvasAssignmentUrl(e.class.canvasCourseId, e.canvasAssignmentId),
+      lmsLink: lmsLink(e.lmsUrl, e.class.lmsProvider),
     });
     dueByDayKey.set(key, list);
   }
@@ -230,15 +230,15 @@ export default async function SchedulePage() {
                               </span>
                             </p>
                           </div>
-                          {entry.canvasUrl && (
+                          {entry.lmsLink && (
                             <a
-                              href={entry.canvasUrl}
+                              href={entry.lmsLink.url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              aria-label={`Open ${entry.title} in Canvas`}
+                              aria-label={`Open ${entry.title} in ${entry.lmsLink.name}`}
                               className="btn btn-ghost btn-sm flex-none px-2 sm:px-3"
                             >
-                              <span className="hidden sm:inline">Canvas</span>
+                              <span className="hidden sm:inline">{entry.lmsLink.name}</span>
                               <ExternalIcon className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
                             </a>
                           )}

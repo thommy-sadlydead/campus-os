@@ -4,9 +4,11 @@ import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { encryptSecret, decryptSecret } from "@/lib/crypto";
-import { fetchActiveCourses, type CanvasConfig } from "@/lib/canvas";
+import { describeCanvasConnectError, describeCanvasSyncError, fetchActiveCourses, type CanvasConfig } from "@/lib/canvas";
 import { syncCanvasForUser } from "@/lib/canvas-sync";
-import { queueCourseMaterialSync, advanceCanvasMaterialSync, type CourseSyncProgress } from "@/lib/canvas-materials-sync";
+import { canvasMaterialsSource } from "@/lib/canvas-materials-sync";
+import { advanceMaterialSync, queueCourseMaterialSync, type CourseSyncProgress } from "@/lib/materials-sync";
+import { failedReport, summarizeReport, type SyncReport } from "@/lib/lms/report";
 import { hasAiConsent } from "@/lib/ai-consent";
 
 export type { CourseSyncProgress };
@@ -47,13 +49,8 @@ export async function connectCanvasAction(
   try {
     await fetchActiveCourses(cfg);
   } catch (err) {
-    return {
-      error:
-        err instanceof Error
-          ? `Couldn't connect to Canvas: ${err.message}`
-          : "Couldn't connect to Canvas — double check the URL and token.",
-      baseUrl,
-    };
+    console.error("Canvas connect check failed:", err);
+    return { error: describeCanvasConnectError(err), baseUrl };
   }
 
   await prisma.canvasAccount.upsert({
@@ -65,25 +62,43 @@ export async function connectCanvasAction(
   // Kick off the first sync immediately so "Connect" already leaves real
   // data behind, rather than requiring a separate "Sync now" click right
   // after connecting. The connection itself is already saved and verified
-  // above, so a failure here doesn't undo it — it just means the first
-  // sync needs a retry from the Canvas page.
-  try {
-    await syncCanvasForUser(prisma, user.id, cfg);
-    await prisma.canvasAccount.update({ where: { userId: user.id }, data: { lastSyncedAt: new Date() } });
+  // above, so a failure here doesn't undo it: its report says what went
+  // wrong on the Canvas page, and "Sync now" retries.
+  const report = await runCanvasSync(user.id, cfg);
+  if (!report.error) {
     // Classes now exist — queue each one for a materials sync (books,
     // slides, syllabi). This only creates PENDING tracking rows; it does
     // NOT itself do any discovery or downloading, so it returns
     // immediately and doesn't block the connect request. The client starts
     // polling continueCanvasMaterialSyncAction right after connect
     // succeeds (see MaterialSyncPanel) to actually advance it.
-    await queueCourseMaterialSync(prisma, user.id);
-  } catch {
-    // Surfaced on the Canvas page via "Never synced yet" — not a reason to
-    // fail the connect step, since the credential itself is good.
+    await queueCourseMaterialSync(prisma, user.id, "canvas").catch((err) =>
+      console.error("Canvas materials couldn't be queued:", err)
+    );
   }
 
   revalidateSyncedPages();
   return undefined;
+}
+
+/**
+ * Syncs and saves what the sync found on the account, for the Canvas
+ * page. Never throws: a failed sync is a report with an error, and the
+ * last good sync time stays.
+ */
+async function runCanvasSync(userId: string, cfg: CanvasConfig): Promise<SyncReport> {
+  let report: SyncReport;
+  try {
+    report = await syncCanvasForUser(prisma, userId, cfg);
+  } catch (err) {
+    console.error(`Canvas sync failed for user ${userId}:`, err);
+    report = failedReport("canvas", new Date(), describeCanvasSyncError(err));
+  }
+  await prisma.canvasAccount.update({
+    where: { userId },
+    data: { lastSyncReport: JSON.stringify(report), ...(report.error ? {} : { lastSyncedAt: new Date() }) },
+  });
+  return report;
 }
 
 export interface SyncCanvasResult {
@@ -97,22 +112,9 @@ export async function syncCanvasAction(): Promise<SyncCanvasResult> {
   if (!account) return { ok: false, message: "No Canvas account connected." };
 
   const cfg: CanvasConfig = { baseUrl: account.baseUrl, token: decryptSecret(account.accessTokenEnc) };
-
-  let result;
-  try {
-    result = await syncCanvasForUser(prisma, user.id, cfg);
-  } catch (err) {
-    return { ok: false, message: err instanceof Error ? err.message : "Sync failed." };
-  }
-
-  await prisma.canvasAccount.update({ where: { userId: user.id }, data: { lastSyncedAt: new Date() } });
-
+  const report = await runCanvasSync(user.id, cfg);
   revalidateSyncedPages();
-
-  return {
-    ok: true,
-    message: `Synced ${result.assignmentsSynced} assignment(s) across ${result.courses} course(s).`,
-  };
+  return { ok: !report.error, message: summarizeReport(report) };
 }
 
 /**
@@ -129,7 +131,7 @@ export async function startCanvasMaterialSyncAction(): Promise<{ error?: string 
   const account = await prisma.canvasAccount.findUnique({ where: { userId: user.id } });
   if (!account) return { error: "No Canvas account connected." };
 
-  await queueCourseMaterialSync(prisma, user.id);
+  await queueCourseMaterialSync(prisma, user.id, "canvas");
   revalidatePath("/canvas");
   return {};
 }
@@ -147,7 +149,9 @@ export async function continueCanvasMaterialSyncAction(): Promise<CourseSyncProg
   if (!account) return [];
 
   const cfg: CanvasConfig = { baseUrl: account.baseUrl, token: decryptSecret(account.accessTokenEnc) };
-  const progress = await advanceCanvasMaterialSync(prisma, cfg, user.id, { readScansWithAi: hasAiConsent(user) });
+  const progress = await advanceMaterialSync(prisma, canvasMaterialsSource(cfg), user.id, {
+    readScansWithAi: hasAiConsent(user),
+  });
   // So a class page opened after (or during) a sync shows newly-imported
   // materials right away instead of a stale cached render.
   revalidatePath("/classes");

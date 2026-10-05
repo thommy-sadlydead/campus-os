@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { AppShell } from "@/components/AppShell";
 import { ClassTabs } from "@/components/classes/ClassTabs";
 import { classTabFromParam } from "@/components/classes/class-tabs";
-import { canvasAssignmentUrl } from "@/lib/canvas";
+import { lmsLink } from "@/lib/lms/providers";
 import { addMissingLectureNotes } from "@/lib/lecture-notes-sync";
 import { defaultLectureTitle } from "@/lib/record-class";
 import type { AssignmentRowStatus } from "@/components/assignments/AssignmentRow";
@@ -146,7 +146,7 @@ export default async function ClassPage({
           status: a.status as AssignmentRowStatus,
           estimatedMinutes: a.estimatedMinutes,
           description: a.description,
-          canvasUrl: canvasAssignmentUrl(cls.canvasCourseId, a.canvasAssignmentId),
+          lmsLink: lmsLink(a.lmsUrl, cls.lmsProvider),
           tasks: a.tasks.map((t) => ({
             id: t.id,
             title: t.title,

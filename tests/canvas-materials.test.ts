@@ -144,7 +144,7 @@ describe("deriveCanvasResourceId", () => {
 
 function resource(overrides: Partial<DiscoveredResource>): DiscoveredResource {
   return {
-    canvasResourceId: "1",
+    resourceId: "1",
     resourceType: "file",
     title: "File",
     filename: "file.pdf",
@@ -156,9 +156,9 @@ function resource(overrides: Partial<DiscoveredResource>): DiscoveredResource {
 
 describe("dedupeDiscovered", () => {
   it("collapses the same file discovered via both Files and a Module item into one entry, keeping the richer one", () => {
-    const viaModuleStub = resource({ canvasResourceId: "42", title: "File 42", contentType: undefined, updatedAt: null });
+    const viaModuleStub = resource({ resourceId: "42", title: "File 42", contentType: undefined, updatedAt: null });
     const viaFilesEndpoint = resource({
-      canvasResourceId: "42",
+      resourceId: "42",
       title: "Chapter 3.pdf",
       contentType: "application/pdf",
       size: 1024,
@@ -172,8 +172,8 @@ describe("dedupeDiscovered", () => {
   });
 
   it("keeps unrelated resources separate", () => {
-    const a = resource({ canvasResourceId: "1" });
-    const b = resource({ canvasResourceId: "2" });
+    const a = resource({ resourceId: "1" });
+    const b = resource({ resourceId: "2" });
     expect(dedupeDiscovered([a, b])).toHaveLength(2);
   });
 
@@ -184,54 +184,54 @@ describe("dedupeDiscovered", () => {
 
 describe("planSync", () => {
   it("puts a never-before-seen resource in toCreate", () => {
-    const plan = planSync([], [resource({ canvasResourceId: "1" })]);
+    const plan = planSync([], [resource({ resourceId: "1" })]);
     expect(plan.toCreate).toHaveLength(1);
     expect(plan.toUpdate).toHaveLength(0);
     expect(plan.toSkip).toHaveLength(0);
   });
 
-  it("skips a resource whose canvasUpdatedAt hasn't changed", () => {
-    const existing: ExistingMaterialRecord[] = [{ canvasResourceId: "1", canvasUpdatedAt: new Date("2026-01-01T00:00:00Z") }];
-    const plan = planSync(existing, [resource({ canvasResourceId: "1", updatedAt: "2026-01-01T00:00:00Z" })]);
+  it("skips a resource whose lmsUpdatedAt hasn't changed", () => {
+    const existing: ExistingMaterialRecord[] = [{ resourceId: "1", lmsUpdatedAt: new Date("2026-01-01T00:00:00Z") }];
+    const plan = planSync(existing, [resource({ resourceId: "1", updatedAt: "2026-01-01T00:00:00Z" })]);
     expect(plan.toSkip).toHaveLength(1);
     expect(plan.toCreate).toHaveLength(0);
     expect(plan.toUpdate).toHaveLength(0);
   });
 
-  it("re-imports a resource whose canvasUpdatedAt is newer", () => {
-    const existing: ExistingMaterialRecord[] = [{ canvasResourceId: "1", canvasUpdatedAt: new Date("2026-01-01T00:00:00Z") }];
-    const plan = planSync(existing, [resource({ canvasResourceId: "1", updatedAt: "2026-03-01T00:00:00Z" })]);
+  it("re-imports a resource whose lmsUpdatedAt is newer", () => {
+    const existing: ExistingMaterialRecord[] = [{ resourceId: "1", lmsUpdatedAt: new Date("2026-01-01T00:00:00Z") }];
+    const plan = planSync(existing, [resource({ resourceId: "1", updatedAt: "2026-03-01T00:00:00Z" })]);
     expect(plan.toUpdate).toHaveLength(1);
   });
 
   it("treats a resource with no discoverable timestamp (e.g. an external link) as unchanged rather than re-importing every sync", () => {
-    const existing: ExistingMaterialRecord[] = [{ canvasResourceId: "u1", canvasUpdatedAt: null }];
-    const plan = planSync(existing, [resource({ canvasResourceId: "u1", resourceType: "external", updatedAt: null })]);
+    const existing: ExistingMaterialRecord[] = [{ resourceId: "u1", lmsUpdatedAt: null }];
+    const plan = planSync(existing, [resource({ resourceId: "u1", resourceType: "external", updatedAt: null })]);
     expect(plan.toSkip).toHaveLength(1);
   });
 
   it("marks a previously-synced resource missing when it's no longer discovered", () => {
-    const existing: ExistingMaterialRecord[] = [{ canvasResourceId: "1", canvasUpdatedAt: new Date() }];
+    const existing: ExistingMaterialRecord[] = [{ resourceId: "1", lmsUpdatedAt: new Date() }];
     const plan = planSync(existing, []);
     expect(plan.toMarkMissing).toEqual(["1"]);
   });
 
   it("always reprocesses a resource that was MISSING and has reappeared, even if its timestamp looks unchanged", () => {
     const existing: ExistingMaterialRecord[] = [
-      { canvasResourceId: "1", canvasUpdatedAt: new Date("2026-01-01T00:00:00Z"), syncStatus: "MISSING" },
+      { resourceId: "1", lmsUpdatedAt: new Date("2026-01-01T00:00:00Z"), syncStatus: "MISSING" },
     ];
-    const plan = planSync(existing, [resource({ canvasResourceId: "1", updatedAt: "2026-01-01T00:00:00Z" })]);
+    const plan = planSync(existing, [resource({ resourceId: "1", updatedAt: "2026-01-01T00:00:00Z" })]);
     expect(plan.toUpdate).toHaveLength(1);
     expect(plan.toSkip).toHaveLength(0);
   });
 
   it("re-running with identical input produces zero creates or updates (no duplication)", () => {
-    const discovered = [resource({ canvasResourceId: "1", updatedAt: "2026-01-01T00:00:00Z" })];
+    const discovered = [resource({ resourceId: "1", updatedAt: "2026-01-01T00:00:00Z" })];
     const firstPlan = planSync([], discovered);
     expect(firstPlan.toCreate).toHaveLength(1);
 
     // Simulate the created row now existing, then re-plan with the same discovery.
-    const existing: ExistingMaterialRecord[] = [{ canvasResourceId: "1", canvasUpdatedAt: new Date("2026-01-01T00:00:00Z") }];
+    const existing: ExistingMaterialRecord[] = [{ resourceId: "1", lmsUpdatedAt: new Date("2026-01-01T00:00:00Z") }];
     const secondPlan = planSync(existing, discovered);
     expect(secondPlan.toCreate).toHaveLength(0);
     expect(secondPlan.toUpdate).toHaveLength(0);

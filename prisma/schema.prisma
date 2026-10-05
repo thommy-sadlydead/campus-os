@@ -7,9 +7,14 @@
 //   SQLite copy that drifts from what's actually deployed. (This project
 //   started on SQLite for zero-config local dev; see git history / the
 //   README's Roadmap for that migration.)
-// - Canvas stays the source of truth for classes/assignments/exams
-//   (canvasCourseId / canvasAssignmentId let sync be idempotent — re-running
-//   it updates existing rows instead of duplicating them).
+// - The student's LMS (Canvas, Schoology, D2L Brightspace or Blackboard)
+//   stays the source of truth for classes/assignments/exams. lmsCourseId /
+//   lmsItemId let sync be idempotent — re-running it updates existing rows
+//   instead of duplicating them. They're unique per account, never
+//   globally: classmates share the same course and assignment ids.
+// - Schema changes that `prisma db push` can't make on its own without
+//   --accept-data-loss (a unique index on a table that has rows) go in
+//   prisma/pre-push.sql, which the build runs first (see CLAUDE.md).
 // - Email never writes directly into Class/Assignment/Exam. It always goes
 //   through PendingChange so a human confirms anything ambiguous or
 //   conflicting (see lib/email-intelligence.ts in phase 4).
@@ -87,7 +92,16 @@ model Class {
   professor      String?
   room           String?
   color          Int      @default(1) // 1-8, maps to the course.N palette
-  canvasCourseId String?  @unique
+  // Where the class was synced from: "canvas" | "schoology" | "brightspace"
+  // | "blackboard" (LmsProvider in src/lib/lms/providers.ts). Null for a
+  // class added by hand.
+  lmsProvider    String?
+  // The course's id in that LMS (a Schoology section id, or a course key
+  // from a calendar feed). Unique per account and provider, not globally:
+  // when it was globally unique, a classmate's sync took over the first
+  // student's class instead of making their own. The column keeps its
+  // Canvas-era name.
+  lmsCourseId    String?  @map("canvasCourseId")
   currentGrade   String?
   archived       Boolean  @default(false)
   createdAt      DateTime @default(now())
@@ -103,8 +117,9 @@ model Class {
   materials      ClassMaterial[]
   emails         Email[]
   pendingChanges PendingChange[]
-  syncState      CanvasSyncCourseState?
+  syncState      MaterialSyncState?
 
+  @@unique([userId, lmsProvider, lmsCourseId])
   @@index([userId])
 }
 
@@ -131,10 +146,21 @@ model ScheduleEvent {
 // "SUBMITTED" | "GRADED" (see WorkStatus in src/lib/priority-engine.ts).
 // Swapping to Postgres for a real deploy, this could become a true enum
 // again with one line changed here.
+//
+// lmsSubmission is what the LMS last said about this student's own
+// submission: "unsubmitted" | "submitted" | "graded" (LmsSubmission in
+// src/lib/lms/status.ts), or null when it doesn't say (calendar feeds,
+// assignments added by hand, and rows synced before it was recorded).
 model Assignment {
   id                 String    @id @default(cuid())
   classId            String
-  canvasAssignmentId String?   @unique
+  // The item's id in the class's LMS (a Canvas assignment, a Schoology
+  // grade item, a calendar feed event's UID). Unique per class; the column
+  // keeps its Canvas-era name.
+  lmsItemId          String?   @map("canvasAssignmentId")
+  // The item's own page in the LMS, when it gave one ("Open in Canvas").
+  lmsUrl             String?
+  lmsSubmission      String?
   name               String
   description        String? // full assignment text, when Canvas/email provides it
   dueAt              DateTime?
@@ -149,6 +175,7 @@ model Assignment {
   sourceEmail Email? @relation(fields: [sourceEmailId], references: [id])
   tasks       Task[]
 
+  @@unique([classId, lmsItemId])
   @@index([classId])
   @@index([dueAt])
 }
@@ -170,10 +197,15 @@ model Task {
   @@index([assignmentId])
 }
 
+// lmsItemId: the LMS item the exam came from. The same id as its
+// Assignment when the exam is one (most are), or a calendar event's id
+// ("event:…") when the LMS only lists it on the calendar. Null for an
+// exam added by hand or from an email.
 model Exam {
   id                 String   @id @default(cuid())
   classId            String
-  canvasAssignmentId String?  @unique
+  lmsItemId          String?  @map("canvasAssignmentId")
+  lmsUrl             String?
   name               String
   examAt             DateTime?
   location           String?
@@ -183,6 +215,7 @@ model Exam {
 
   class Class @relation(fields: [classId], references: [id], onDelete: Cascade)
 
+  @@unique([classId, lmsItemId])
   @@index([classId])
   @@index([examAt])
 }
@@ -257,7 +290,7 @@ model Resource {
 // MaterialType in src/lib/canvas-materials.ts).
 // provider/resourceType/syncStatus are Strings, not Prisma enums — see the
 // note above Assignment.status. Application-level values:
-// provider: "canvas" | null (manually added via paste/link/upload)
+// provider: "canvas" | "schoology" | null (manually added via paste/link/upload)
 // resourceType: "file" | "page" | "syllabus" | "external" (see ResourceType in src/lib/canvas-materials.ts)
 // syncStatus: "READY" | "FAILED" | "EXTERNAL" | "SKIPPED_TOO_LARGE" |
 // "SKIPPED_UNSUPPORTED" | "SKIPPED_NOISE" | "MISSING" (see
@@ -271,37 +304,39 @@ model ClassMaterial {
   sourceUrl String? // where content was fetched from, if added as a link — display/reference only, never re-fetched
   createdAt DateTime @default(now())
 
-  // Canvas sync tracking — all null for materials added manually (paste,
-  // link, or file upload). See src/lib/canvas-materials-sync.ts.
+  // LMS sync tracking — all null for materials added manually (paste,
+  // link, or file upload). See src/lib/canvas-materials-sync.ts. The two
+  // columns keep their Canvas-era names.
   provider         String?
-  canvasResourceId String? // Canvas file id for file-backed resources, or a synthetic stable id for others (see canvas-materials.ts)
+  lmsResourceId    String?   @map("canvasResourceId") // the LMS's file id for file-backed resources, or a synthetic stable id for others (see canvas-materials.ts)
   resourceType     String?
-  canvasUpdatedAt  DateTime? // Canvas's own updated_at, used to detect changed resources on re-sync
+  lmsUpdatedAt     DateTime? @map("canvasUpdatedAt") // the LMS's own last-modified time, used to detect changed resources on re-sync
   lastSyncedAt     DateTime?
   syncStatus       String?
   syncError        String?
 
   class Class @relation(fields: [classId], references: [id], onDelete: Cascade)
 
-  // Dedup key for Canvas-sourced materials: the same file referenced via
-  // both Files and Modules resolves to the same canvasResourceId, so it's
-  // only ever imported once. NULL is distinct from NULL in a Postgres
-  // unique index, so manually-added materials (canvasResourceId always
-  // null) never collide with each other or with Canvas-sourced ones.
-  @@unique([classId, provider, canvasResourceId])
+  // Dedup key for synced materials: the same file referenced via both
+  // Files and Modules resolves to the same lmsResourceId, so it's only
+  // ever imported once. NULL is distinct from NULL in a Postgres unique
+  // index, so manually-added materials (lmsResourceId always null) never
+  // collide with each other or with synced ones.
+  @@unique([classId, provider, lmsResourceId])
   @@index([classId])
 }
 
-// One row per class tracking its most-recent-or-in-flight Canvas materials
-// sync. Drives per-course progress in the UI and makes the sync resumable:
-// if processing is interrupted mid-course, the next poll picks the same
-// course back up from its persisted resourcesDone count instead of
-// restarting or silently losing progress. See src/lib/canvas-materials-sync.ts.
+// One row per class tracking its most-recent-or-in-flight materials sync
+// (Canvas or Schoology). Drives per-course progress in the UI and makes the
+// sync resumable: if processing is interrupted mid-course, the next poll
+// picks the same course back up from its persisted resourcesDone count
+// instead of restarting or silently losing progress. See
+// src/lib/canvas-materials-sync.ts. The table keeps its Canvas-era name.
 //
 // status is a String, not a Prisma enum — see the note above
 // Assignment.status. Application-level values: "PENDING" | "DISCOVERING" |
 // "DOWNLOADING" | "READY" | "PARTIAL" | "FAILED".
-model CanvasSyncCourseState {
+model MaterialSyncState {
   id              String    @id @default(cuid())
   classId         String    @unique
   status          String    @default("PENDING")
@@ -314,6 +349,8 @@ model CanvasSyncCourseState {
   updatedAt       DateTime  @updatedAt
 
   class Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@map("CanvasSyncCourseState")
 }
 
 // A recorded lecture: an uploaded audio file (or a directly pasted
@@ -359,6 +396,8 @@ model Lecture {
 // encrypted at rest the same way Gmail's tokens are (src/lib/crypto.ts).
 // baseUrl is stored per-user (not just the CANVAS_BASE_URL env var) so this
 // still works correctly if a user ever attends a different school.
+// lastSyncReport: JSON, what the last sync found (SyncReport in
+// src/lib/lms/report.ts).
 model CanvasAccount {
   id             String    @id @default(cuid())
   userId         String    @unique
@@ -366,6 +405,7 @@ model CanvasAccount {
   accessTokenEnc String
   connectedAt    DateTime  @default(now())
   lastSyncedAt   DateTime?
+  lastSyncReport String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

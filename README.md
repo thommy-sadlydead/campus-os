@@ -25,14 +25,17 @@ as out of scope.
 - **Data model** for the whole app (`prisma/schema.prisma`): User, Class,
   ScheduleEvent, Assignment, Task, Exam, Email, EmailAccount, CanvasAccount,
   PendingChange, NoteSection, Note, Resource, AvailabilityBlock, Lecture,
-  ClassMaterial, CanvasSyncCourseState — see
+  ClassMaterial, MaterialSyncState — see
   [Data architecture](#data-architecture).
 - **Auth**: email/password, hashed with bcrypt, session cookies (httpOnly,
   signed) — no third-party auth dependency, since Gmail OAuth is a
   *separate*, narrowly-scoped connection, not your login method.
 - **Canvas connection** (`/canvas`): paste a Canvas access token right in
   the app — no terminal needed — to pull in your real courses and
-  assignments, with a **Sync now** button to re-pull any time. The token is
+  assignments, with a **Sync now** button to re-pull any time, and a report
+  of what each sync brought in (and why any course didn't come in: not open
+  yet, an invitation not accepted, assignments Canvas won't show). Exams
+  come from assignment names and the course calendar. The token is
   encrypted at rest the same way Gmail's is. `scripts/sync-canvas.ts` (`npm
   run canvas:sync`) still exists as an env-var/cron-friendly alternative for
   anyone who wants it — both paths share the same sync logic
@@ -86,7 +89,7 @@ as out of scope.
   same facts through AI; the status itself never waits on or requires that.
 - **Assignments** and **Classes** list views, both with an inline expandable
   subtask checklist per assignment, plus the assignment's real directions
-  and a "See in Canvas" link.
+  and an "Open in Canvas" link to its page on the student's own Canvas.
 - **Lectures** (per class, `src/app/classes/[id]/lecture-actions.ts` and
   `src/lib/lecture-pipeline.ts`): record in the app (**Record a lecture** on
   the dashboard, or a class's Lectures tab), upload a recording such as a
@@ -196,8 +199,10 @@ whole app is built against.
 Once you're happy running it locally, this moves it to a real URL you can
 open from any device — no laptop, no Terminal, no `localhost`. The schema
 already targets Postgres for exactly this (see `prisma/schema.prisma`),
-and `package.json`'s `build` script runs `prisma db push` on every deploy,
-so the live database schema always matches what's committed — no separate
+and `package.json`'s `build` script runs `prisma db push` on every deploy
+(after compiling, and after `prisma/pre-push.sql`, which holds the few
+schema steps `db push` won't take without a person to confirm them), so
+the live database schema always matches what's committed — no separate
 migration step to remember.
 
 Steps that only you can do (account creation and dashboard clicks aren't
@@ -324,13 +329,14 @@ User ─┬─ Class ─┬─ ScheduleEvent
 
 Two design decisions worth knowing about:
 
-- **Canvas owns Class/Assignment/Exam.** `canvasCourseId` /
-  `canvasAssignmentId` make sync idempotent and mean Canvas is always the
-  source of truth for what exists — the app extends that data (tasks,
-  notes, estimates) rather than replacing it. Fields Canvas never provides
-  at all (professor, room, current grade, meeting times) are either typed
-  in directly from a class's Overview/Schedule tabs, or filled in from an
-  email via the PendingChange path above.
+- **Canvas owns Class/Assignment/Exam.** `lmsCourseId` / `lmsItemId`
+  make sync idempotent and mean Canvas is always the source of truth for
+  what exists — the app extends that data (tasks, notes, estimates) rather
+  than replacing it. They're unique per account, not globally: classmates
+  share the same Canvas ids, and each gets their own rows. Fields Canvas
+  never provides at all (professor, room, current grade, meeting times)
+  are either typed in directly from a class's Overview/Schedule tabs, or
+  filled in from an email via the PendingChange path above.
 - **Email never writes directly into your schedule/assignments.** Every
   fact an email-intelligence pass extracts becomes a `PendingChange` row
   first — see [Email intelligence](#email-intelligence) for exactly when
@@ -556,6 +562,42 @@ privacy policy cover subscriptions. Setup: `.env.example` (Stripe) and
 `freeAccessAt`, `appleAccountToken`, `stripeCustomerId` (all nullable) and
 the new `Subscription` table.
 
+**Every class syncs, for every student (2026-10-05).** A friend's Canvas
+sync brought in 4 of their 6 classes. The cause: `Class.canvasCourseId`
+and `Assignment`/`Exam.canvasAssignmentId` were unique across *all*
+accounts, so when a second student synced a course someone had already
+synced, the sync updated the first student's class instead of creating
+the second student's own. The second student never got any class they
+shared with an earlier user, and their submissions could mark the first
+student's assignments "submitted". Now:
+- Ids are unique per account: (account, LMS, course id) for a class and
+  (class, item id) for an assignment or exam. The columns keep their names
+  (`@map`); `prisma/pre-push.sql` swaps the indexes in one transaction
+  before `db push` runs, since `db push` won't add a unique index to a
+  table with rows without a person confirming it. The build now compiles
+  first, so a failed compile never touches the database.
+- Each course syncs on its own. One whose assignments Canvas won't return
+  still comes in, keeps what was stored, and the report says why. Courses
+  Canvas hides until the term starts, and invitations the student hasn't
+  accepted, are listed with what to do instead of silently missing.
+- An assignment's status follows what Canvas says about the student's own
+  submission (`Assignment.lmsSubmission`, rules in `src/lib/lms/status.ts`).
+  Rows from before this fix that are marked done while Canvas says this
+  student hasn't turned them in (and they're due within the last week or
+  later) are reopened once, and the report lists them.
+- "Open in Canvas" links use each student's own Canvas address (they all
+  pointed at `CANVAS_BASE_URL` before); the build backfills existing ones.
+- Exams on the course calendar come in too, unless the gradebook already
+  has the same exam.
+The writing is now provider-neutral (`src/lib/lms/apply.ts`), ready for
+other LMSs, and the materials engine is split the same way
+(`src/lib/materials-sync.ts`, with Canvas's discovery in
+`canvas-materials-sync.ts`). Schema changes: `Class.lmsProvider`,
+`Assignment.lmsUrl`/`lmsSubmission`, `Exam.lmsUrl`,
+`CanvasAccount.lastSyncReport` (all nullable), the per-account unique
+indexes, and `CanvasSyncCourseState` is `MaterialSyncState` in code
+(`@@map`, same table).
+
 **Known limits, not gaps in this app:** Gmail (`GOOGLE_CLIENT_ID` etc.) and
 the AI assistants (`ANTHROPIC_API_KEY`) both require credentials you
 create yourself — see "AI features (optional)" above and `.env.example`
@@ -578,7 +620,7 @@ Not built — one deliberately flagged gap, unrelated to the phase plan:
 
 ## Verification
 
-- `npm test` — 273 unit tests in 23 files as of payments (238 after the redesign, 235 after the iPhone app work, 223 after the 2026-09-30 data fixes, 176 as of the 2026-09 security pass, 165 as of the Canvas materials sync)
+- `npm test` — 302 unit tests in 26 files as of the per-student sync fix (273 as of payments, 238 after the redesign, 235 after the iPhone app work, 223 after the 2026-09-30 data fixes, 176 as of the 2026-09 security pass, 165 as of the Canvas materials sync)
   update (12 test files; the newest cover Canvas resource
   classification/dedup/incremental-diff logic, retry/pagination against a
   stubbed Canvas API, and the PDF OCR fallback — see CLAUDE.md for where

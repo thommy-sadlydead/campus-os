@@ -85,7 +85,7 @@ describe("discoverCourseResources", () => {
     const discovered = await discoverCourseResources(cfg, 101);
     const byType = (t: string) => discovered.filter((r) => r.resourceType === t);
 
-    expect(byType("file").map((r) => r.canvasResourceId).sort()).toEqual(["1", "77"]);
+    expect(byType("file").map((r) => r.resourceId).sort()).toEqual(["1", "77"]);
     expect(byType("page")).toHaveLength(1);
     expect(byType("external")).toHaveLength(1);
     expect(byType("syllabus")).toHaveLength(1);
@@ -103,7 +103,7 @@ describe("discoverCourseResources", () => {
 
     const discovered = await discoverCourseResources(cfg, 101);
     expect(discovered).toHaveLength(1);
-    expect(discovered[0]).toMatchObject({ canvasResourceId: "42", resourceType: "file" });
+    expect(discovered[0]).toMatchObject({ resourceId: "42", resourceType: "file" });
   });
 
   it("one broken discovery source doesn't prevent the others from contributing", async () => {
@@ -123,7 +123,7 @@ describe("discoverCourseResources", () => {
 
     const discovered = await discoverCourseResources(cfg, 101);
     expect(discovered).toHaveLength(1);
-    expect(discovered[0].canvasResourceId).toBe("1");
+    expect(discovered[0].resourceId).toBe("1");
   });
 
   it("a file discovered via both Files and a Module item collapses to one entry with the richer metadata", async () => {
@@ -141,7 +141,7 @@ describe("discoverCourseResources", () => {
 
     const discovered = await discoverCourseResources(cfg, 101);
     expect(discovered).toHaveLength(1);
-    expect(discovered[0]).toMatchObject({ canvasResourceId: "42", title: "Chapter3.pdf", contentType: "application/pdf" });
+    expect(discovered[0]).toMatchObject({ resourceId: "42", title: "Chapter3.pdf", contentType: "application/pdf" });
   });
 
   it("scans a page body for an embedded Canvas file link", async () => {
@@ -161,7 +161,7 @@ describe("discoverCourseResources", () => {
     );
 
     const discovered = await discoverCourseResources(cfg, 101);
-    const fileIds = discovered.filter((r) => r.resourceType === "file").map((r) => r.canvasResourceId);
+    const fileIds = discovered.filter((r) => r.resourceType === "file").map((r) => r.resourceId);
     expect(fileIds).toContain("88");
   });
 

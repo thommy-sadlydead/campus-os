@@ -1,7 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { startOfTzDay } from "@/lib/time";
-import { canvasAssignmentUrl } from "@/lib/canvas";
+import { lmsLink } from "@/lib/lms/providers";
 import type { WorkItem, WorkStatus } from "@/lib/priority-engine";
 
 /**
@@ -25,27 +25,24 @@ export async function loadWorkItemsForUser(userId: string): Promise<WorkItem[]> 
       },
     }),
     prisma.exam.findMany({
-      where: { class: { userId } },
-      select: { canvasAssignmentId: true },
+      where: { class: { userId }, lmsItemId: { not: null } },
+      select: { classId: true, lmsItemId: true },
     }),
   ]);
 
-  const examAssignmentIds = new Set(
-    exams.map((e) => e.canvasAssignmentId).filter((id): id is string => !!id)
-  );
+  // An exam synced from an LMS shares its assignment's item id, within the class.
+  const examItemKeys = new Set(exams.map((e) => `${e.classId}:${e.lmsItemId}`));
 
   const items: WorkItem[] = [];
 
   for (const cls of classes) {
     for (const assignment of cls.assignments) {
-      const isExamLinked = assignment.canvasAssignmentId
-        ? examAssignmentIds.has(assignment.canvasAssignmentId)
-        : false;
-      // Subtasks aren't their own Canvas objects, so they inherit the
-      // parent assignment's description/link — that's the only "directions"
-      // and Canvas page that actually exist for this work.
+      const isExamLinked = assignment.lmsItemId ? examItemKeys.has(`${cls.id}:${assignment.lmsItemId}`) : false;
+      // Subtasks aren't their own LMS objects, so they inherit the parent
+      // assignment's description/link — that's the only "directions" and
+      // LMS page that actually exist for this work.
       const description = assignment.description;
-      const canvasUrl = canvasAssignmentUrl(cls.canvasCourseId, assignment.canvasAssignmentId);
+      const link = lmsLink(assignment.lmsUrl, cls.lmsProvider);
 
       if (assignment.tasks.length > 0) {
         for (const task of assignment.tasks) {
@@ -63,7 +60,7 @@ export async function loadWorkItemsForUser(userId: string): Promise<WorkItem[]> 
             status: "NOT_STARTED",
             isExamLinked,
             description,
-            canvasUrl,
+            lmsLink: link,
           });
         }
         continue;
@@ -83,7 +80,7 @@ export async function loadWorkItemsForUser(userId: string): Promise<WorkItem[]> 
         status: assignment.status as WorkStatus,
         isExamLinked,
         description,
-        canvasUrl,
+        lmsLink: link,
       });
     }
   }

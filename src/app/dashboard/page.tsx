@@ -242,7 +242,7 @@ export default async function DashboardPage() {
                         estimatedMinutes={r.item.estimatedMinutes}
                         reason={r.reason}
                         description={r.item.description}
-                        canvasUrl={r.item.canvasUrl}
+                        lmsLink={r.item.lmsLink}
                       />
                     ))}
                   </ShowMore>

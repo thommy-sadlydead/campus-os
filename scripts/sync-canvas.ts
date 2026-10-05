@@ -1,7 +1,7 @@
 // Standalone Canvas sync. Run with `npm run canvas:sync`, or wire it up to
 // a cron job / scheduled task for recurring syncs — it's idempotent
-// (upserts on canvasCourseId / canvasAssignmentId) so running it often is
-// safe.
+// (matches on the account plus Canvas's course and assignment ids) so
+// running it often is safe.
 //
 // This is the env-var/CLI path for anyone who prefers it (e.g. a cron job).
 // Most users don't need this at all — the in-app "Connect Canvas" page
@@ -17,6 +17,7 @@ import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import { syncCanvasForUser } from "../src/lib/canvas-sync";
 import type { CanvasConfig } from "../src/lib/canvas";
+import { summarizeReport } from "../src/lib/lms/report";
 
 const prisma = new PrismaClient();
 
@@ -37,11 +38,14 @@ async function main() {
 
   console.log(`Syncing Canvas (${baseUrl}) for ${user.email}...`);
 
-  const result = await syncCanvasForUser(prisma, user.id, cfg);
+  const report = await syncCanvasForUser(prisma, user.id, cfg);
 
-  console.log(
-    `Synced ${result.assignmentsSynced} assignment(s), ${result.examsSynced} exam(s) across ${result.courses} course(s).`
-  );
+  console.log(summarizeReport(report));
+  for (const c of report.classes) {
+    console.log(`  ${c.name}: ${c.assignments} assignment(s), ${c.exams} exam(s)${c.problem ? ` — ${c.problem}` : ""}`);
+  }
+  for (const s of report.skipped) console.log(`  Skipped ${s.name}: ${s.reason}`);
+  for (const r of report.reopened) console.log(`  Reopened ${r.className}: ${r.name}`);
 }
 
 main()
