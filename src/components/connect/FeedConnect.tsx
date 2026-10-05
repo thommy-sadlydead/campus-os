@@ -23,6 +23,7 @@ interface Row {
   assignments: number;
   exams: number;
   samples: string[];
+  ended: boolean;
 }
 
 function rowsFrom(result: FeedPreviewResult): Row[] {
@@ -32,10 +33,13 @@ function rowsFrom(result: FeedPreviewResult): Row[] {
       key: course.key,
       detected: course.name,
       name: choice?.name ?? course.name,
-      include: !choice?.skip,
+      // A course with nothing due lately is probably from a past term: left
+      // out unless the student ticks it (or already chose to keep it).
+      include: choice ? !choice.skip : !course.ended,
       assignments: course.assignments,
       exams: course.exams,
       samples: course.samples,
+      ended: course.ended,
     };
   });
 }
@@ -250,6 +254,7 @@ export function FeedConnect({
               <p className="mt-1 text-xs text-ink-faint">
                 {plural(r.assignments, "due date")}
                 {r.exams > 0 && ` · ${plural(r.exams, "exam")}`}
+                {r.ended && " · nothing due in the last month, so it looks finished"}
               </p>
               {r.samples.length > 0 && <p className="mt-0.5 truncate text-xs text-ink-faint">Like {r.samples.join(", ")}</p>}
             </div>

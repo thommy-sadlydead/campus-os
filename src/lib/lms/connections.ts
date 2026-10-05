@@ -22,19 +22,22 @@ export interface SchoologyCredentials {
 
 export interface ConnectionSummary {
   provider: LmsProvider;
+  connectedAt: Date;
   lastSyncedAt: Date | null;
 }
 
 /** Every LMS the account is connected to. Once per request. */
 export const getConnections = cache(async (userId: string): Promise<ConnectionSummary[]> => {
   const [canvas, others] = await Promise.all([
-    prisma.canvasAccount.findUnique({ where: { userId }, select: { lastSyncedAt: true } }),
-    prisma.lmsConnection.findMany({ where: { userId }, select: { provider: true, lastSyncedAt: true } }),
+    prisma.canvasAccount.findUnique({ where: { userId }, select: { connectedAt: true, lastSyncedAt: true } }),
+    prisma.lmsConnection.findMany({ where: { userId }, select: { provider: true, connectedAt: true, lastSyncedAt: true } }),
   ]);
   const list: ConnectionSummary[] = [];
-  if (canvas) list.push({ provider: "canvas", lastSyncedAt: canvas.lastSyncedAt });
+  if (canvas) list.push({ provider: "canvas", connectedAt: canvas.connectedAt, lastSyncedAt: canvas.lastSyncedAt });
   for (const c of others) {
-    if (c.provider in LMS_PROVIDER_INFO) list.push({ provider: c.provider as LmsProvider, lastSyncedAt: c.lastSyncedAt });
+    if (c.provider in LMS_PROVIDER_INFO) {
+      list.push({ provider: c.provider as LmsProvider, connectedAt: c.connectedAt, lastSyncedAt: c.lastSyncedAt });
+    }
   }
   return list;
 });

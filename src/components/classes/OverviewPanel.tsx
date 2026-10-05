@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { updateClassOverviewAction, addScheduleEventAction, deleteScheduleEventAction } from "@/app/classes/[id]/actions";
 import { formatDueLabel } from "@/lib/time";
 import { CardHeader } from "@/components/ui/CardHeader";
+import { lmsName } from "@/lib/lms/providers";
 import { PencilIcon, XIcon } from "@/components/icons";
 
 export interface OverviewClassInfo {
@@ -15,6 +16,8 @@ export interface OverviewClassInfo {
   room: string | null;
   currentGrade: string | null;
   color: number;
+  /** Where the class was synced from ("brightspace"), or null for one added by hand. */
+  lmsProvider: string | null;
   nextAssignment: { title: string; dueAt: string | null } | null;
   nextExam: { title: string; examAt: string | null } | null;
 }
@@ -139,7 +142,14 @@ export function OverviewPanel({
       </div>
 
       <div className="card h-fit p-5">
-        <CardHeader title="Meeting times" description="Canvas doesn't provide these — add them yourself." />
+        <CardHeader
+          title="Meeting times"
+          description={
+            lmsName(classInfo.lmsProvider)
+              ? `These don't come over from ${lmsName(classInfo.lmsProvider)}, so add them yourself.`
+              : "Add the times this class meets."
+          }
+        />
 
         {scheduleEvents.length > 0 && (
           <ul className="mt-4 flex flex-col gap-1.5">

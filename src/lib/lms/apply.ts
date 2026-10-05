@@ -64,6 +64,8 @@ export interface LmsCourseInput {
 export interface ApplyResult {
   classes: ClassSyncResult[];
   reopened: { className: string; name: string }[];
+  /** New assignments that came in checked off: already past, and the LMS doesn't say (see status.ts). */
+  checkedOff: number;
 }
 
 const COLORS = 8;
@@ -100,7 +102,7 @@ export async function applyLmsCourses(
   courses: LmsCourseInput[],
   now: Date
 ): Promise<ApplyResult> {
-  const result: ApplyResult = { classes: [], reopened: [] };
+  const result: ApplyResult = { classes: [], reopened: [], checkedOff: 0 };
   const nextColor = await colorPicker(prisma, userId);
 
   for (const course of uniqueById(courses)) {
@@ -114,9 +116,10 @@ export async function applyLmsCourses(
     try {
       const cls = await findOrCreateClass(prisma, userId, provider, course, nextColor);
       if (course.assignments) {
-        const { created, reopened } = await applyAssignments(prisma, cls.id, course.assignments, now);
+        const { created, reopened, checkedOff } = await applyAssignments(prisma, cls.id, course.assignments, now);
         classResult.newAssignments = created;
         result.reopened.push(...reopened.map((name) => ({ className: cls.name, name })));
+        result.checkedOff += checkedOff;
       }
       classResult.exams = await applyExams(prisma, cls.id, course);
     } catch (err) {
@@ -157,7 +160,7 @@ async function applyAssignments(
   classId: string,
   assignments: LmsAssignmentInput[],
   now: Date
-): Promise<{ created: number; reopened: string[] }> {
+): Promise<{ created: number; reopened: string[]; checkedOff: number }> {
   const stored = await prisma.assignment.findMany({
     where: { classId, lmsItemId: { not: null } },
     select: {
@@ -174,6 +177,7 @@ async function applyAssignments(
   });
   const byItem = new Map(stored.map((a) => [a.lmsItemId as string, a]));
   let created = 0;
+  let checkedOff = 0;
   const reopened: string[] = [];
 
   for (const input of uniqueById(assignments)) {
@@ -209,6 +213,7 @@ async function applyAssignments(
           },
         });
         created += 1;
+        if (decision.assumedDone) checkedOff += 1;
       } catch (err) {
         if (!isUniqueViolation(err)) throw err;
       }
@@ -227,7 +232,7 @@ async function applyAssignments(
     if (decision.reopened) reopened.push(input.name);
   }
 
-  return { created, reopened };
+  return { created, reopened, checkedOff };
 }
 
 /**

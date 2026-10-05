@@ -24,6 +24,8 @@ export interface SyncReport {
   skipped: { name: string; reason: string }[];
   /** Assignments opened again because the LMS says they haven't been turned in (see src/lib/lms/status.ts). */
   reopened: { className: string; name: string }[];
+  /** New deadlines that came in checked off: already past, and the LMS doesn't say what was turned in. */
+  checkedOff?: number;
   /** Set when the whole sync failed; the rest is then empty. */
   error?: string;
 }
@@ -61,6 +63,7 @@ export function parseReport(json: string | null | undefined): SyncReport | null 
       classes: Array.isArray(value.classes) ? value.classes : [],
       skipped: Array.isArray(value.skipped) ? value.skipped : [],
       reopened: Array.isArray(value.reopened) ? value.reopened : [],
+      ...(typeof value.checkedOff === "number" && value.checkedOff > 0 ? { checkedOff: value.checkedOff } : {}),
       ...(typeof value.error === "string" ? { error: value.error } : {}),
     };
   } catch {

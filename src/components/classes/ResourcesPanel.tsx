@@ -17,7 +17,7 @@ import {
   type ClassMaterialType,
 } from "@/lib/lecture-notes";
 import { CardHeader } from "@/components/ui/CardHeader";
-import { lmsName } from "@/lib/lms/providers";
+import { isLmsProvider, LMS_PROVIDER_INFO, lmsName } from "@/lib/lms/providers";
 import { ChevronRightIcon, ExternalIcon, FileIcon, LayersIcon, LinkIcon, PlusIcon, SearchIcon, XIcon } from "@/components/icons";
 
 export interface ResourceRow {
@@ -83,22 +83,43 @@ function statusNote(m: ClassMaterialRow): string | null {
  */
 export function ResourcesPanel({
   classId,
+  lmsProvider,
   resources,
   materials,
 }: {
   classId: string;
+  /** Where the class was synced from, for what to say when there's nothing here yet. */
+  lmsProvider: string | null;
   resources: ResourceRow[];
   materials: ClassMaterialRow[];
 }) {
   return (
     <div className="flex flex-col gap-6">
-      <MaterialsSection classId={classId} materials={materials} />
+      <MaterialsSection classId={classId} lmsProvider={lmsProvider} materials={materials} />
       <LinksSection classId={classId} resources={resources} />
     </div>
   );
 }
 
-function MaterialsSection({ classId, materials }: { classId: string; materials: ClassMaterialRow[] }) {
+/** What an empty materials list says, depending on whether the class's LMS shares files. */
+function emptyMaterialsNote(lmsProvider: string | null): string {
+  const name = lmsName(lmsProvider);
+  if (!name) return "Nothing here yet. Add your own above, or connect Canvas or Schoology to import a course's files automatically.";
+  if (isLmsProvider(lmsProvider) && !LMS_PROVIDER_INFO[lmsProvider].capabilities.materials) {
+    return `${name} doesn't share course files with other apps. Add yours above: upload a file, paste text, or add a link.`;
+  }
+  return `Nothing here yet. Use "Go fetch materials" on the ${name} page to import this course's files, or add your own above.`;
+}
+
+function MaterialsSection({
+  classId,
+  lmsProvider,
+  materials,
+}: {
+  classId: string;
+  lmsProvider: string | null;
+  materials: ClassMaterialRow[];
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [query, setQuery] = useState("");
@@ -150,7 +171,7 @@ function MaterialsSection({ classId, materials }: { classId: string; materials: 
 
       {materials.length === 0 && (
         <p className="mt-4 text-sm text-ink-soft">
-          Nothing here yet. Connecting Canvas or Schoology imports these automatically, or add your own above.
+          {emptyMaterialsNote(lmsProvider)}
         </p>
       )}
 

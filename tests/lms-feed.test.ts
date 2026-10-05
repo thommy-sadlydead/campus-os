@@ -3,6 +3,7 @@ import { analyzeFeeds, courseIdFromUrl, feedKey, splitTitle } from "../src/lib/l
 import { feedCourseInputs, previewCourses } from "../src/lib/lms/feed-sync";
 import { parseIcs } from "../src/lib/lms/ics";
 import { isPublicAddress, normalizeFeedUrl } from "../src/lib/lms/safe-fetch";
+import { namesWithoutSubmissionStatus } from "../src/lib/lms/providers";
 
 const TZ = "America/New_York";
 
@@ -168,10 +169,15 @@ describe("feedCourseInputs and previewCourses", () => {
   const analysis = analyzeFeeds("brightspace", [{ key: "f", calendar: feed }]);
 
   it("shows each course with counts and a few items", () => {
-    expect(previewCourses(analysis)).toEqual([
-      { key: "id:5", name: "BIO 1000", assignments: 2, exams: 1, samples: ["Lab 1", "Exam 1"] },
-      { key: "name:chem 1100", name: "CHEM 1100", assignments: 1, exams: 0, samples: ["Problem set"] },
+    expect(previewCourses(analysis, new Date("2026-10-10T00:00:00Z"))).toEqual([
+      { key: "id:5", name: "BIO 1000", assignments: 2, exams: 1, samples: ["Lab 1", "Exam 1"], ended: false },
+      { key: "name:chem 1100", name: "CHEM 1100", assignments: 1, exams: 0, samples: ["Problem set"], ended: false },
     ]);
+  });
+
+  it("marks a course with nothing due in the last month as finished", () => {
+    const later = new Date("2026-12-01T00:00:00Z");
+    expect(previewCourses(analysis, later).map((c) => c.ended)).toEqual([true, true]);
   });
 
   it("applies the student's names and skips, and drops links that aren't http(s)", () => {
@@ -231,5 +237,13 @@ describe("analyzeFeeds with item types in CATEGORIES", () => {
     expect(courses.map((c) => c.name)).not.toContain("Assignment");
     expect(courses.map((c) => c.name)).not.toContain("Online");
     expect(courses).toContainEqual({ key: "id:_1_1", name: "MATH 2500" });
+  });
+});
+
+describe("namesWithoutSubmissionStatus", () => {
+  it("names the connected LMSs that don't say what's turned in", () => {
+    expect(namesWithoutSubmissionStatus(["canvas", "schoology"])).toBeNull();
+    expect(namesWithoutSubmissionStatus(["canvas", "brightspace"])).toBe("Brightspace");
+    expect(namesWithoutSubmissionStatus(["blackboard", "brightspace", "brightspace"])).toBe("Blackboard and Brightspace");
   });
 });

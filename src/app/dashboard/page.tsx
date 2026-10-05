@@ -19,6 +19,9 @@ import { rankWorkItems, computeWorkloadSummary, type UrgencyBucket } from "@/lib
 import { assessRisk } from "@/lib/risk-engine";
 import { formatDueLabel, startOfTzDay } from "@/lib/time";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { CheckOffNote } from "@/components/connect/CheckOffNote";
+import { getConnections } from "@/lib/lms/connections";
+import { namesWithoutSubmissionStatus } from "@/lib/lms/providers";
 import { ArrowRightIcon, BookIcon, CalendarIcon, ChevronRightIcon, LayersIcon, MailIcon } from "@/components/icons";
 
 const SECTION_TITLES: Record<UrgencyBucket, string> = {
@@ -51,7 +54,7 @@ export default async function DashboardPage() {
   // it can show reminders, so only it gets the deadlines for them.
   const inApp = (await headers()).get("user-agent")?.includes("CampusOSApp") ?? false;
 
-  const [items, availableMinutesToday, availabilityBlocks, pendingChangeCount, classCount, reminderDeadlines] = await Promise.all([
+  const [items, availableMinutesToday, availabilityBlocks, pendingChangeCount, classCount, reminderDeadlines, connections] = await Promise.all([
     loadWorkItemsForUser(user.id),
     getAvailableMinutesToday(user.id, now, user.timezone),
     prisma.availabilityBlock.findMany({
@@ -72,7 +75,15 @@ export default async function DashboardPage() {
           take: 100,
         })
       : Promise.resolve([]),
+    getConnections(user.id),
   ]);
+
+  // For two weeks after connecting an LMS that doesn't say what's turned in
+  // (Brightspace, Blackboard), a reminder that work here stays open until
+  // it's checked off. The Assignments page always says so.
+  const checkOffNames = namesWithoutSubmissionStatus(
+    connections.filter((c) => now.getTime() - c.connectedAt.getTime() < 14 * 24 * 60 * 60 * 1000).map((c) => c.provider)
+  );
 
   const ranked = rankWorkItems(items, now, user.timezone);
   const summary = computeWorkloadSummary(items, now, user.timezone, availableMinutesToday);
@@ -178,6 +189,8 @@ export default async function DashboardPage() {
       {!hasAiConsent(user) && !(await cookies()).get(AI_NOT_NOW_COOKIE) && <AiConsentCard />}
 
       <RiskStatusCard risk={risk} />
+
+      {checkOffNames && <CheckOffNote names={checkOffNames} />}
 
       {inApp && (
         <NativeReminders

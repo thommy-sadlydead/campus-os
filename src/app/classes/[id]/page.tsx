@@ -128,6 +128,7 @@ export default async function ClassPage({
           room: cls.room,
           currentGrade: cls.currentGrade,
           color: cls.color,
+          lmsProvider: cls.lmsProvider,
           nextAssignment: nextAssignment ? { title: nextAssignment.name, dueAt: nextAssignment.dueAt?.toISOString() ?? null } : null,
           nextExam: nextExam ? { title: nextExam.name, examAt: nextExam.examAt?.toISOString() ?? null } : null,
         }}

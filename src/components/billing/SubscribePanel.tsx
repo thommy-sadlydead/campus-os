@@ -17,7 +17,7 @@ const PLAN_INFO: Record<Plan, { title: string; per: string; note: string }> = {
 };
 
 const INCLUDED = [
-  "Canvas classes, assignments and due dates",
+  "Classes and due dates from Canvas, Schoology, Brightspace or Blackboard",
   "Lecture recordings turned into notes",
   "School email sorted by class",
   "The dashboard and the AI assistant",

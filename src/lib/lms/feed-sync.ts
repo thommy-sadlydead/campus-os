@@ -70,17 +70,28 @@ export interface FeedCoursePreview {
   exams: number;
   /** A few of its items, so the student can tell which class it is. */
   samples: string[];
+  /**
+   * Nothing due in the last month or later: most likely a past term's
+   * course (Blackboard's feed reaches back a year), so the preview leaves
+   * it out unless the student ticks it.
+   */
+  ended: boolean;
 }
 
-export function previewCourses(analysis: FeedAnalysis): FeedCoursePreview[] {
+const ENDED_AFTER_DAYS = 30;
+
+export function previewCourses(analysis: FeedAnalysis, now: Date = new Date()): FeedCoursePreview[] {
+  const endedBefore = now.getTime() - ENDED_AFTER_DAYS * 24 * 60 * 60 * 1000;
   return analysis.courses.map((course) => {
     const items = analysis.items.filter((i) => i.courseKey === course.key);
+    const latest = Math.max(...items.map((i) => i.at?.getTime() ?? Number.NEGATIVE_INFINITY));
     return {
       key: course.key,
       name: course.name,
       assignments: items.filter((i) => i.kind === "assignment").length,
       exams: items.filter((i) => i.kind === "exam" || i.isExam).length,
       samples: items.slice(0, 3).map((i) => i.title),
+      ended: Number.isFinite(latest) && latest < endedBefore,
     };
   });
 }
@@ -136,6 +147,7 @@ export async function syncFeedForUser(
   const applied = await applyLmsCourses(prisma, userId, provider, feedCourseInputs(provider, analysis, settings), now);
   report.classes = applied.classes;
   report.reopened = applied.reopened;
+  if (applied.checkedOff > 0) report.checkedOff = applied.checkedOff;
   report.finishedAt = new Date().toISOString();
   return report;
 }

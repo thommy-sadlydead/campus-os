@@ -9,6 +9,13 @@
 // - Otherwise the status stays what the student (or an earlier sync) set,
 //   so marking something done by hand sticks.
 //
+// When the LMS doesn't say at all (Brightspace and Blackboard calendar
+// feeds, Schoology work too old to check), a deadline that's already more
+// than a day past when it first comes in is checked off: a feed reaches
+// back weeks or months, and a new student's first sync would otherwise
+// fill the dashboard with "overdue" work they turned in long ago. The sync
+// report says how many, so anything still owed can be unchecked.
+//
 // One exception, for rows synced before lmsSubmission was recorded. Until
 // October 2026 classmates shared one Assignment row per Canvas assignment,
 // so a classmate's submission could have marked a student's own work
@@ -22,6 +29,8 @@ export type LmsSubmission = "unsubmitted" | "submitted" | "graded";
 
 /** How recently due an old, possibly mismarked assignment can be and still get reopened. */
 export const LEGACY_REOPEN_WINDOW_DAYS = 7;
+/** How long past due a deadline the LMS says nothing about has to be, when it first comes in, to come in checked off. */
+export const ASSUME_DONE_AFTER_HOURS = 24;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export interface StatusDecisionInput {
@@ -40,6 +49,8 @@ export interface StatusDecision {
   lmsSubmission: LmsSubmission | null;
   /** True when a done assignment was opened again. */
   reopened: boolean;
+  /** True when a new assignment came in checked off because it was already past and the LMS doesn't say. */
+  assumedDone?: boolean;
 }
 
 function isDone(status: string): boolean {
@@ -58,6 +69,9 @@ export function decideAssignmentStatus(input: StatusDecisionInput): StatusDecisi
   const { existing, reported } = input;
 
   if (!existing) {
+    if (reported === null && input.dueAt && input.dueAt.getTime() < input.now.getTime() - ASSUME_DONE_AFTER_HOURS * 60 * 60 * 1000) {
+      return { status: "SUBMITTED", lmsSubmission: null, reopened: false, assumedDone: true };
+    }
     const status = reported === "graded" ? "GRADED" : reported === "submitted" ? "SUBMITTED" : "NOT_STARTED";
     return { status, lmsSubmission: reported, reopened: false };
   }

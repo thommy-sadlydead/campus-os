@@ -297,6 +297,36 @@ describe("applyLmsCourses", () => {
     expect(db.pendingChange[0].status).toBe("REJECTED");
   });
 
+  it("counts deadlines that came in checked off because the LMS doesn't say", async () => {
+    const { prisma, db } = createFakePrisma();
+    const item = (id: string, daysAgo: number) => ({
+      id,
+      name: `Item ${id}`,
+      description: null,
+      dueAt: new Date(NOW.getTime() - daysAgo * 24 * 60 * 60 * 1000),
+      pointsPossible: null,
+      url: null,
+      submission: null,
+      tracksSubmissions: false,
+      isExam: false,
+    });
+
+    const result = await applyLmsCourses(
+      prisma,
+      "me",
+      "brightspace",
+      [course({ id: "id:5", assignments: [item("old", 10), item("recent", 0.5), item("next", -3)] })],
+      NOW
+    );
+
+    expect(result.checkedOff).toBe(1);
+    expect(Object.fromEntries(db.assignment.map((a) => [a.lmsItemId, a.status]))).toEqual({
+      old: "SUBMITTED",
+      recent: "NOT_STARTED",
+      next: "NOT_STARTED",
+    });
+  });
+
   it("gives new classes the colors used least", async () => {
     const { prisma, db } = createFakePrisma({
       class: [{ id: "c1", userId: "me", lmsProvider: null, lmsCourseId: null, name: "Mine", code: "", color: 1, archived: false }],

@@ -105,3 +105,28 @@ describe("decideAssignmentStatus for rows synced before lmsSubmission was record
     expect(second).toEqual({ status: "SUBMITTED", lmsSubmission: "unsubmitted", reopened: false });
   });
 });
+
+describe("decideAssignmentStatus when the LMS doesn't say (calendar feeds)", () => {
+  it("checks off a deadline that was already more than a day past when it first came in", () => {
+    const old = new Date(NOW.getTime() - 3 * DAY);
+    expect(decide({ reported: null, dueAt: old })).toEqual({
+      status: "SUBMITTED",
+      lmsSubmission: null,
+      reopened: false,
+      assumedDone: true,
+    });
+  });
+
+  it("leaves one due in the last day, one with no date, and anything the LMS does report on, open", () => {
+    expect(decide({ reported: null, dueAt: new Date(NOW.getTime() - 2 * 60 * 60 * 1000) }).status).toBe("NOT_STARTED");
+    expect(decide({ reported: null, dueAt: null }).status).toBe("NOT_STARTED");
+    expect(decide({ reported: "unsubmitted", dueAt: new Date(NOW.getTime() - 3 * DAY) }).status).toBe("NOT_STARTED");
+  });
+
+  it("only applies when it first comes in: a deadline that passes later stays open", () => {
+    const passed = new Date(NOW.getTime() - 3 * DAY);
+    expect(decide({ existing: { status: "NOT_STARTED", lmsSubmission: null }, reported: null, dueAt: passed }).status).toBe(
+      "NOT_STARTED"
+    );
+  });
+});

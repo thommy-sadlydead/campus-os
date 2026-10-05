@@ -651,6 +651,19 @@ apply to all of them.
 Schema change: the new `LmsConnection` table (credentials encrypted, the
 student's preview choices in `settings`, and the last sync report).
 
+**Fitting each LMS (2026-10-05).** Everyone gets the same pages; what
+changes is where an LMS shares less. Brightspace and Blackboard don't say
+what's been turned in, and their calendars reach back weeks (Blackboard's,
+a year), so a new student's first sync would have shown everything past
+as overdue. Now a deadline the LMS says nothing about comes in checked off
+when it's already more than a day past (the sync report gives the count),
+a course with nothing due in the last month starts out unticked in the
+preview, Today (for two weeks after connecting) and Assignments remind
+those students to check work off, and a class's Resources and Meeting
+times say what doesn't come over from its LMS. The last "Canvas"-only
+wording (a class's Meeting times, the subscribe page's feature list) now
+fits whichever LMS a student uses.
+
 **Known limits, not gaps in this app:** Gmail (`GOOGLE_CLIENT_ID` etc.) and
 the AI assistants (`ANTHROPIC_API_KEY`) both require credentials you
 create yourself — see "AI features (optional)" above and `.env.example`
@@ -673,7 +686,7 @@ Not built — one deliberately flagged gap, unrelated to the phase plan:
 
 ## Verification
 
-- `npm test` — 337 unit tests in 29 files as of Schoology/Brightspace/Blackboard (302 after the per-student sync fix, 273 as of payments, 238 after the redesign, 235 after the iPhone app work, 223 after the 2026-09-30 data fixes, 176 as of the 2026-09 security pass, 165 as of the Canvas materials sync)
+- `npm test` — 343 unit tests in 29 files as of fitting each LMS (337 as of Schoology/Brightspace/Blackboard, 302 after the per-student sync fix, 273 as of payments, 238 after the redesign, 235 after the iPhone app work, 223 after the 2026-09-30 data fixes, 176 as of the 2026-09 security pass, 165 as of the Canvas materials sync)
   update (12 test files; the newest cover Canvas resource
   classification/dedup/incremental-diff logic, retry/pagination against a
   stubbed Canvas API, and the PDF OCR fallback — see CLAUDE.md for where

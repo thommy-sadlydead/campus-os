@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { AlertIcon, CheckCircleIcon } from "@/components/icons";
 import { CardHeader } from "@/components/ui/CardHeader";
 import { formatPastMoment } from "@/lib/time";
@@ -97,6 +98,20 @@ export function SyncReportCard({
           </ul>
         </div>
       )}
+
+      {report.checkedOff ? (
+        <div className="mt-5">
+          <p className="eyebrow mb-2">Checked off for you</p>
+          <p className="text-sm text-ink-soft">
+            {plural(report.checkedOff, "past deadline")} came in already checked off, because {lmsName} didn&apos;t say
+            whether you&apos;d turned {report.checkedOff === 1 ? "it" : "them"} in. Uncheck any you still need to do in{" "}
+            <Link href="/assignments" className="font-medium text-accent-ink underline underline-offset-2">
+              Assignments
+            </Link>
+            .
+          </p>
+        </div>
+      ) : null}
 
       {footnote && <p className="mt-5 border-t border-border-soft pt-4 text-xs leading-relaxed text-ink-faint">{footnote}</p>}
     </div>

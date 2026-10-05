@@ -248,7 +248,7 @@ session cookies, no third-party auth.
 ## Verifying a change before calling it done
 
 1. `npx tsc --noEmit` (after `npx prisma generate` if the schema changed)
-2. `npx vitest run` — 337 tests as of this writing across 29 files
+2. `npx vitest run` — 343 tests as of this writing across 29 files
 3. Clean build: `rm -rf .next && npx next build` (use `next build` directly
    to skip the `db push` the `npm run build` script triggers, if you're not
    ready to push schema changes yet)
@@ -295,6 +295,13 @@ Two known-good workarounds, both used this session:
   preview (rename/leave out) is the safety net. When a real feed comes
   in that groups badly, add it (anonymized) as a test case and adjust the
   rules — don't guess.
+- **Work an LMS doesn't report on comes in checked off when it's already
+  more than a day past** (`decideAssignmentStatus` in
+  `src/lib/lms/status.ts`): Brightspace/Blackboard feeds, and Schoology work
+  too old to check. Otherwise a new student's first sync shows weeks of
+  long-finished work as overdue. The sync report gives the count and points
+  to Assignments to uncheck anything still owed. Deadlines that pass after
+  connecting stay open until checked off.
 - **Schoology**: turned-in status is only checked for work due from a week
   ago to a month out (one request per assignment, under its rate limit);
   graded status covers everything. An edited Schoology page isn't

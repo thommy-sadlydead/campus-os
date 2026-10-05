@@ -167,6 +167,7 @@ export async function syncSchoologyForUser(
   const applied = await applyLmsCourses(prisma, userId, "schoology", inputs, now);
   report.classes = applied.classes;
   report.reopened = applied.reopened;
+  if (applied.checkedOff > 0) report.checkedOff = applied.checkedOff;
   report.finishedAt = new Date().toISOString();
   return report;
 }

@@ -137,7 +137,9 @@ export function ClassTabs({
         />
       )}
       {tab === "Exams" && <ExamsPanel exams={exams} tz={tz} />}
-      {tab === "Resources" && <ResourcesPanel classId={classInfo.id} resources={resources} materials={materials} />}
+      {tab === "Resources" && (
+        <ResourcesPanel classId={classInfo.id} lmsProvider={classInfo.lmsProvider} resources={resources} materials={materials} />
+      )}
 
       <div className="mt-10">
         <ClassAssistant classId={classInfo.id} className={classInfo.name} />

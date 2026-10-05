@@ -94,3 +94,15 @@ export function lmsLink(url: string | null | undefined, provider: string | null 
     return null;
   }
 }
+
+/**
+ * "Brightspace", or "Brightspace and Blackboard": the given LMSs that don't
+ * tell Campus OS what the student has turned in. Null when they all do.
+ */
+export function namesWithoutSubmissionStatus(providers: LmsProvider[]): string | null {
+  const names = [...new Set(providers)]
+    .filter((p) => !LMS_PROVIDER_INFO[p].capabilities.submissionStatus)
+    .map((p) => LMS_PROVIDER_INFO[p].name);
+  if (names.length === 0) return null;
+  return names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+}
