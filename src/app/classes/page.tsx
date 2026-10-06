@@ -92,9 +92,9 @@ export default async function ClassesPage() {
                 <p className="mt-1 text-[13px] text-ink-soft">{[c.professor, c.room].filter(Boolean).join(" · ")}</p>
               )}
               <div className="mt-auto flex items-center gap-3 pt-5 text-[13px] text-ink-soft">
-                <Count n={c._count.assignments} label="assignments" />
-                <Count n={c._count.exams} label="exams" />
-                <Count n={c._count.resources + c._count.materials} label="resources" />
+                <Count n={c._count.assignments} label="assignment" />
+                <Count n={c._count.exams} label="exam" />
+                <Count n={c._count.resources + c._count.materials} label="resource" />
                 <ChevronRightIcon className="ml-auto h-4 w-4 flex-none text-ink-faint transition-transform group-hover:translate-x-0.5 group-hover:text-ink" />
               </div>
             </Link>
@@ -105,10 +105,11 @@ export default async function ClassesPage() {
   );
 }
 
+/** "1 exam", "3 exams". */
 function Count({ n, label }: { n: number; label: string }) {
   return (
     <span className="whitespace-nowrap">
-      <span className="font-semibold tabular-nums text-ink">{n}</span> {label}
+      <span className="font-semibold tabular-nums text-ink">{n}</span> {n === 1 ? label : `${label}s`}
     </span>
   );
 }

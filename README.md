@@ -664,6 +664,14 @@ times say what doesn't come over from its LMS. The last "Canvas"-only
 wording (a class's Meeting times, the subscribe page's feature list) now
 fits whichever LMS a student uses.
 
+**App Store review account (2026-10-06).** Reviewers can't sign in to a
+school's LMS, so an account listed in `DEMO_ACCOUNT_EMAILS` can fill itself
+with made-up classes (`src/lib/sample-classes.ts`): five courses with
+meeting times, assignments due over the next weeks, exams, a syllabus each
+and a note. "Add sample classes" is on its empty dashboard and "Reset
+sample classes" on its Account page; no other account sees either, and the
+action refuses them too. See `ios/README.md` for the review steps.
+
 **Known limits, not gaps in this app:** Gmail (`GOOGLE_CLIENT_ID` etc.) and
 the AI assistants (`ANTHROPIC_API_KEY`) both require credentials you
 create yourself — see "AI features (optional)" above and `.env.example`
@@ -686,7 +694,7 @@ Not built — one deliberately flagged gap, unrelated to the phase plan:
 
 ## Verification
 
-- `npm test` — 343 unit tests in 29 files as of fitting each LMS (337 as of Schoology/Brightspace/Blackboard, 302 after the per-student sync fix, 273 as of payments, 238 after the redesign, 235 after the iPhone app work, 223 after the 2026-09-30 data fixes, 176 as of the 2026-09 security pass, 165 as of the Canvas materials sync)
+- `npm test` — 345 unit tests in 30 files as of the review account (343 after fitting each LMS, 337 as of Schoology/Brightspace/Blackboard, 302 after the per-student sync fix, 273 as of payments, 238 after the redesign, 235 after the iPhone app work, 223 after the 2026-09-30 data fixes, 176 as of the 2026-09 security pass, 165 as of the Canvas materials sync)
   update (12 test files; the newest cover Canvas resource
   classification/dedup/incremental-diff logic, retry/pagination against a
   stubbed Canvas API, and the PDF OCR fallback — see CLAUDE.md for where

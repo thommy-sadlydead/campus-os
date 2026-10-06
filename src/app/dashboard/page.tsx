@@ -22,6 +22,8 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { CheckOffNote } from "@/components/connect/CheckOffNote";
 import { getConnections } from "@/lib/lms/connections";
 import { namesWithoutSubmissionStatus } from "@/lib/lms/providers";
+import { isDemoAccount } from "@/lib/sample-classes";
+import { SampleClassesButton } from "@/components/demo/SampleClassesButton";
 import { ArrowRightIcon, BookIcon, CalendarIcon, ChevronRightIcon, LayersIcon, MailIcon } from "@/components/icons";
 
 const SECTION_TITLES: Record<UrgencyBucket, string> = {
@@ -167,6 +169,15 @@ export default async function DashboardPage() {
                 Connect your classes
                 <ArrowRightIcon className="h-4 w-4" />
               </Link>
+              {isDemoAccount(user.email) && (
+                <div className="mt-6 border-t border-border-soft pt-5">
+                  <p className="mb-3 text-sm text-ink-soft">
+                    This is the App Store review account. Fill it with made-up classes to try everything without a school
+                    login.
+                  </p>
+                  <SampleClassesButton label="Add sample classes" />
+                </div>
+              )}
             </div>
           </div>
         </div>

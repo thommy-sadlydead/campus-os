@@ -86,10 +86,13 @@ website only: Apple doesn't allow unlocking features with codes in the app.
 
 ## App Store review notes
 
-- **Demo account.** Reviewers can't sync Canvas, so give them a working
-  login with classes already in it in App Review Information, ideally with
-  free access so they see everything, plus a note that subscriptions can be
-  tested in the sandbox.
+- **Demo account.** Reviewers can't sync a school's LMS, so give them a
+  working login with classes already in it in App Review Information. Put
+  its email in `DEMO_ACCOUNT_EMAILS` in Vercel, sign up with it on the
+  website, and click **Add sample classes** on the dashboard (Account →
+  Reset sample classes brings the dates up to date before a resubmission).
+  Leave it on its free trial, so the reviewer can tap **See plans** and test
+  the subscriptions in the sandbox.
 - **AI permission (guideline 5.1.2(i)).** The app asks before sending
   anything to Anthropic or AssemblyAI (`src/lib/ai-consent.ts`), and it can
   be turned off under Account → AI features.

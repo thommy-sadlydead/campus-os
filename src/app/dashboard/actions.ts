@@ -12,6 +12,7 @@ import { AI_LIMIT_MESSAGE, allowAiRequest } from "@/lib/rate-limit";
 import { AI_CONSENT_MESSAGE, hasAiConsent } from "@/lib/ai-consent";
 import { startOfTzDay } from "@/lib/time";
 import { buildCrossAppPrompt } from "@/lib/cross-app-context";
+import { addSampleClasses, isDemoAccount } from "@/lib/sample-classes";
 
 /**
  * Toggle a work item's completion.
@@ -261,4 +262,17 @@ export async function explainRiskAction(): Promise<ExplainRiskResult> {
   // rewording step didn't happen.
   if (aiNarrative) return { narrative: aiNarrative, usedAi: true };
   return { narrative: fallback, usedAi: false };
+}
+
+/**
+ * Fills a demo account (DEMO_ACCOUNT_EMAILS) with made-up classes, or
+ * replaces them with fresh ones, for App Store review. Any other account
+ * gets an error: this is a public endpoint.
+ */
+export async function addSampleClassesAction(): Promise<{ error?: string }> {
+  const user = await requireUser();
+  if (!isDemoAccount(user.email)) return { error: "Sample classes are only for the App Store review account." };
+  await addSampleClasses(prisma, user.id, user.timezone);
+  revalidatePath("/", "layout");
+  return {};
 }

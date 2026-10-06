@@ -8,7 +8,9 @@ import { getAccess, isAppRequest, paymentsEnabled } from "@/lib/billing-server";
 import { PlanSection } from "@/components/billing/PlanSection";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { CardHeader } from "@/components/ui/CardHeader";
-import { AlertIcon, LockIcon, SparkIcon } from "@/components/icons";
+import { AlertIcon, BookIcon, LockIcon, SparkIcon } from "@/components/icons";
+import { isDemoAccount } from "@/lib/sample-classes";
+import { SampleClassesButton } from "@/components/demo/SampleClassesButton";
 
 export default async function AccountPage({ searchParams }: { searchParams: Promise<{ subscribed?: string }> }) {
   // Reachable after a trial ends, so the account can subscribe or be deleted.
@@ -23,6 +25,19 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
 
       <div className="flex max-w-2xl flex-col gap-6">
         {access && <PlanSection access={access} inApp={inApp} timezone={user.timezone} justSubscribed={subscribed === "1"} />}
+
+        {isDemoAccount(user.email) && (
+          <section className="card card-pad">
+            <CardHeader
+              icon={<BookIcon className="h-[18px] w-[18px]" />}
+              title="Sample classes"
+              description="This is the App Store review account. Resetting replaces the made-up classes with fresh ones, dated from today."
+            />
+            <div className="mt-4">
+              <SampleClassesButton label="Reset sample classes" />
+            </div>
+          </section>
+        )}
 
         <section id="ai" className="card card-pad scroll-mt-24">
           <CardHeader icon={<SparkIcon className="h-[18px] w-[18px]" />} title="AI features" />
