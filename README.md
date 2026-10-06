@@ -835,7 +835,9 @@ Not built — one deliberately flagged gap, unrelated to the phase plan:
   A script-level CSP would need per-request nonces and isn't set.
 - The public privacy policy is at `/privacy` (`src/app/privacy/page.tsx`).
   Keep it in step with what the code stores and sends. Set `CONTACT_EMAIL`
-  to show a contact address there.
+  to show a contact address there, on `/terms`, and on `/support`, the
+  public help page that's the App Store listing's Support URL (Apple wants
+  it to show a way to reach you, so set it in production).
 - The AI-extraction path for emails is given an explicit allowlist of
   fields it's permitted to propose changes to (enforced twice — once when
   building the prompt, once again in `pending-changes.ts` regardless of

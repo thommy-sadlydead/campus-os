@@ -150,7 +150,10 @@ export function LoginForm({
           </p>
         )}
 
-        <p className="mt-6 text-center text-xs text-ink-faint">
+        <p className="mt-6 flex justify-center gap-4 text-xs text-ink-faint">
+          <Link href="/support" className="hover:text-ink hover:underline">
+            Support
+          </Link>
           <Link href="/privacy" className="hover:text-ink hover:underline">
             Privacy policy
           </Link>

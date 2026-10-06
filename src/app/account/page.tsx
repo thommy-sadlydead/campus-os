@@ -8,7 +8,7 @@ import { getAccess, isAppRequest, paymentsEnabled } from "@/lib/billing-server";
 import { PlanSection } from "@/components/billing/PlanSection";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { CardHeader } from "@/components/ui/CardHeader";
-import { AlertIcon, BookIcon, LockIcon, SparkIcon } from "@/components/icons";
+import { AlertIcon, BookIcon, LockIcon, MailIcon, SparkIcon } from "@/components/icons";
 import { isDemoAccount } from "@/lib/sample-classes";
 import { SampleClassesButton } from "@/components/demo/SampleClassesButton";
 
@@ -56,6 +56,19 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
         </section>
 
         <section className="card card-pad">
+          <CardHeader
+            icon={<MailIcon className="h-[18px] w-[18px]" />}
+            title="Help and support"
+            description="Answers to common questions, and who to email when something isn't working."
+            action={
+              <Link href="/support" className="btn btn-secondary btn-sm">
+                Get help
+              </Link>
+            }
+          />
+        </section>
+
+        <section className="card card-pad">
           <div className="flex items-start gap-3">
             <span className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-danger-soft text-danger">
               <AlertIcon className="h-[18px] w-[18px]" />
@@ -64,7 +77,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
           </div>
           <p className="mt-4 text-sm leading-relaxed text-ink-soft">
             Permanently deletes your account and everything in it: classes, assignments, notes, lectures and their audio,
-            emails, and your Canvas and Gmail connections. Gmail access is revoked at Google, and lecture transcripts
+            emails, and your school and Gmail connections. Gmail access is revoked at Google, and lecture transcripts
             are deleted from the transcription service. This can&apos;t be undone.
           </p>
           {payments && (
@@ -74,8 +87,8 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
             </p>
           )}
           <p className="mt-2 text-sm leading-relaxed text-ink-soft">
-            Your Canvas access token lives in Canvas too. Delete it there under Account → Settings → Approved
-            Integrations. See the{" "}
+            If you connected Canvas, your access token lives in Canvas too. Delete it there under Account → Settings →
+            Approved Integrations. See the{" "}
             <Link href="/privacy" className="font-medium text-ink underline decoration-border underline-offset-2 hover:decoration-ink">
               privacy policy
             </Link>{" "}

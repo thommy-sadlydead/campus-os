@@ -97,6 +97,11 @@ website only: Apple doesn't allow unlocking features with codes in the app.
   anything to Anthropic or AssemblyAI (`src/lib/ai-consent.ts`), and it can
   be turned off under Account → AI features.
 - **Account deletion (5.1.1(v)).** Account → Delete account.
+- **Support URL.** `/support` on the live site. It shows `CONTACT_EMAIL`, so
+  set that in Vercel first: Apple wants the Support URL to show a way to
+  reach you. The app sells auto-renewing subscriptions, so the App Store
+  description also links the terms (`/terms`) and the privacy policy
+  (`/privacy`) (3.1.2).
 - **More than a website (4.2).** Point reviewers to the Voice Memos share,
   background recording and reminders.
 - **Mac.** Leave "iPhone and iPad Apps on Apple Silicon Macs" on in App

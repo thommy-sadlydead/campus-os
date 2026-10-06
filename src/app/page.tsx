@@ -65,9 +65,15 @@ export default async function RootPage() {
         </ul>
       </main>
 
-      <footer className="relative z-10 mx-auto w-full max-w-5xl px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:px-6">
+      <footer className="relative z-10 mx-auto flex w-full max-w-5xl gap-4 px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:px-6">
+        <Link href="/support" className="text-xs text-ink-faint hover:text-ink hover:underline">
+          Support
+        </Link>
         <Link href="/privacy" className="text-xs text-ink-faint hover:text-ink hover:underline">
           Privacy policy
+        </Link>
+        <Link href="/terms" className="text-xs text-ink-faint hover:text-ink hover:underline">
+          Terms of use
         </Link>
       </footer>
     </div>
