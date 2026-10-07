@@ -253,6 +253,17 @@ textarea:focus-visible {
   textarea.field-sm {
     @apply py-1.5;
   }
+  /* iOS WebKit gives date and time inputs a minimum width of their own and
+     ignores width: 100%, so in a two-column row they spilled past the card on
+     an iPad. Without the native appearance they size like any other field. */
+  input.field[type="time"],
+  input.field[type="date"] {
+    @apply block min-w-0 appearance-none;
+  }
+  input.field[type="time"]::-webkit-date-and-time-value,
+  input.field[type="date"]::-webkit-date-and-time-value {
+    @apply text-left;
+  }
   .field-label {
     @apply mb-1.5 block text-[13px] font-medium text-ink-soft;
   }

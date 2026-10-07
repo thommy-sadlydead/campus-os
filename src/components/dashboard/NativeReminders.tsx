@@ -85,7 +85,7 @@ export function NativeReminders({
         <BellIcon className="h-5 w-5" />
       </span>
       <div className="flex-1">
-        <p className="text-[15px] font-semibold text-ink">Get reminders on this iPhone?</p>
+        <p className="text-[15px] font-semibold text-ink">Get reminders on this device?</p>
         <p className="mt-0.5 text-sm text-ink-soft">A heads-up at 7 PM the evening before something&apos;s due.</p>
       </div>
       <div className="flex flex-none gap-2">

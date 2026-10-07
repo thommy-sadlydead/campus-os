@@ -114,7 +114,9 @@ export function LecturesPanel({
       <p className="px-1 text-xs leading-relaxed text-ink-faint">
         Notes are written from the recording, using{" "}
         <button onClick={onOpenResources} className="font-medium text-ink-soft underline hover:text-ink">
-          {materialCount > 0 ? `this class's ${materialCount} books and slides` : "any books and slides you add"}
+          {materialCount > 0
+            ? `this class's ${materialCount} ${materialCount === 1 ? "resource" : "resources"}`
+            : "any books and slides you add"}
         </button>{" "}
         for extra detail. They also show up in the Notes tab.
       </p>

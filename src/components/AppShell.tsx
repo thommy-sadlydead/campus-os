@@ -127,7 +127,9 @@ export async function AppShell({
         />
       </div>
 
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border-soft bg-surface lg:flex">
+      {/* Padded by the safe-area insets so the iPad app keeps the logo clear of
+          the status bar and the account row clear of the home indicator. */}
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border-soft bg-surface pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)] lg:flex">
         <div className="flex h-16 flex-none items-center px-5">
           <Link href="/dashboard" aria-label="Campus OS home">
             <Logo />
