@@ -11,9 +11,11 @@ import {
 } from "@/app/subscribe/actions";
 import { CheckIcon } from "@/components/icons";
 
-const PLAN_INFO: Record<Plan, { title: string; per: string; note: string }> = {
-  monthly: { title: "Monthly", per: "/ month", note: "Billed every month" },
-  yearly: { title: "Yearly", per: "/ year", note: "Billed once a year" },
+// title matches the subscription's display name in App Store Connect: Apple
+// wants each plan's title, length and price on the purchase screen.
+const PLAN_INFO: Record<Plan, { title: string; short: string; per: string; note: string }> = {
+  monthly: { title: "Campus OS Monthly", short: "monthly", per: "/ month", note: "1-month subscription, billed every month" },
+  yearly: { title: "Campus OS Yearly", short: "yearly", per: "/ year", note: "1-year subscription, billed once a year" },
 };
 
 const INCLUDED = [
@@ -157,7 +159,7 @@ export function SubscribePanel({ webPrices }: { webPrices: Record<Plan, string |
                 disabled={pending || !priceFor(plan)}
                 className={`btn mt-5 w-full ${plan === "yearly" ? "btn-primary" : "btn-secondary"}`}
               >
-                {pending ? "Working…" : `Subscribe ${PLAN_INFO[plan].title.toLowerCase()}`}
+                {pending ? "Working…" : `Subscribe ${PLAN_INFO[plan].short}`}
               </button>
             </div>
           ))}
@@ -181,7 +183,7 @@ export function SubscribePanel({ webPrices }: { webPrices: Record<Plan, string |
 
       <p className="text-xs leading-relaxed text-ink-faint">
         {inApp
-          ? "Payment is charged to your Apple ID when you confirm. The subscription renews automatically at the same price unless you cancel at least 24 hours before the current period ends. Manage or cancel it in your iPhone's Settings → your name → Subscriptions."
+          ? "Payment is charged to your Apple ID when you confirm. The subscription renews automatically at the same price unless you cancel at least 24 hours before the current period ends. Manage or cancel it in your device's Settings → your name → Subscriptions."
           : "Billed through Stripe at the start of each period until you cancel. Cancel anytime under Account → Manage billing; you keep access until the period you paid for ends."}{" "}
         <a href="/terms" className="underline underline-offset-2 hover:text-ink">
           Terms of Use
