@@ -31,7 +31,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
             <CardHeader
               icon={<BookIcon className="h-[18px] w-[18px]" />}
               title="Sample classes"
-              description="This is the App Store review account. Resetting replaces the made-up classes with fresh ones, dated from today."
+              description="This is the App Store review account. Resetting replaces the made-up classes with fresh ones, dated from today, and restarts the free trial."
             />
             <div className="mt-4">
               <SampleClassesButton label="Reset sample classes" />

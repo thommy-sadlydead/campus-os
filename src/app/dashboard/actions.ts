@@ -13,6 +13,7 @@ import { AI_CONSENT_MESSAGE, hasAiConsent } from "@/lib/ai-consent";
 import { startOfTzDay } from "@/lib/time";
 import { buildCrossAppPrompt } from "@/lib/cross-app-context";
 import { addSampleClasses, isDemoAccount } from "@/lib/sample-classes";
+import { trialEndFrom } from "@/lib/billing";
 
 /**
  * Toggle a work item's completion.
@@ -266,13 +267,17 @@ export async function explainRiskAction(): Promise<ExplainRiskResult> {
 
 /**
  * Fills a demo account (DEMO_ACCOUNT_EMAILS) with made-up classes, or
- * replaces them with fresh ones, for App Store review. Any other account
- * gets an error: this is a public endpoint.
+ * replaces them with fresh ones, for App Store review, and restarts its
+ * free trial: a review can come days after the account was set up, and
+ * a reviewer should land in the app, not on the trial-ended screen, while
+ * still being able to try subscribing. Reachable after the trial ends for
+ * that reason. Any other account gets an error: this is a public endpoint.
  */
 export async function addSampleClassesAction(): Promise<{ error?: string }> {
-  const user = await requireUser();
+  const user = await requireUser({ allowWithoutAccess: true });
   if (!isDemoAccount(user.email)) return { error: "Sample classes are only for the App Store review account." };
   await addSampleClasses(prisma, user.id, user.timezone);
+  await prisma.user.update({ where: { id: user.id }, data: { trialEndsAt: trialEndFrom(new Date()) } });
   revalidatePath("/", "layout");
   return {};
 }

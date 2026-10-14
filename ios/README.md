@@ -90,7 +90,8 @@ website only: Apple doesn't allow unlocking features with codes in the app.
   working login with classes already in it in App Review Information. Put
   its email in `DEMO_ACCOUNT_EMAILS` in Vercel, sign up with it on the
   website, and click **Add sample classes** on the dashboard (Account →
-  Reset sample classes brings the dates up to date before a resubmission).
+  Reset sample classes brings the dates up to date and restarts the trial
+  before a resubmission).
   Leave it on its free trial, so the reviewer can tap **See plans** and test
   the subscriptions in the sandbox.
 - **AI permission (guideline 5.1.2(i)).** The app asks before sending
