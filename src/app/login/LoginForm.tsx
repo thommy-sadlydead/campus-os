@@ -106,6 +106,11 @@ export function LoginForm({
               autoComplete={registering ? "new-password" : "current-password"}
               placeholder="••••••••"
             />
+            {!registering && (
+              <Link href="/forgot-password" className="-mt-2 self-end text-xs text-ink-soft hover:text-ink hover:underline">
+                Forgot password?
+              </Link>
+            )}
             {registering && (
               <>
                 <Field

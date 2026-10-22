@@ -240,6 +240,12 @@ session cookies, no third-party auth.
   is in `DEMO_ACCOUNT_EMAILS` can add made-up classes (dashboard when empty,
   Account → Reset sample classes); everyone else is refused by the action
   too. Sample classes have `lmsCourseId` "sample:…" and no LMS.
+- **Forgot password**: `src/app/forgot-password/actions.ts` (request a link,
+  set the new password), `password-reset.ts` (pure rules and the email),
+  `password-reset-server.ts`, `email-send.ts` (Resend, hand-rolled). Reset
+  links are built from `APP_URL` only, never the request's Host header, and
+  neither action says whether an email has an account. `EMAIL_LOG_ONLY=1`
+  prints emails to the dev server log instead of sending (not in production).
 - **AI permission**: `ai-consent.ts`. Every feature that sends a student's
   data to Anthropic or AssemblyAI checks `hasAiConsent(user)` on the server
   first (App Store guideline 5.1.2(i)). A new AI feature must too.
@@ -252,7 +258,7 @@ session cookies, no third-party auth.
 ## Verifying a change before calling it done
 
 1. `npx tsc --noEmit` (after `npx prisma generate` if the schema changed)
-2. `npx vitest run` — 345 tests as of this writing across 30 files
+2. `npx vitest run` — 354 tests as of this writing across 31 files
 3. Clean build: `rm -rf .next && npx next build` (use `next build` directly
    to skip the `db push` the `npm run build` script triggers, if you're not
    ready to push schema changes yet)

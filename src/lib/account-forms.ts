@@ -43,6 +43,17 @@ export const changePasswordSchema = z
     path: ["confirmPassword"],
   });
 
+export const forgotPasswordSchema = z.object({
+  email: z.string().trim().email("Enter a valid email address."),
+});
+
+export const resetPasswordSchema = z
+  .object({
+    newPassword: password,
+    confirmPassword: z.string(),
+  })
+  .refine((d) => d.newPassword === d.confirmPassword, passwordsMatch);
+
 // Typed out in full on the Account page so account deletion can't happen by
 // a stray click.
 export const DELETE_CONFIRMATION_WORD = "DELETE";

@@ -32,7 +32,7 @@ export default function PrivacyPage() {
         <header>
           <p className="eyebrow">Legal</p>
           <h1 className="mt-2 font-display text-3xl font-semibold text-ink sm:text-4xl">Privacy policy</h1>
-          <p className="mt-1 text-xs text-ink-faint">Last updated October 5, 2026</p>
+          <p className="mt-1 text-xs text-ink-faint">Last updated October 21, 2026</p>
           <p className="mt-4">
             Campus OS is a personal academic organizer. It pulls your classes and assignments from your school&apos;s
             learning system (Canvas, Schoology, D2L Brightspace or Blackboard), reads
@@ -116,6 +116,10 @@ export default function PrivacyPage() {
               Anthropic and AssemblyAI get nothing until you allow AI features, which Campus OS asks before you
               first use one. You can turn them off any time under Account → AI features; with them off, email is
               sorted without AI and nothing is sent to either service.
+            </li>
+            <li>
+              <strong className="text-ink">Resend</strong> sends password reset emails. It gets your email address and
+              the reset link, only when you ask for one.
             </li>
             <li>
               <strong className="text-ink">Stripe</strong> processes payments on the website, and{" "}

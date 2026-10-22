@@ -30,6 +30,11 @@ as out of scope.
 - **Auth**: email/password, hashed with bcrypt, session cookies (httpOnly,
   signed) — no third-party auth dependency, since Gmail OAuth is a
   *separate*, narrowly-scoped connection, not your login method.
+- **Forgot password** (`/forgot-password`, `/reset-password`): a one-time
+  link by email, good for an hour, stored only as an HMAC. Resetting signs
+  out every device and signs this one in. Emails go through Resend
+  (`RESEND_API_KEY`, `EMAIL_FROM`, and `APP_URL` for the link); until those
+  are set, the page points to `CONTACT_EMAIL` instead.
 - **LMS connections** (`/connect`): Canvas, Schoology, D2L Brightspace or
   Blackboard, each connected right in the app — no terminal needed — with
   a **Sync now** button to re-pull any time and a report of what each sync

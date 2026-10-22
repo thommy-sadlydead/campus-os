@@ -21,8 +21,9 @@ function authSecret(): string {
 }
 
 // We never store the raw session token — only an HMAC of it — so a
-// database leak alone doesn't hand out working session cookies.
-function hashToken(token: string): string {
+// database leak alone doesn't hand out working session cookies. Password
+// reset links are stored the same way.
+export function hashToken(token: string): string {
   return crypto.createHmac("sha256", authSecret()).update(token).digest("hex");
 }
 
@@ -69,6 +70,11 @@ export async function destroyOtherSessions(userId: string): Promise<void> {
   await prisma.session.deleteMany({
     where: { userId, ...(token ? { NOT: { tokenHash: hashToken(token) } } : {}) },
   });
+}
+
+// After a password reset: signs out every device, this one included.
+export async function destroyAllSessions(userId: string): Promise<void> {
+  await prisma.session.deleteMany({ where: { userId } });
 }
 
 // Once per request: pages call it, and so does AppShell for the trial banner.

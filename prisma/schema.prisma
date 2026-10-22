@@ -56,6 +56,7 @@ model User {
   stripeCustomerId  String?
 
   sessions            Session[]
+  passwordResetTokens PasswordResetToken[]
   subscriptions       Subscription[]
   classes             Class[]
   availabilityBlocks  AvailabilityBlock[]
@@ -75,6 +76,23 @@ model Session {
   tokenHash String   @unique
   expiresAt DateTime
   createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// "Forgot password?" links (src/app/forgot-password). Only an HMAC of the
+// token is stored, like Session.tokenHash, so the database alone can't be
+// used to reset anyone's password. A link works once (usedAt) and for an
+// hour (expiresAt); see src/lib/password-reset.ts.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

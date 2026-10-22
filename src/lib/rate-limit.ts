@@ -26,6 +26,10 @@ export const RATE_LIMITS = {
   loginIp: { limit: 30, windowMs: 15 * MINUTE },
   // Sign-up attempts per client IP, wrong invite codes included.
   register: { limit: 10, windowMs: 60 * MINUTE },
+  // "Forgot password?" requests, per address (so nobody's inbox gets
+  // flooded) and per client IP. Each one can send an email.
+  passwordResetEmail: { limit: 3, windowMs: 60 * MINUTE },
+  passwordResetIp: { limit: 10, windowMs: 60 * MINUTE },
   // Interactive AI features: dashboard, class assistant, assignment
   // breakdowns. Generous for one student's real use.
   ai: { limit: 200, windowMs: DAY },

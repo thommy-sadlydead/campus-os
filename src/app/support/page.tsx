@@ -68,6 +68,13 @@ export default function SupportPage() {
           </p>
         </Section>
 
+        <Section title="Forgot your password">
+          <p>
+            On the login screen, tap Forgot password? and enter the email you signed up with. Campus OS emails you a
+            link to choose a new password; it works for an hour.
+          </p>
+        </Section>
+
         <Section title="Free trial and subscriptions">
           <p>New accounts get a {TRIAL_DAYS}-day free trial, then a monthly or yearly subscription.</p>
           <ul className="flex list-disc flex-col gap-2 pl-5">
