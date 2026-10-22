@@ -240,6 +240,12 @@ session cookies, no third-party auth.
   is in `DEMO_ACCOUNT_EMAILS` can add made-up classes (dashboard when empty,
   Account → Reset sample classes); everyone else is refused by the action
   too. Sample classes have `lmsCourseId` "sample:…" and no LMS.
+- **Who sees Gmail**: `gmail-access.ts`. The Google OAuth app is in Testing
+  (gmail.readonly is a restricted scope; opening it to everyone needs
+  Google's verification and a yearly CASA assessment), so Connect Gmail,
+  the Email nav item and the dashboard's email step only appear for
+  `GMAIL_TESTERS` (or everyone with `GMAIL_PUBLIC=1`). Accounts that already
+  connected keep it.
 - **Forgot password**: `src/app/forgot-password/actions.ts` (request a link,
   set the new password), `password-reset.ts` (pure rules and the email),
   `password-reset-server.ts`, `email-send.ts` (Resend, hand-rolled). Reset
@@ -258,7 +264,7 @@ session cookies, no third-party auth.
 ## Verifying a change before calling it done
 
 1. `npx tsc --noEmit` (after `npx prisma generate` if the schema changed)
-2. `npx vitest run` — 354 tests as of this writing across 31 files
+2. `npx vitest run` — 356 tests as of this writing across 32 files
 3. Clean build: `rm -rf .next && npx next build` (use `next build` directly
    to skip the `db push` the `npm run build` script triggers, if you're not
    ready to push schema changes yet)

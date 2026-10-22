@@ -9,6 +9,7 @@ import { ConnectGmailButton } from "@/components/email/ConnectGmailButton";
 import { disconnectEmailAction } from "@/app/email/actions";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { CheckCircleIcon, MailIcon } from "@/components/icons";
+import { gmailOpenTo } from "@/lib/gmail-access";
 
 // syncEmailAction (run from SyncButton) reads and classifies up to 60
 // messages per run, a few seconds each, which can outlast Vercel's default
@@ -24,6 +25,26 @@ export default async function EmailPage({
   const { error } = await searchParams;
 
   const account = await prisma.emailAccount.findUnique({ where: { userId: user.id } });
+
+  // Gmail sign-in is limited to Google's test users until Google verifies
+  // the app (src/lib/gmail-access.ts); anyone else would hit "Access blocked".
+  if (!account && !gmailOpenTo(user.email)) {
+    return (
+      <AppShell active="/email" userName={user.name ?? user.email}>
+        <PageHeader title="Email" />
+        <div className="card card-pad max-w-2xl sm:p-8">
+          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-surface-2 text-ink-soft">
+            <MailIcon className="h-[22px] w-[22px]" />
+          </span>
+          <h2 className="mt-4 text-lg font-semibold text-ink">Not available yet</h2>
+          <p className="mt-2 text-sm leading-relaxed text-ink-soft">
+            Connecting school email isn&apos;t open to everyone yet. Your classes, due dates and exams come from your
+            school&apos;s course site, which you can connect under Connect classes.
+          </p>
+        </div>
+      </AppShell>
+    );
+  }
 
   if (!account) {
     return (

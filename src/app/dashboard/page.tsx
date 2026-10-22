@@ -23,6 +23,7 @@ import { CheckOffNote } from "@/components/connect/CheckOffNote";
 import { getConnections } from "@/lib/lms/connections";
 import { namesWithoutSubmissionStatus } from "@/lib/lms/providers";
 import { isDemoAccount } from "@/lib/sample-classes";
+import { gmailOpenTo } from "@/lib/gmail-access";
 import { SampleClassesButton } from "@/components/demo/SampleClassesButton";
 import { ArrowRightIcon, BookIcon, CalendarIcon, ChevronRightIcon, LayersIcon, MailIcon } from "@/components/icons";
 
@@ -118,11 +119,15 @@ export default async function DashboardPage() {
         title: "Add your class times",
         body: "On the Schedule page, so Record knows which class you're in.",
       },
-      {
-        Icon: MailIcon,
-        title: "Optional: connect your school email",
-        body: "To catch due-date and room changes your professors send.",
-      },
+      ...(gmailOpenTo(user.email)
+        ? [
+            {
+              Icon: MailIcon,
+              title: "Optional: connect your school email",
+              body: "To catch due-date and room changes your professors send.",
+            },
+          ]
+        : []),
     ];
     return (
       <AppShell active="/dashboard" userName={user.name ?? user.email}>

@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
+import { canUseGmail } from "@/lib/gmail-access";
 import { buildGoogleAuthUrl, OAUTH_STATE_COOKIE } from "@/lib/google-oauth";
 import { NATIVE_FLOW_MAX_AGE_MS, NATIVE_OAUTH_COOKIE, nativeCallbackUrl, readGmailHandoff } from "@/lib/native-oauth";
 
@@ -29,7 +30,8 @@ export async function GET(request: Request) {
     }
     cookieStore.set(NATIVE_OAUTH_COOKIE, handoff, { ...cookieOptions, maxAge: NATIVE_FLOW_MAX_AGE_MS / 1000 });
   } else {
-    await requireUser(); // redirects to /login if not authenticated
+    const user = await requireUser(); // redirects to /login if not authenticated
+    if (!(await canUseGmail(user))) return NextResponse.redirect(new URL("/email", request.url));
     cookieStore.delete(NATIVE_OAUTH_COOKIE);
   }
 

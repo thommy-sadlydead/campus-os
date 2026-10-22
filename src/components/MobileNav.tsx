@@ -28,13 +28,22 @@ const TABS = [
   { href: "/schedule", label: "Schedule", Icon: CalendarIcon },
 ];
 
-export function MobileNav({ active, lms }: { active: string; lms: { href: string; label: string } }) {
+export function MobileNav({
+  active,
+  lms,
+  email,
+}: {
+  active: string;
+  lms: { href: string; label: string };
+  /** Whether this account can use Email (src/lib/gmail-access.ts). */
+  email: boolean;
+}) {
   const [moreOpen, setMoreOpen] = useState(false);
   // `match` is the `active` value each link's pages pass: every LMS page
   // passes "/connect".
   const moreLinks = [
     { href: "/assignments", label: "Assignments", Icon: ChecklistIcon, match: "/assignments" },
-    { href: "/email", label: "Email", Icon: MailIcon, match: "/email" },
+    ...(email ? [{ href: "/email", label: "Email", Icon: MailIcon, match: "/email" }] : []),
     { href: lms.href, label: lms.label, Icon: LayersIcon, match: "/connect" },
     { href: "/account", label: "Account", Icon: UserIcon, match: "/account" },
   ];

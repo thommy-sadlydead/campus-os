@@ -5,7 +5,7 @@ import { inviteCodeRequired, isSignupOpen } from "@/lib/signup";
 import { TRIAL_DAYS } from "@/lib/billing";
 import { Logo } from "@/components/Logo";
 import { BrandBackdrop } from "@/components/ui/BrandBackdrop";
-import { ArrowRightIcon, LayersIcon, MailIcon, MicIcon, SparkIcon } from "@/components/icons";
+import { ArrowRightIcon, CalendarIcon, LayersIcon, MicIcon, SparkIcon } from "@/components/icons";
 
 // Signed-in users go straight to their dashboard. Everyone else gets a
 // public page saying what Campus OS is: Google's OAuth verification needs a
@@ -14,7 +14,7 @@ import { ArrowRightIcon, LayersIcon, MailIcon, MicIcon, SparkIcon } from "@/comp
 const FEATURES = [
   { Icon: LayersIcon, text: "Classes, assignments and due dates synced from Canvas, Schoology, Brightspace or Blackboard" },
   { Icon: SparkIcon, text: "A dashboard that tells you what to work on next" },
-  { Icon: MailIcon, text: "School email from Gmail, sorted by class, with date changes flagged for you to approve" },
+  { Icon: CalendarIcon, text: "Your week's classes, exams and deadlines in one schedule, with a reminder the evening before" },
   { Icon: MicIcon, text: "Lecture recordings turned into transcripts and notes" },
 ];
 
@@ -36,7 +36,7 @@ export default async function RootPage() {
         <div className="max-w-2xl">
           <p className="eyebrow">Campus OS</p>
           <h1 className="mt-3 font-display text-4xl font-semibold leading-[1.08] sm:text-5xl">
-            Your classes, assignments, email and lecture notes <span className="text-brand">in one place.</span>
+            Your classes, assignments, exams and lecture notes <span className="text-brand">in one place.</span>
           </h1>
           <div className="mt-8 flex flex-wrap items-center gap-4">
             <Link href="/login" className="btn btn-primary btn-lg">

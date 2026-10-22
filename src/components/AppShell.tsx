@@ -6,6 +6,7 @@ import { Logo, LogoMark } from "@/components/Logo";
 import { getCurrentUser } from "@/lib/auth";
 import { getAccess, paymentsEnabled } from "@/lib/billing-server";
 import { lmsNavItem } from "@/lib/lms/connections";
+import { canUseGmail } from "@/lib/gmail-access";
 import {
   AlertIcon,
   BookIcon,
@@ -109,8 +110,10 @@ export async function AppShell({
   // and its pages all pass active="/connect".
   const user = await getCurrentUser();
   const lms = user ? await lmsNavItem(user.id) : { href: "/connect", label: "Connect classes" };
+  // Email only for accounts that can connect Gmail (src/lib/gmail-access.ts).
+  const email = user ? await canUseGmail(user) : false;
   const connections = [
-    { href: "/email", label: "Email", Icon: MailIcon, match: "/email" },
+    ...(email ? [{ href: "/email", label: "Email", Icon: MailIcon, match: "/email" }] : []),
     { href: lms.href, label: lms.label, Icon: LayersIcon, match: "/connect" },
   ];
 
@@ -211,7 +214,7 @@ export async function AppShell({
           {children}
         </main>
       </div>
-      <MobileNav active={active} lms={lms} />
+      <MobileNav active={active} lms={lms} email={email} />
     </div>
   );
 }
