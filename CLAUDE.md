@@ -194,6 +194,13 @@ session cookies, no third-party auth.
 - **Connections** (`src/lib/lms/connections.ts`): reading/saving
   `LmsConnection`, `runLmsSync` (never throws; stores the report), and the
   nav label. Pages and actions are in `src/app/connect/`.
+  - Each Connect page has a short how-to video (`public/videos/`, made by
+    `scripts/connect-videos/`; read its README). Its last scene films the
+    real Connect form, so make the videos again when a form or the steps
+    change, and check each LMS's help guide before changing a step.
+  - Canvas makes student access tokens expire (30 days at most, since
+    October 2026), so a Canvas connection needs a new token every month or
+    so: the sync then says to disconnect and connect again.
 - **Fetching anything a user typed or pasted goes through
   `src/lib/lms/safe-fetch.ts`** (`fetchPublic`, `assertPublicHost`): public
   addresses only, checked when connecting and on every redirect, with size

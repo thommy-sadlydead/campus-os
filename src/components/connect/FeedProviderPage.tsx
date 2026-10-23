@@ -3,6 +3,7 @@ import { formatPastMoment } from "@/lib/time";
 import { AppShell } from "@/components/AppShell";
 import { BackToConnect } from "@/components/connect/BackToConnect";
 import { ConnectSteps, Ui } from "@/components/connect/ConnectSteps";
+import { ConnectVideo } from "@/components/connect/ConnectVideo";
 import { FeedConnect } from "@/components/connect/FeedConnect";
 import { SyncButton } from "@/components/connect/SyncButton";
 import { SyncReportCard } from "@/components/connect/SyncReportCard";
@@ -65,6 +66,7 @@ export async function FeedProviderPage({ provider }: { provider: FeedProvider })
 
           <div className="card card-pad">
             <CardHeader title="Get your calendar link" />
+            <ConnectVideo lms={provider} lmsName={info.name} />
             <ConnectSteps steps={STEPS[provider]} />
             <p className="mt-5 border-t border-border-soft pt-4 text-xs leading-relaxed text-ink-faint">{limits}</p>
             <p className="mt-3 text-xs leading-relaxed text-ink-faint">

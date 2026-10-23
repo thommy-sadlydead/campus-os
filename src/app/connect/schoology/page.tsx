@@ -4,6 +4,7 @@ import { AppShell } from "@/components/AppShell";
 import { BackToConnect } from "@/components/connect/BackToConnect";
 import { ConnectSchoologyForm } from "@/components/connect/ConnectSchoologyForm";
 import { ConnectSteps, Ui } from "@/components/connect/ConnectSteps";
+import { ConnectVideo } from "@/components/connect/ConnectVideo";
 import { MaterialSyncPanel } from "@/components/connect/MaterialSyncPanel";
 import { SyncButton } from "@/components/connect/SyncButton";
 import { SyncReportCard } from "@/components/connect/SyncReportCard";
@@ -44,6 +45,7 @@ export default async function SchoologyPage() {
 
           <div className="card card-pad">
             <CardHeader title="Get your API key" />
+            <ConnectVideo lms="schoology" lmsName="Schoology" />
             <ConnectSteps
               steps={[
                 <>Sign in to Schoology in your browser.</>,

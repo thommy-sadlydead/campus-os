@@ -6,6 +6,7 @@ import { ConnectCanvasForm } from "@/components/connect/ConnectCanvasForm";
 import { SyncButton } from "@/components/connect/SyncButton";
 import { MaterialSyncPanel } from "@/components/connect/MaterialSyncPanel";
 import { ConnectSteps, Ui } from "@/components/connect/ConnectSteps";
+import { ConnectVideo } from "@/components/connect/ConnectVideo";
 import { SyncReportCard } from "@/components/connect/SyncReportCard";
 import {
   continueCanvasMaterialSyncAction,
@@ -47,19 +48,24 @@ export default async function CanvasPage() {
 
           <div className="card card-pad">
             <CardHeader title="Get an access token" />
+            <ConnectVideo lms="canvas" lmsName="Canvas" />
             <ConnectSteps
               steps={[
-                <>In Canvas, go to Account → Settings.</>,
+                <>Open Canvas in your web browser and go to Account → Settings.</>,
                 <>
                   Scroll to <Ui>Approved Integrations</Ui> and click <Ui>+ New Access Token</Ui>.
                 </>,
-                <>Give it a purpose like &quot;Campus OS&quot; and click Generate Token.</>,
+                <>
+                  Give it a purpose like &quot;Campus OS&quot;, pick an expiration date and time (Canvas allows up to 30
+                  days for students), and click <Ui>Generate Token</Ui>.
+                </>,
                 <>Copy it now — Canvas only shows it once.</>,
               ]}
             />
             <p className="mt-5 border-t border-border-soft pt-4 text-xs leading-relaxed text-ink-faint">
-              Your token is encrypted before it&apos;s stored and is only used to read your courses. You can
-              disconnect any time, and delete the token in Canvas under Approved Integrations.
+              Your token is encrypted before it&apos;s stored and is only used to read your courses. When it expires,
+              disconnect here and connect again with a new one (your classes stay). You can also delete the token in
+              Canvas under Approved Integrations.
             </p>
           </div>
         </div>
