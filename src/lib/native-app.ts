@@ -68,6 +68,8 @@ interface NativeStorePlugin {
     { status: "purchased"; jws: string } | { status: "pending" } | { status: "cancelled" }
   >;
   restore(): Promise<{ transactions: string[] }>;
+  /** Apple's offer-code sheet; resolves after it closes with the current subscriptions (none on iOS 15). App 1.1+. */
+  redeemCode(): Promise<{ transactions: string[] }>;
   addListener(event: "transaction", listener: (data: { jws: string }) => void): Promise<PluginListenerHandle>;
 }
 
@@ -79,6 +81,18 @@ export const NativeStore = registerPlugin<NativeStorePlugin>("NativeStore");
 /** True in an app build that has this native plugin (an older build might not). */
 export function hasNativePlugin(name: "SharedInbox" | "NativeRecorder" | "AuthSession" | "NativeStore"): boolean {
   return isNativeApp() && Capacitor.isPluginAvailable(name);
+}
+
+/**
+ * True when the app build's plugin has this method. Builds don't update
+ * with the website, so a method added in a later build (like
+ * NativeStore.redeemCode) has to be checked before it's offered.
+ */
+export function hasNativeMethod(plugin: "NativeStore", method: string): boolean {
+  if (!hasNativePlugin(plugin)) return false;
+  const headers = (window as { Capacitor?: { PluginHeaders?: { name: string; methods?: { name: string }[] }[] } })
+    .Capacitor?.PluginHeaders;
+  return headers?.find((h) => h.name === plugin)?.methods?.some((m) => m.name === method) ?? false;
 }
 
 /** The error code a plugin rejected with, such as "cancelled" or "denied". */

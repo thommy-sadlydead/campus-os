@@ -84,6 +84,16 @@ only unlocks an account after checking Apple's signature on the
 transaction (`src/lib/apple-iap.ts`). Free-access codes are redeemed on the
 website only: Apple doesn't allow unlocking features with codes in the app.
 
+**Offer codes** (App Store Connect → Subscriptions → a plan → Offer Codes)
+are Apple's own codes, so the app may take them. From build 1.1 (3), the
+Subscribe screen has **Redeem a code**, which opens Apple's sheet
+(`NativeStore.redeemCode`); the button only shows in builds that have that
+method (`hasNativeMethod`), so older builds don't get a broken button. A
+code has no `appAccountToken`, so it belongs to whoever is signed in:
+`redeemCode` returns the current subscriptions for the site to record, and
+a code redeemed in the App Store itself arrives through `Transaction.updates`
+(held until the page is listening) or Restore purchases.
+
 ## App Store review notes
 
 - **Demo account.** Reviewers can't sync a school's LMS, so give them a

@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { APPLE_PRODUCT_IDS, PLANS, type Plan } from "@/lib/billing";
-import { hasNativePlugin, isNativeApp, NativeStore, nativeErrorCode } from "@/lib/native-app";
+import { hasNativeMethod, hasNativePlugin, isNativeApp, NativeStore, nativeErrorCode } from "@/lib/native-app";
 import {
   appleAccountTokenAction,
   recordAppleTransactionsAction,
@@ -37,12 +37,15 @@ export function SubscribePanel({ webPrices }: { webPrices: Record<Plan, string |
   // An app build from before in-app purchase, which can't sell at all.
   const [outdatedApp, setOutdatedApp] = useState(false);
   const [applePrices, setApplePrices] = useState<Partial<Record<Plan, string>>>({});
+  // App 1.1 and later can open Apple's offer-code sheet.
+  const [canRedeem, setCanRedeem] = useState(false);
   const [message, setMessage] = useState<{ tone: "error" | "info"; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
 
   useEffect(() => {
     if (!isNativeApp()) return;
     setInApp(true);
+    setCanRedeem(hasNativeMethod("NativeStore", "redeemCode"));
     if (!hasNativePlugin("NativeStore")) {
       setOutdatedApp(true);
       setStoreReady(false);
@@ -115,6 +118,25 @@ export function SubscribePanel({ webPrices }: { webPrices: Record<Plan, string |
     });
   }
 
+  // Offer codes from App Store Connect, redeemed in Apple's sheet. A code
+  // isn't tied to an account, so it's recorded for whoever is signed in.
+  function redeem() {
+    setMessage(null);
+    startTransition(async () => {
+      try {
+        // Apple doesn't say whether a code was entered or the sheet was just
+        // closed. A code that isn't in these yet still arrives through the
+        // app's transaction listener (NativeAppBridge), which unlocks then.
+        const { transactions } = await NativeStore.redeemCode();
+        if (transactions.length > 0) await afterApple(transactions);
+      } catch (err) {
+        if (nativeErrorCode(err) !== "cancelled") {
+          setMessage({ tone: "error", text: "Couldn't open code redemption. Try again." });
+        }
+      }
+    });
+  }
+
   const priceFor = (plan: Plan) => (inApp ? applePrices[plan] : webPrices[plan]);
   const unavailable = inApp ? storeReady === false : PLANS.every((plan) => !webPrices[plan]);
 
@@ -176,9 +198,16 @@ export function SubscribePanel({ webPrices }: { webPrices: Record<Plan, string |
       )}
 
       {inApp && storeReady && (
-        <button onClick={restore} disabled={pending} className="btn btn-ghost self-center">
-          Restore purchases
-        </button>
+        <div className="flex flex-wrap justify-center gap-2">
+          {canRedeem && (
+            <button onClick={redeem} disabled={pending} className="btn btn-ghost">
+              Redeem a code
+            </button>
+          )}
+          <button onClick={restore} disabled={pending} className="btn btn-ghost">
+            Restore purchases
+          </button>
+        </div>
       )}
 
       <p className="text-xs leading-relaxed text-ink-faint">
