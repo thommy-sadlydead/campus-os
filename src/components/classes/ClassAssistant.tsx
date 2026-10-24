@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useTransition, type FormEvent } from "react";
+import { useRef, useState, useTransition, type FormEvent } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { askClassAssistantAction, type ClassAssistantResult } from "@/app/classes/[id]/ai-actions";
 import { MARKDOWN_CLASSNAME } from "@/lib/markdown";
-import { SparkIcon } from "@/components/icons";
+import { CheckIcon, CopyIcon, SparkIcon } from "@/components/icons";
 
 const QUICK_ACTIONS: Array<{ key: string; label: string }> = [
   { key: "whats-due-next", label: "What is due next?" },
@@ -20,15 +20,60 @@ export function ClassAssistant({ classId, className }: { classId: string; classN
   const [result, setResult] = useState<ClassAssistantResult | null>(null);
   const [question, setQuestion] = useState("");
   const [pending, startTransition] = useTransition();
+  const [copied, setCopied] = useState(false);
+  const answerRef = useRef<HTMLDivElement>(null);
+
+  function show(next: ClassAssistantResult) {
+    setResult(next);
+    setCopied(false);
+  }
 
   function runQuick(key: string) {
-    startTransition(async () => setResult(await askClassAssistantAction(classId, { quickAction: key })));
+    startTransition(async () => show(await askClassAssistantAction(classId, { quickAction: key })));
   }
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (!question.trim()) return;
-    startTransition(async () => setResult(await askClassAssistantAction(classId, { question })));
+    startTransition(async () => show(await askClassAssistantAction(classId, { question })));
+  }
+
+  // Copies the answer formatted (headings and lists survive a paste into
+  // Notes or Docs), with plain text for apps that only take text.
+  async function copyAnswer() {
+    const el = answerRef.current;
+    if (!el || !result) return;
+    const text = el.innerText.trim() || result.answer;
+    let ok = false;
+    try {
+      if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            "text/html": new Blob([el.innerHTML], { type: "text/html" }),
+            "text/plain": new Blob([text], { type: "text/plain" }),
+          }),
+        ]);
+      } else {
+        await navigator.clipboard.writeText(text);
+      }
+      ok = true;
+    } catch {
+      // Some web views refuse the Clipboard API; copying the selection
+      // still works there, and keeps the formatting too.
+      const selection = window.getSelection();
+      if (selection) {
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        ok = document.execCommand("copy");
+        selection.removeAllRanges();
+      }
+    }
+    if (ok) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
   }
 
   return (
@@ -88,8 +133,16 @@ export function ClassAssistant({ classId, className }: { classId: string; classN
       </form>
 
       {result && (
-        <div className={`relative mt-4 rounded-lg bg-surface-2 p-4 ${MARKDOWN_CLASSNAME}`}>
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{result.answer}</ReactMarkdown>
+        <div className="relative mt-4 rounded-lg bg-surface-2 p-4">
+          <div ref={answerRef} className={MARKDOWN_CLASSNAME}>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{result.answer}</ReactMarkdown>
+          </div>
+          <div className="mt-3 flex justify-end border-t border-border-soft pt-3">
+            <button type="button" onClick={copyAnswer} className="btn btn-secondary btn-sm">
+              {copied ? <CheckIcon className="h-4 w-4 text-ok" /> : <CopyIcon className="h-4 w-4" />}
+              {copied ? "Copied" : "Copy"}
+            </button>
+          </div>
         </div>
       )}
     </section>

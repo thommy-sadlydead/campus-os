@@ -196,6 +196,15 @@ export function CheckIcon(props: IconProps) {
   );
 }
 
+export function CopyIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x="8.5" y="8.5" width="11.5" height="11.5" rx="2" />
+      <path d="M15.5 5.5V5a1.5 1.5 0 0 0-1.5-1.5H5A1.5 1.5 0 0 0 3.5 5v9A1.5 1.5 0 0 0 5 15.5h.5" />
+    </Svg>
+  );
+}
+
 export function CheckCircleIcon(props: IconProps) {
   return (
     <Svg {...props}>

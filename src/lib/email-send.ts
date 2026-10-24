@@ -4,7 +4,8 @@ import "server-only";
 // hand-rolled with fetch like src/lib/stripe.ts. Needs RESEND_API_KEY and
 // EMAIL_FROM, an address on a domain verified in Resend. Without them,
 // emailConfigured() is false and callers tell people to contact support
-// instead. For local testing only (ignored in production), EMAIL_LOG_ONLY=1
+// instead. Replies go to CONTACT_EMAIL when it's set, so EMAIL_FROM can be a
+// send-only address. For local testing only (ignored in production), EMAIL_LOG_ONLY=1
 // prints each email to the server log instead of sending it.
 
 const RESEND_URL = "https://api.resend.com/emails";
@@ -34,6 +35,7 @@ export async function sendEmail(message: { to: string; subject: string; text: st
       body: JSON.stringify({
         from: process.env.EMAIL_FROM!.trim(),
         to: [message.to],
+        reply_to: process.env.CONTACT_EMAIL?.trim() || undefined,
         subject: message.subject,
         text: message.text,
         html: message.html,

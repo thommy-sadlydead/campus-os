@@ -5,7 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import { loadWorkItemsForUser, getAvailableMinutesToday } from "@/lib/workload";
-import { findBestFitForMinutes, whatShouldIDoRightNow, rankWorkItems, computeWorkloadSummary } from "@/lib/priority-engine";
+import { whatShouldIDoRightNow, rankWorkItems, computeWorkloadSummary } from "@/lib/priority-engine";
 import { assessRisk } from "@/lib/risk-engine";
 import { askClaude, getAnthropicClient } from "@/lib/anthropic";
 import { AI_LIMIT_MESSAGE, allowAiRequest } from "@/lib/rate-limit";
@@ -59,37 +59,6 @@ export async function toggleWorkItemAction(kind: "assignment" | "task", id: stri
   revalidatePath("/dashboard");
   revalidatePath("/assignments");
   revalidatePath(`/classes/${classId}`);
-}
-
-const minutesSchema = z.coerce.number().int().positive().max(600);
-
-export interface MinutesModeResult {
-  fits: boolean;
-  title?: string;
-  className?: string;
-  reason?: string;
-  message?: string;
-}
-
-export async function findTaskForMinutesAction(minutes: number): Promise<MinutesModeResult> {
-  const user = await requireUser();
-  const parsed = minutesSchema.safeParse(minutes);
-  if (!parsed.success) {
-    return { fits: false, message: "Enter a number of minutes between 1 and 600." };
-  }
-
-  const items = await loadWorkItemsForUser(user.id);
-  const result = findBestFitForMinutes(items, new Date(), user.timezone, parsed.data);
-
-  if (result.fits) {
-    return {
-      fits: true,
-      title: result.result.item.title,
-      className: result.result.item.className,
-      reason: result.result.reason,
-    };
-  }
-  return { fits: false, message: result.message };
 }
 
 export interface WhatNowResult {

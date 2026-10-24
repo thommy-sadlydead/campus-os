@@ -4,7 +4,6 @@ import { prisma } from "@/lib/prisma";
 import { AppShell } from "@/components/AppShell";
 import { TaskRow } from "@/components/dashboard/TaskRow";
 import { WhatNowPanel } from "@/components/dashboard/WhatNowPanel";
-import { MinutesMode } from "@/components/dashboard/MinutesMode";
 import { WorkloadSummaryCard } from "@/components/dashboard/WorkloadSummaryCard";
 import { AvailabilityCard } from "@/components/dashboard/AvailabilityCard";
 import { AskPanel } from "@/components/dashboard/AskPanel";
@@ -241,7 +240,6 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:grid-rows-[auto_1fr]">
         <div className="flex flex-col gap-6 lg:col-start-2 lg:row-start-1">
           <WhatNowPanel />
-          <MinutesMode />
         </div>
 
         <div className="flex flex-col gap-6 lg:col-start-1 lg:row-span-2 lg:row-start-1">

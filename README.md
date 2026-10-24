@@ -61,8 +61,7 @@ as out of scope.
   Every credential (token, key, feed link) is encrypted at rest the same
   way Gmail's is.
 - **Command Center dashboard**: a ranked "what should I do" list, a
-  **"What should I do right now?"** button, an **"I have X minutes"**
-  finder, a workload summary (overdue / due today / due tomorrow, remaining
+  **"What should I do right now?"** button, a workload summary (overdue / due today / due tomorrow, remaining
   work, and — only if you've logged it — how much free time you have and
   whether you're ahead or behind), and an **"Ask about everything"** panel
   for free-form cross-class questions ("What should I do tonight?", "Am I
@@ -371,7 +370,8 @@ Two design decisions worth knowing about:
 
 `src/lib/priority-engine.ts` is pure, dependency-free logic (no Prisma, no
 Next.js) that turns assignments/tasks into the ranked list, the single best
-recommendation, and the "I have X minutes" match. It's unit tested in
+recommendation, and the "I have X minutes" match (no longer on the
+dashboard as of October 2026; the matcher is kept). It's unit tested in
 `tests/priority-engine.test.ts` — run `npm test`.
 
 Two things it deliberately does **not** do, straight from the spec:
