@@ -138,6 +138,7 @@ model Class {
   emails         Email[]
   pendingChanges PendingChange[]
   syncState      MaterialSyncState?
+  flashcardDecks FlashcardDeck[]
 
   @@unique([userId, lmsProvider, lmsCourseId])
   @@index([userId])
@@ -663,4 +664,37 @@ model OAuthToken {
   grant OAuthGrant @relation(fields: [grantId], references: [id], onDelete: Cascade)
 
   @@index([grantId])
+}
+
+// ---------------------------------------------------------------------------
+// Study tab (src/app/classes/[id]/study-actions.ts, src/lib/flashcards.ts)
+// ---------------------------------------------------------------------------
+
+// A set of flashcards the AI made from a class's notes, lecture notes and
+// course files. source says what it was made from, for the deck list.
+model FlashcardDeck {
+  id        String   @id @default(cuid())
+  classId   String
+  title     String
+  source    String
+  createdAt DateTime @default(now())
+
+  class Class       @relation(fields: [classId], references: [id], onDelete: Cascade)
+  cards Flashcard[]
+
+  @@index([classId])
+}
+
+// known: marked "Got it" while studying; Start over clears it.
+model Flashcard {
+  id     String  @id @default(cuid())
+  deckId String
+  front  String
+  back   String
+  order  Int
+  known  Boolean @default(false)
+
+  deck FlashcardDeck @relation(fields: [deckId], references: [id], onDelete: Cascade)
+
+  @@index([deckId])
 }

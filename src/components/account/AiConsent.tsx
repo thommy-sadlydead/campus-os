@@ -15,7 +15,7 @@ export function AiDisclosure() {
         <li>
           <strong className="text-ink">Anthropic (Claude)</strong> gets your class content (notes, assignments,
           course files and lecture transcripts), your school emails, and what you type to the assistant,
-          to write notes, sort email, break down assignments and answer questions.
+          to write notes and flashcards, sort email, break down assignments and answer questions.
         </li>
         <li>
           <strong className="text-ink">AssemblyAI</strong> gets your lecture recordings, to write the transcripts.

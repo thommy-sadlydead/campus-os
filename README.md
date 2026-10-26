@@ -35,6 +35,14 @@ as out of scope.
   out every device and signs this one in. Emails go through Resend
   (`RESEND_API_KEY`, `EMAIL_FROM`, and `APP_URL` for the link); until those
   are set, the page points to `CONTACT_EMAIL` instead.
+- **Study tab** (each class): flashcards the AI makes from the class's notes,
+  lecture notes and course files (everything, or one note or file; 10, 20
+  or 30 cards; an optional focus), studied in the app (flip, "Got it",
+  shuffle, progress saved), or copied to Quizlet in its import format.
+  Quizlet has no way for other apps to create sets, so that's copy, open
+  Quizlet, Import. "Study with ChatGPT" opens ChatGPT with a request typed in
+  once Campus OS is connected there (`CHATGPT_PLUGIN_URL` links to the
+  plugin before then).
 - **ChatGPT plugin**: students connect Campus OS in ChatGPT ("Sign in with
   Campus OS", OAuth 2.1 with PKCE) and ChatGPT can read their classes,
   assignments, exams, notes, lecture notes and course files through the MCP

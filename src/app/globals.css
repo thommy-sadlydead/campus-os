@@ -303,3 +303,13 @@ textarea:focus-visible {
     color: transparent;
   }
 }
+
+/* The Study tab's "making flashcards" bar: a sliver that sweeps across. */
+@keyframes study-progress {
+  0% {
+    transform: translateX(-110%);
+  }
+  100% {
+    transform: translateX(320%);
+  }
+}

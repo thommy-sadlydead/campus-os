@@ -274,6 +274,13 @@ session cookies, no third-party auth.
   `scripts/check-mcp.mjs` against a local server after changing any of it.
   The MCP address can never change once the plugin is published (OpenAI's
   rule), so it must be on Reece's own domain before submission.
+- **Study tab**: `src/components/study/` (StudyPanel, FlashcardMaker,
+  FlashcardStudy, QuizletSheet, ChatGptStudyCard), `src/lib/flashcards.ts`
+  (pure: the prompt, parsing the model's cards, Quizlet's import text, the
+  ChatGPT links; tested) and `src/app/classes/[id]/study-actions.ts`. Making
+  a deck is an AI request: it checks consent and the daily AI limit like
+  the class assistant. Dialogs on the class page render into `<body>` with
+  a portal, or the phone tab bar covers them.
 - **AI permission**: `ai-consent.ts`. Every feature that sends a student's
   data to Anthropic or AssemblyAI checks `hasAiConsent(user)` on the server
   first (App Store guideline 5.1.2(i)). A new AI feature must too.
@@ -286,7 +293,7 @@ session cookies, no third-party auth.
 ## Verifying a change before calling it done
 
 1. `npx tsc --noEmit` (after `npx prisma generate` if the schema changed)
-2. `npx vitest run` — 392 tests as of this writing across 34 files
+2. `npx vitest run` — 406 tests as of this writing across 35 files
 3. Clean build: `rm -rf .next && npx next build` (use `next build` directly
    to skip the `db push` the `npm run build` script triggers, if you're not
    ready to push schema changes yet)

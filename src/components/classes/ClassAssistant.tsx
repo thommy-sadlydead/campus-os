@@ -5,6 +5,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { askClassAssistantAction, type ClassAssistantResult } from "@/app/classes/[id]/ai-actions";
 import { MARKDOWN_CLASSNAME } from "@/lib/markdown";
+import { copyToClipboard } from "@/lib/clipboard";
 import { CheckIcon, CopyIcon, SparkIcon } from "@/components/icons";
 
 const QUICK_ACTIONS: Array<{ key: string; label: string }> = [
@@ -38,39 +39,10 @@ export function ClassAssistant({ classId, className }: { classId: string; classN
     startTransition(async () => show(await askClassAssistantAction(classId, { question })));
   }
 
-  // Copies the answer formatted (headings and lists survive a paste into
-  // Notes or Docs), with plain text for apps that only take text.
   async function copyAnswer() {
     const el = answerRef.current;
     if (!el || !result) return;
-    const text = el.innerText.trim() || result.answer;
-    let ok = false;
-    try {
-      if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
-        await navigator.clipboard.write([
-          new ClipboardItem({
-            "text/html": new Blob([el.innerHTML], { type: "text/html" }),
-            "text/plain": new Blob([text], { type: "text/plain" }),
-          }),
-        ]);
-      } else {
-        await navigator.clipboard.writeText(text);
-      }
-      ok = true;
-    } catch {
-      // Some web views refuse the Clipboard API; copying the selection
-      // still works there, and keeps the formatting too.
-      const selection = window.getSelection();
-      if (selection) {
-        const range = document.createRange();
-        range.selectNodeContents(el);
-        selection.removeAllRanges();
-        selection.addRange(range);
-        ok = document.execCommand("copy");
-        selection.removeAllRanges();
-      }
-    }
-    if (ok) {
+    if (await copyToClipboard({ text: el.innerText.trim() || result.answer, element: el })) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }

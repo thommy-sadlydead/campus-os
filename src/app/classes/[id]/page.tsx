@@ -13,6 +13,10 @@ import type { LectureRow } from "@/components/classes/LecturesPanel";
 import type { ClassMaterialRow } from "@/components/classes/ResourcesPanel";
 import { ChevronLeftIcon } from "@/components/icons";
 import { courseInitials, courseStyle } from "@/lib/course-style";
+import { hasAiConsent } from "@/lib/ai-consent";
+import { listConnectedApps } from "@/lib/oauth/oauth-server";
+import { chatgptStudyPrompts } from "@/lib/flashcards";
+import type { StudySourceOption } from "@/components/study/study-types";
 
 // Server Actions invoked from this page (notably generateNotes, via
 // pollLectureStatusAction/retryLectureAction in lecture-actions.ts) can now
@@ -92,6 +96,26 @@ export default async function ClassPage({
     (a) => a.dueAt && a.dueAt >= now && a.status !== "SUBMITTED" && a.status !== "GRADED"
   );
   const nextExam = cls.exams.find((e) => e.examAt && e.examAt >= now);
+
+  // The Study tab: decks, what cards can be made from, and whether the
+  // student has connected Campus OS in ChatGPT.
+  const [decks, connectedApps] = await Promise.all([
+    prisma.flashcardDeck.findMany({
+      where: { classId: cls.id },
+      include: { cards: { orderBy: { order: "asc" } } },
+      orderBy: { createdAt: "desc" },
+    }),
+    listConnectedApps(user.id),
+  ]);
+  const notesWithText = cls.noteSections.flatMap((s) => s.notes).filter((n) => n.bodyMarkdown.trim());
+  const readableMaterials = cls.materials.filter(
+    (m) => (!m.syncStatus || m.syncStatus === "READY" || m.syncStatus === "EXTERNAL") && m.content.trim()
+  );
+  const studySources: StudySourceOption[] = [
+    ...notesWithText.map((n) => ({ value: `note:${n.id}`, label: n.title, group: (n.lecture ? "Lecture notes" : "Notes") as StudySourceOption["group"] })),
+    ...readableMaterials.map((m) => ({ value: `material:${m.id}`, label: m.title, group: "Course files" as const })),
+  ];
+  const latestLecture = cls.lectures.find((l) => l.status === "READY");
 
   return (
     <AppShell active="/classes" userName={user.name ?? user.email}>
@@ -213,6 +237,23 @@ export default async function ClassPage({
           receivedAt: e.receivedAt.toISOString(),
           gmailMessageId: e.gmailMessageId,
         }))}
+        study={{
+          decks: decks.map((d) => ({
+            id: d.id,
+            title: d.title,
+            source: d.source,
+            createdAt: d.createdAt.toISOString(),
+            cards: d.cards.map((c) => ({ id: c.id, front: c.front, back: c.back, known: c.known })),
+          })),
+          sources: studySources,
+          hasMaterial: studySources.length > 0,
+          aiAllowed: hasAiConsent(user),
+          chatgpt: {
+            connected: connectedApps.some((app) => new URL(app.clientId).hostname === "chatgpt.com"),
+            connectUrl: process.env.CHATGPT_PLUGIN_URL?.trim() || null,
+            prompts: chatgptStudyPrompts({ className: cls.name, nextExam: nextExam?.name, latestLecture: latestLecture?.title }),
+          },
+        }}
         tz={user.timezone}
       />
     </AppShell>

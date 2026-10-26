@@ -8,6 +8,8 @@ import { ExamsPanel, type ExamRow } from "@/components/classes/ExamsPanel";
 import { ResourcesPanel, type ResourceRow, type ClassMaterialRow } from "@/components/classes/ResourcesPanel";
 import { LecturesPanel, type LectureRow } from "@/components/classes/LecturesPanel";
 import { ClassAssistant } from "@/components/classes/ClassAssistant";
+import { StudyPanel } from "@/components/study/StudyPanel";
+import type { ChatGptStudyInfo, StudyDeck, StudySourceOption } from "@/components/study/study-types";
 import { CLASS_TABS, type ClassTab } from "@/components/classes/class-tabs";
 
 export function ClassTabs({
@@ -22,6 +24,7 @@ export function ClassTabs({
   exams,
   resources,
   recentEmails,
+  study,
   tz,
 }: {
   initialTab: ClassTab;
@@ -35,6 +38,7 @@ export function ClassTabs({
   exams: ExamRow[];
   resources: ResourceRow[];
   recentEmails: OverviewEmail[];
+  study: { decks: StudyDeck[]; sources: StudySourceOption[]; hasMaterial: boolean; aiAllowed: boolean; chatgpt: ChatGptStudyInfo };
   tz: string;
 }) {
   const [tab, setTab] = useState<ClassTab>(initialTab);
@@ -64,6 +68,7 @@ export function ClassTabs({
   ).length;
 
   const counts: Partial<Record<ClassTab, number>> = {
+    ...(study.decks.length ? { Study: study.decks.length } : {}),
     Assignments: assignments.length,
     Notes: noteCount,
     Lectures: lectures.length,
@@ -110,6 +115,7 @@ export function ClassTabs({
       {tab === "Overview" && (
         <OverviewPanel classInfo={classInfo} scheduleEvents={scheduleEvents} recentEmails={recentEmails} tz={tz} />
       )}
+      {tab === "Study" && <StudyPanel classId={classInfo.id} tz={tz} {...study} />}
       {tab === "Assignments" && <ClassAssignmentsPanel assignments={assignments} tz={tz} />}
       {tab === "Notes" && (
         <NotesBoard

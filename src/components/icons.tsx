@@ -196,6 +196,32 @@ export function CheckIcon(props: IconProps) {
   );
 }
 
+export function CardsIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x="3.5" y="7" width="13" height="13" rx="2" />
+      <path d="M7.5 7V5.5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2" />
+    </Svg>
+  );
+}
+
+export function ShuffleIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M16 4h4v4M20 4l-6.5 6.5M16 20h4v-4M20 20l-5-5M4 4l5 5M4 20 13.5 10.5" />
+    </Svg>
+  );
+}
+
+export function ChatIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M5 18.5V6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H8.5z" />
+      <path d="M8.5 8.5h7M8.5 11.5h4.5" />
+    </Svg>
+  );
+}
+
 export function CopyIcon(props: IconProps) {
   return (
     <Svg {...props}>

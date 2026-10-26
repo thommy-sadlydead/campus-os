@@ -76,8 +76,9 @@ export default function PrivacyPage() {
               microphone only while you&apos;re recording, and only after you allow it.
             </li>
             <li>
-              <strong className="text-ink">What you add yourself:</strong> notes, schedule, resources, exams and
-              availability.
+              <strong className="text-ink">What you add yourself:</strong> notes, schedule, resources, exams,
+              availability, and the flashcards you make on a class&apos;s Study tab (with which ones you&apos;ve marked
+              learned).
             </li>
             <li>
               <strong className="text-ink">Connected apps, if you connect one (ChatGPT):</strong> which app, when you
@@ -100,7 +101,7 @@ export default function PrivacyPage() {
               <strong className="text-ink">Prisma Postgres</strong> hosts the database.
             </li>
             <li>
-              <strong className="text-ink">Anthropic (Claude)</strong> writes AI answers, lecture notes and
+              <strong className="text-ink">Anthropic (Claude)</strong> writes AI answers, lecture notes, flashcards and
               assignment breakdowns, sorts email, and reads scanned PDFs. It receives only what each feature
               needs, such as a class&apos;s notes and assignments, an email&apos;s text, or a lecture transcript.
               Anthropic{" "}
