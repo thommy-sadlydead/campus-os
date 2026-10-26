@@ -44,6 +44,7 @@ export function LoginForm({
   trialDays,
   showDemoHint,
   notice,
+  next,
 }: {
   signupOpen: boolean;
   /** Sign-up is invite-only until payments go live. */
@@ -52,6 +53,8 @@ export function LoginForm({
   trialDays: number | null;
   showDemoHint: boolean;
   notice: string | null;
+  /** Where to land after logging in or signing up (a path on this site). */
+  next?: string;
 }) {
   const [mode, setMode] = useState<"login" | "register">("login");
   const [loginState, loginFormAction] = useActionState<AuthActionState, FormData>(loginAction, undefined);
@@ -88,6 +91,7 @@ export function LoginForm({
             action={registering ? registerFormAction : loginFormAction}
             className="flex flex-col gap-4"
           >
+            {next && <input type="hidden" name="next" value={next} />}
             <Field
               id="email"
               label="School email"

@@ -1,0 +1,35 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "campus-os",
+  "version": "1.0.0",
+  "description": "Your Campus OS classes, assignments, exams, notes and course files in ChatGPT.",
+  "author": {
+    "name": "Reece Broderick",
+    "email": "support@campus-os.net",
+    "url": "https://campus-os-mocha-pi.vercel.app"
+  },
+  "homepage": "https://campus-os-mocha-pi.vercel.app",
+  "keywords": ["education", "students", "study", "planner"],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Campus OS",
+        "shortDescription": "Classes, notes and due dates",
+        "longDescription": "Campus OS is a student planner that brings classes, assignments, exams, lecture notes and course files from Canvas, Schoology, Brightspace or Blackboard into one place. Connect it to ChatGPT to ask what's due this week, get help with an assignment's directions, or turn your own notes and lecture notes into study guides, flashcards and practice quizzes. Campus OS only shares what a request needs, and ChatGPT can't change anything in your account. Requires a Campus OS account.",
+        "developerName": "Reece Broderick",
+        "category": "Education",
+        "capabilities": ["Read"],
+        "websiteURL": "https://campus-os-mocha-pi.vercel.app",
+        "privacyPolicyURL": "https://campus-os-mocha-pi.vercel.app/privacy",
+        "termsOfServiceURL": "https://campus-os-mocha-pi.vercel.app/terms",
+        "defaultPrompt": [
+          "What do I have due this week in Campus OS?",
+          "Make a study guide for my next exam from my Campus OS notes."
+        ],
+        "brandColor": "#EA6A12",
+        "composerIcon": "./assets/icon.png",
+        "logo": "./assets/logo.png"
+      }
+    }
+  }
+}

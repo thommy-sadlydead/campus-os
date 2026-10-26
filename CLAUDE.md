@@ -259,6 +259,21 @@ session cookies, no third-party auth.
   links are built from `APP_URL` only, never the request's Host header, and
   neither action says whether an email has an account. `EMAIL_LOG_ONLY=1`
   prints emails to the dev server log instead of sending (not in production).
+- **ChatGPT plugin** (read `chatgpt-plugin/README.md`): "Sign in with
+  Campus OS" is a hand-rolled OAuth 2.1 server in `src/lib/oauth/` (pure
+  rules in `oauth.ts`, database in `oauth-server.ts`; consent page and token
+  endpoint in `src/app/oauth/`, discovery documents in
+  `src/app/.well-known/`). Clients are identified by client metadata
+  documents (CIMD) and only `chatgpt.com` ones are allowed; public clients
+  with PKCE S256 only; every authorization response carries `iss`; tokens
+  are HMACs bound to `${APP_URL}/mcp`. The MCP endpoint (`src/app/mcp`,
+  `src/lib/mcp/`) speaks both legacy (initialize) and 2026-07-28 (stateless)
+  MCP, and every tool is read-only and scoped to the token's account. A new
+  tool must stay read-only unless the annotations, consent page, privacy
+  policy and plugin review all change with it. Run
+  `scripts/check-mcp.mjs` against a local server after changing any of it.
+  The MCP address can never change once the plugin is published (OpenAI's
+  rule), so it must be on Reece's own domain before submission.
 - **AI permission**: `ai-consent.ts`. Every feature that sends a student's
   data to Anthropic or AssemblyAI checks `hasAiConsent(user)` on the server
   first (App Store guideline 5.1.2(i)). A new AI feature must too.
@@ -271,7 +286,7 @@ session cookies, no third-party auth.
 ## Verifying a change before calling it done
 
 1. `npx tsc --noEmit` (after `npx prisma generate` if the schema changed)
-2. `npx vitest run` — 356 tests as of this writing across 32 files
+2. `npx vitest run` — 392 tests as of this writing across 34 files
 3. Clean build: `rm -rf .next && npx next build` (use `next build` directly
    to skip the `db push` the `npm run build` script triggers, if you're not
    ready to push schema changes yet)

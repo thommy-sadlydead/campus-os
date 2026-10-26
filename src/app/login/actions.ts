@@ -7,6 +7,7 @@ import { loginSchema, openRegisterSchema, registerSchema } from "@/lib/account-f
 import { inviteCodeMatches, inviteCodeRequired, isSignupOpen } from "@/lib/signup";
 import { paymentsEnabled } from "@/lib/billing-server";
 import { trialEndFrom } from "@/lib/billing";
+import { safeNextPath } from "@/lib/oauth/oauth";
 import {
   RATE_LIMITS,
   clearRateLimit,
@@ -43,7 +44,7 @@ export async function loginAction(_prev: AuthActionState, formData: FormData): P
 
   await clearRateLimit(emailKey);
   await createSession(user.id);
-  redirect("/dashboard");
+  redirect(safeNextPath(String(formData.get("next") ?? "")) ?? "/dashboard");
 }
 
 export async function registerAction(_prev: AuthActionState, formData: FormData): Promise<AuthActionState> {
@@ -85,7 +86,7 @@ export async function registerAction(_prev: AuthActionState, formData: FormData)
   });
 
   await createSession(user.id);
-  redirect("/dashboard");
+  redirect(safeNextPath(String(formData.get("next") ?? "")) ?? "/dashboard");
 }
 
 export async function logoutAction(): Promise<void> {

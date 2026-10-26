@@ -3,15 +3,18 @@ import { LogoMark } from "@/components/Logo";
 import { BrandBackdrop } from "@/components/ui/BrandBackdrop";
 
 // The centered card the login screen uses, for the pages around it
-// (forgot password, reset password).
+// (forgot password, reset password, connecting an app). footer replaces
+// the "Back to log in" link; null leaves it out.
 export function AuthCard({
   title,
   description,
   children,
+  footer,
 }: {
   title: string;
   description?: React.ReactNode;
   children: React.ReactNode;
+  footer?: React.ReactNode | null;
 }) {
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center bg-bg px-4 pb-[calc(2.5rem+env(safe-area-inset-bottom))] pt-[calc(2.5rem+env(safe-area-inset-top))]">
@@ -25,11 +28,15 @@ export function AuthCard({
           {description && <p className="mb-6 mt-1.5 text-center text-sm text-ink-soft">{description}</p>}
           {children}
         </div>
-        <p className="mt-6 text-center text-xs text-ink-faint">
-          <Link href="/login" className="hover:text-ink hover:underline">
-            Back to log in
-          </Link>
-        </p>
+        {footer === undefined ? (
+          <p className="mt-6 text-center text-xs text-ink-faint">
+            <Link href="/login" className="hover:text-ink hover:underline">
+              Back to log in
+            </Link>
+          </p>
+        ) : (
+          footer
+        )}
       </div>
     </div>
   );

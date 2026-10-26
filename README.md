@@ -35,6 +35,11 @@ as out of scope.
   out every device and signs this one in. Emails go through Resend
   (`RESEND_API_KEY`, `EMAIL_FROM`, and `APP_URL` for the link); until those
   are set, the page points to `CONTACT_EMAIL` instead.
+- **ChatGPT plugin**: students connect Campus OS in ChatGPT ("Sign in with
+  Campus OS", OAuth 2.1 with PKCE) and ChatGPT can read their classes,
+  assignments, exams, notes, lecture notes and course files through the MCP
+  endpoint at `/mcp`. Read-only; disconnect under Account → Connected apps.
+  See `chatgpt-plugin/README.md` for how it's built and submitted.
 - **LMS connections** (`/connect`): Canvas, Schoology, D2L Brightspace or
   Blackboard, each connected right in the app — no terminal needed — with
   a **Sync now** button to re-pull any time and a report of what each sync

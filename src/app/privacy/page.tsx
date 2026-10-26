@@ -32,7 +32,7 @@ export default function PrivacyPage() {
         <header>
           <p className="eyebrow">Legal</p>
           <h1 className="mt-2 font-display text-3xl font-semibold text-ink sm:text-4xl">Privacy policy</h1>
-          <p className="mt-1 text-xs text-ink-faint">Last updated October 21, 2026</p>
+          <p className="mt-1 text-xs text-ink-faint">Last updated October 26, 2026</p>
           <p className="mt-4">
             Campus OS is a personal academic organizer. It pulls your classes and assignments from your school&apos;s
             learning system (Canvas, Schoology, D2L Brightspace or Blackboard), reads
@@ -78,6 +78,10 @@ export default function PrivacyPage() {
             <li>
               <strong className="text-ink">What you add yourself:</strong> notes, schedule, resources, exams and
               availability.
+            </li>
+            <li>
+              <strong className="text-ink">Connected apps, if you connect one (ChatGPT):</strong> which app, when you
+              connected it and last used it, and its access tokens as one-way hashes (never the tokens themselves).
             </li>
             <li>
               <strong className="text-ink">Your plan, if you subscribe:</strong> which plan, its status and renewal
@@ -127,6 +131,18 @@ export default function PrivacyPage() {
               details go straight to them.
             </li>
             <li>
+              <strong className="text-ink">ChatGPT (OpenAI)</strong>, only if you connect Campus OS to ChatGPT and
+              tap Allow. ChatGPT can then read, when a request in your chat needs it: your name and email address,
+              your classes (meeting times, professor, room and current grade), assignments with their directions,
+              due dates, status and steps, exams, your notes and lecture notes, and the text of your course files. It
+              can&apos;t change anything in Campus OS and never gets your password, your school connections or your
+              Gmail. What it reads becomes part of your ChatGPT conversation, under{" "}
+              <a href="https://openai.com/policies/privacy-policy" className="underline hover:text-ink">
+                OpenAI&apos;s privacy policy
+              </a>
+              . Disconnect any time under Account → Connected apps; changing your password disconnects it too.
+            </li>
+            <li>
               <strong className="text-ink">Google (Gmail)</strong> and <strong className="text-ink">your school&apos;s
               learning system</strong> (Canvas, Schoology, Brightspace or Blackboard) are where your data comes from.
               Campus OS only reads from them. It can&apos;t send, delete or change your email, or change anything in
@@ -170,6 +186,11 @@ export default function PrivacyPage() {
             <li>
               <strong className="text-ink">Canvas only:</strong> Connect → Canvas → Disconnect deletes the stored token.
               Delete the token in Canvas as well, under Account → Settings → Approved Integrations.
+            </li>
+            <li>
+              <strong className="text-ink">ChatGPT only:</strong> Account → Connected apps → Disconnect stops ChatGPT
+              from reading your account. What it already read stays in those ChatGPT conversations; delete them in
+              ChatGPT.
             </li>
             <li>
               <strong className="text-ink">Schoology, Brightspace or Blackboard only:</strong> Connect → that system →

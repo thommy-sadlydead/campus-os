@@ -65,6 +65,7 @@ model User {
   lmsConnections      LmsConnection[]
   emails              Email[]
   pendingChanges      PendingChange[]
+  oauthGrants         OAuthGrant[]
 
   @@index([appleAccountToken])
   @@index([stripeCustomerId])
@@ -600,4 +601,66 @@ model Subscription {
 
   @@unique([source, externalId])
   @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// "Sign in with Campus OS" for ChatGPT (src/lib/oauth/, src/app/mcp)
+// ---------------------------------------------------------------------------
+
+// One app's access to one account, made when the student taps Allow on
+// /oauth/authorize. clientId is the app's client metadata document URL
+// (ChatGPT's is https://chatgpt.com/oauth/client.json); resource is the MCP
+// endpoint the tokens were minted for. Disconnecting sets revokedAt, which
+// stops every token of the grant at once.
+model OAuthGrant {
+  id         String    @id @default(cuid())
+  userId     String
+  clientId   String
+  clientName String
+  scope      String
+  resource   String
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+
+  user   User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codes  OAuthCode[]
+  tokens OAuthToken[]
+
+  @@index([userId])
+}
+
+// An authorization code: single use (usedAt), ten minutes (expiresAt), and
+// only for the redirect URI and PKCE challenge it was issued with. Only an
+// HMAC is stored, like Session.tokenHash.
+model OAuthCode {
+  id            String    @id @default(cuid())
+  grantId       String
+  codeHash      String    @unique
+  redirectUri   String
+  codeChallenge String
+  expiresAt     DateTime
+  usedAt        DateTime?
+  createdAt     DateTime  @default(now())
+
+  grant OAuthGrant @relation(fields: [grantId], references: [id], onDelete: Cascade)
+
+  @@index([grantId])
+}
+
+// Access and refresh tokens, stored as HMACs. kind: "access" | "refresh".
+// A refresh token works once: using it sets usedAt and issues a new pair,
+// and presenting a used one again revokes the grant (a stolen token).
+model OAuthToken {
+  id        String    @id @default(cuid())
+  grantId   String
+  kind      String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  grant OAuthGrant @relation(fields: [grantId], references: [id], onDelete: Cascade)
+
+  @@index([grantId])
 }

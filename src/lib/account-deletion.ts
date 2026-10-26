@@ -77,6 +77,7 @@ export async function deleteUserAndData(userId: string): Promise<void> {
             `lecture:${userId}`,
             `upload:${userId}`,
             `free-code:${userId}`,
+            `mcp:${userId}`,
             `login-email:${user.email.toLowerCase()}`,
           ],
         },

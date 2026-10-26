@@ -4,6 +4,7 @@ import crypto from "node:crypto";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { createSession, destroyAllSessions, hashPassword, hashToken } from "@/lib/auth";
+import { revokeAllGrants } from "@/lib/oauth/oauth-server";
 import { forgotPasswordSchema, resetPasswordSchema } from "@/lib/account-forms";
 import { RATE_LIMITS, clearRateLimit, clientIp, consumeRateLimit } from "@/lib/rate-limit";
 import { sendEmail } from "@/lib/email-send";
@@ -90,6 +91,7 @@ export async function resetPasswordAction(
   });
   await prisma.passwordResetToken.deleteMany({ where: { userId: link.userId, usedAt: null } });
   await destroyAllSessions(link.userId);
+  await revokeAllGrants(link.userId);
   await clearRateLimit(`login-email:${link.user.email.toLowerCase()}`);
   await createSession(link.userId);
   redirect("/dashboard");

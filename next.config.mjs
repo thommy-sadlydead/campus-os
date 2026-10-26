@@ -23,7 +23,21 @@ const nextConfig = {
     },
   },
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      // Allow on "Sign in with Campus OS" hands the browser back to ChatGPT
+      // (src/app/oauth/authorize). A later rule's header replaces the
+      // earlier one, so this is the whole policy for that page.
+      {
+        source: "/oauth/authorize",
+        headers: [
+          {
+            key: "Content-Security-Policy",
+            value: "frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://chatgpt.com; object-src 'none'",
+          },
+        ],
+      },
+    ];
   },
   // Voicewrite was removed; old bookmarks land on the dashboard instead of a 404.
   // The Canvas page moved under Connect when more LMSs were added.

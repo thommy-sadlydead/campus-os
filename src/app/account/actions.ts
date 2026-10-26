@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { destroyOtherSessions, destroySession, hashPassword, requireUser, verifyPassword } from "@/lib/auth";
+import { revokeAllGrants, revokeApp } from "@/lib/oauth/oauth-server";
 import { changePasswordSchema, DELETE_CONFIRMATION_WORD } from "@/lib/account-forms";
 import { deleteUserAndData } from "@/lib/account-deletion";
 import { RATE_LIMITS, clearRateLimit, consumeRateLimit, isRateLimited, recordRateLimitEvent } from "@/lib/rate-limit";
@@ -49,7 +50,8 @@ export async function changePasswordAction(_prev: AccountActionState, formData: 
     data: { passwordHash: await hashPassword(parsed.data.newPassword) },
   });
   await destroyOtherSessions(user.id);
-  return { success: "Password changed. Any other devices were signed out." };
+  await revokeAllGrants(user.id);
+  return { success: "Password changed. Any other devices and connected apps were signed out." };
 }
 
 export async function deleteAccountAction(_prev: AccountActionState, formData: FormData): Promise<AccountActionState> {
@@ -99,3 +101,9 @@ export async function redeemFreeAccessCodeAction(_prev: AccountActionState, form
   return { success: "Code accepted. Campus OS is free on this account." };
 }
 
+/** Account → Connected apps: stops an app (ChatGPT) from reading the account. */
+export async function disconnectAppAction(formData: FormData): Promise<void> {
+  const user = await requireUser({ allowWithoutAccess: true });
+  await revokeApp(user.id, String(formData.get("clientId") ?? ""));
+  revalidatePath("/account");
+}

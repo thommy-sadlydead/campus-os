@@ -8,7 +8,10 @@ import { getAccess, isAppRequest, paymentsEnabled } from "@/lib/billing-server";
 import { PlanSection } from "@/components/billing/PlanSection";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { CardHeader } from "@/components/ui/CardHeader";
-import { AlertIcon, BookIcon, LockIcon, MailIcon, SparkIcon } from "@/components/icons";
+import { AlertIcon, BookIcon, LinkIcon, LockIcon, MailIcon, SparkIcon } from "@/components/icons";
+import { listConnectedApps } from "@/lib/oauth/oauth-server";
+import { formatPastMoment } from "@/lib/time";
+import { disconnectAppAction } from "./actions";
 import { isDemoAccount } from "@/lib/sample-classes";
 import { SampleClassesButton } from "@/components/demo/SampleClassesButton";
 
@@ -18,6 +21,8 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
   const { subscribed } = await searchParams;
   const payments = paymentsEnabled();
   const [access, inApp] = payments ? await Promise.all([getAccess(user.id), isAppRequest()]) : [null, false];
+  const connectedApps = await listConnectedApps(user.id);
+  const now = new Date();
 
   return (
     <AppShell active="/account" userName={user.name ?? user.email}>
@@ -46,11 +51,38 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
           />
         </section>
 
+        {connectedApps.length > 0 && (
+          <section id="connected-apps" className="card card-pad scroll-mt-24">
+            <CardHeader
+              icon={<LinkIcon className="h-[18px] w-[18px]" />}
+              title="Connected apps"
+              description="Apps you've let read your classes, assignments, notes and course files. They can't change anything."
+            />
+            <ul className="mt-4 divide-y divide-border-soft">
+              {connectedApps.map((app) => (
+                <li key={app.clientId} className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-ink">{app.clientName}</p>
+                    <p className="text-xs text-ink-faint">
+                      Connected {formatPastMoment(app.connectedAt, now, user.timezone)}
+                      {app.lastUsedAt ? ` · last used ${formatPastMoment(app.lastUsedAt, now, user.timezone)}` : ""}
+                    </p>
+                  </div>
+                  <form action={disconnectAppAction}>
+                    <input type="hidden" name="clientId" value={app.clientId} />
+                    <button className="btn btn-ghost btn-sm hover:bg-danger-soft hover:text-danger">Disconnect</button>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         <section className="card card-pad">
           <CardHeader
             icon={<LockIcon className="h-[18px] w-[18px]" />}
             title="Change password"
-            description="Changing it signs you out everywhere except this device."
+            description="Changing it signs you out everywhere except this device, and disconnects connected apps."
           />
           <ChangePasswordForm />
         </section>
@@ -77,7 +109,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
           </div>
           <p className="mt-4 text-sm leading-relaxed text-ink-soft">
             Permanently deletes your account and everything in it: classes, assignments, notes, lectures and their audio,
-            emails, and your school and Gmail connections. Gmail access is revoked at Google, and lecture transcripts
+            emails, your school and Gmail connections, and any connected apps like ChatGPT. Gmail access is revoked at Google, and lecture transcripts
             are deleted from the transcription service. This can&apos;t be undone.
           </p>
           {payments && (

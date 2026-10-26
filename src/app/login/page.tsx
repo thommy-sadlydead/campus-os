@@ -1,12 +1,16 @@
 import { inviteCodeRequired, isSignupOpen } from "@/lib/signup";
 import { paymentsEnabled } from "@/lib/billing-server";
 import { TRIAL_DAYS } from "@/lib/billing";
+import { safeNextPath } from "@/lib/oauth/oauth";
 import { LoginForm } from "./LoginForm";
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ deleted?: string }> }) {
-  const { deleted } = await searchParams;
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ deleted?: string; next?: string }> }) {
+  const { deleted, next } = await searchParams;
   return (
     <LoginForm
+      // Where to go after logging in, e.g. back to connecting ChatGPT
+      // (/oauth/authorize). Only paths on this site (safeNextPath).
+      next={safeNextPath(next) ?? undefined}
       signupOpen={isSignupOpen()}
       inviteRequired={inviteCodeRequired()}
       trialDays={paymentsEnabled() ? TRIAL_DAYS : null}
