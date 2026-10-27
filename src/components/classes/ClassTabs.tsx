@@ -115,7 +115,13 @@ export function ClassTabs({
       {tab === "Overview" && (
         <OverviewPanel classInfo={classInfo} scheduleEvents={scheduleEvents} recentEmails={recentEmails} tz={tz} />
       )}
-      {tab === "Study" && <StudyPanel classId={classInfo.id} tz={tz} {...study} />}
+      {/* On the Study tab the assistant comes first, then flashcards and ChatGPT. */}
+      {tab === "Study" && (
+        <div className="flex flex-col gap-6">
+          <ClassAssistant classId={classInfo.id} className={classInfo.name} chatgpt={study.chatgpt} />
+          <StudyPanel classId={classInfo.id} tz={tz} {...study} />
+        </div>
+      )}
       {tab === "Assignments" && <ClassAssignmentsPanel assignments={assignments} tz={tz} />}
       {tab === "Notes" && (
         <NotesBoard
@@ -147,9 +153,11 @@ export function ClassTabs({
         <ResourcesPanel classId={classInfo.id} lmsProvider={classInfo.lmsProvider} resources={resources} materials={materials} />
       )}
 
-      <div className="mt-10">
-        <ClassAssistant classId={classInfo.id} className={classInfo.name} />
-      </div>
+      {tab !== "Study" && (
+        <div className="mt-10">
+          <ClassAssistant classId={classInfo.id} className={classInfo.name} chatgpt={study.chatgpt} />
+        </div>
+      )}
     </div>
   );
 }

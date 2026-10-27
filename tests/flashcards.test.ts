@@ -3,6 +3,7 @@ import {
   buildFlashcardPrompt,
   chatgptStudyPrompts,
   chatgptUrl,
+  chatgptFollowUpPrompt,
   parseFlashcards,
   quizletImportText,
   sourcesWithinBudget,
@@ -115,5 +116,22 @@ describe("Study with ChatGPT", () => {
 
   it("offers a general study guide and no lecture button when there's no exam or lecture", () => {
     expect(chatgptStudyPrompts({ className: "Bio" }).map((p) => p.label)).toEqual(["Quiz me", "Make a study guide"]);
+  });
+});
+
+describe("chatgptFollowUpPrompt", () => {
+  it("continues the same kind of help in ChatGPT, naming Campus OS and the class", () => {
+    for (const quickAction of ["study-guide", "quiz-me", "summarize-notes", "prepare-exam", "whats-missing"]) {
+      const prompt = chatgptFollowUpPrompt({ className: "Calculus I", quickAction });
+      expect(prompt).toContain("Campus OS");
+      expect(prompt).toContain("Calculus I");
+    }
+    expect(chatgptFollowUpPrompt({ className: "Calculus I", quickAction: "study-guide" })).toContain("study guide");
+  });
+
+  it("carries a typed question, cut to a sensible length", () => {
+    const prompt = chatgptFollowUpPrompt({ className: "Bio", question: `Why does ${"x".repeat(1000)}` });
+    expect(prompt.startsWith("Use my Campus OS account for Bio to help me with this: Why does")).toBe(true);
+    expect(chatgptUrl(prompt).length).toBeLessThan(2000);
   });
 });

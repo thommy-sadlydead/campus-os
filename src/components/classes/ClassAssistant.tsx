@@ -6,7 +6,9 @@ import remarkGfm from "remark-gfm";
 import { askClassAssistantAction, type ClassAssistantResult } from "@/app/classes/[id]/ai-actions";
 import { MARKDOWN_CLASSNAME } from "@/lib/markdown";
 import { copyToClipboard } from "@/lib/clipboard";
-import { CheckIcon, CopyIcon, SparkIcon } from "@/components/icons";
+import { chatgptFollowUpPrompt, chatgptUrl } from "@/lib/flashcards";
+import { ChatIcon, CheckIcon, CopyIcon, ExternalIcon, SparkIcon } from "@/components/icons";
+import type { ChatGptStudyInfo } from "@/components/study/study-types";
 
 const QUICK_ACTIONS: Array<{ key: string; label: string }> = [
   { key: "whats-due-next", label: "What is due next?" },
@@ -17,8 +19,19 @@ const QUICK_ACTIONS: Array<{ key: string; label: string }> = [
   { key: "prepare-exam", label: "Prepare me for my next exam" },
 ];
 
-export function ClassAssistant({ classId, className }: { classId: string; className: string }) {
+export function ClassAssistant({
+  classId,
+  className,
+  chatgpt,
+}: {
+  classId: string;
+  className: string;
+  /** For "Study this with ChatGPT" under an answer (see ChatGptStudyCard). */
+  chatgpt?: ChatGptStudyInfo;
+}) {
   const [result, setResult] = useState<ClassAssistantResult | null>(null);
+  // What the answer on screen was asked, so ChatGPT can pick up the same help.
+  const [asked, setAsked] = useState<{ quickAction?: string; question?: string }>({});
   const [question, setQuestion] = useState("");
   const [pending, startTransition] = useTransition();
   const [copied, setCopied] = useState(false);
@@ -30,14 +43,25 @@ export function ClassAssistant({ classId, className }: { classId: string; classN
   }
 
   function runQuick(key: string) {
+    setAsked({ quickAction: key });
     startTransition(async () => show(await askClassAssistantAction(classId, { quickAction: key })));
   }
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (!question.trim()) return;
+    setAsked({ question });
     startTransition(async () => show(await askClassAssistantAction(classId, { question })));
   }
+
+  // Only under a real AI answer (not "AI is off" or an error), and only when
+  // ChatGPT can use it: connected, or a link to connect once it's published.
+  const followUp =
+    result?.usedAi && chatgpt && (chatgpt.connected || chatgpt.connectUrl)
+      ? chatgpt.connected
+        ? { href: chatgptUrl(chatgptFollowUpPrompt({ className, ...asked })), label: "Study this with ChatGPT" }
+        : { href: chatgpt.connectUrl!, label: "Connect ChatGPT to study this there" }
+      : null;
 
   async function copyAnswer() {
     const el = answerRef.current;
@@ -104,18 +128,32 @@ export function ClassAssistant({ classId, className }: { classId: string; classN
         </button>
       </form>
 
-      {result && (
-        <div className="relative mt-4 rounded-lg bg-surface-2 p-4">
-          <div ref={answerRef} className={MARKDOWN_CLASSNAME}>
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{result.answer}</ReactMarkdown>
-          </div>
-          <div className="mt-3 flex justify-end border-t border-border-soft pt-3">
-            <button type="button" onClick={copyAnswer} className="btn btn-secondary btn-sm">
-              {copied ? <CheckIcon className="h-4 w-4 text-ok" /> : <CopyIcon className="h-4 w-4" />}
-              {copied ? "Copied" : "Copy"}
-            </button>
-          </div>
+      {pending ? (
+        <div className="relative mt-4 flex items-center gap-2.5 rounded-lg bg-surface-2 p-4 text-sm text-ink-soft" role="status">
+          <SparkIcon className="h-4 w-4 flex-none animate-pulse text-accent motion-reduce:animate-none" />
+          Working on it… a study guide or quiz can take up to a minute.
         </div>
+      ) : (
+        result && (
+          <div className="relative mt-4 rounded-lg bg-surface-2 p-4">
+            <div ref={answerRef} className={MARKDOWN_CLASSNAME}>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{result.answer}</ReactMarkdown>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center justify-end gap-2 border-t border-border-soft pt-3">
+              {followUp && (
+                <a href={followUp.href} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm mr-auto">
+                  <ChatIcon className="h-4 w-4" />
+                  {followUp.label}
+                  <ExternalIcon className="h-3.5 w-3.5 text-ink-faint" />
+                </a>
+              )}
+              <button type="button" onClick={copyAnswer} className="btn btn-secondary btn-sm">
+                {copied ? <CheckIcon className="h-4 w-4 text-ok" /> : <CopyIcon className="h-4 w-4" />}
+                {copied ? "Copied" : "Copy"}
+              </button>
+            </div>
+          </div>
+        )
       )}
     </section>
   );

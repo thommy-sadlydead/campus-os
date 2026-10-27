@@ -134,3 +134,30 @@ export function chatgptStudyPrompts(input: { className: string; nextExam?: strin
   }
   return prompts;
 }
+
+/**
+ * What "Study this with ChatGPT" asks after the class assistant answers:
+ * the same kind of help, continued in ChatGPT, which reads the class from
+ * Campus OS itself (so nothing long rides in the link).
+ */
+export function chatgptFollowUpPrompt(input: { className: string; quickAction?: string | null; question?: string | null }): string {
+  const c = input.className;
+  switch (input.quickAction) {
+    case "study-guide":
+      return `Use my Campus OS notes and course files for ${c} to go over a study guide with me, one topic at a time, checking my understanding with a question after each.`;
+    case "quiz-me":
+      return `Use my Campus OS notes for ${c} to quiz me. Ask 10 questions one at a time, wait for my answer, and tell me what I got wrong.`;
+    case "summarize-notes":
+      return `Use my Campus OS notes for ${c} to walk me through the main ideas, then quiz me on them.`;
+    case "prepare-exam":
+      return `Use my Campus OS notes, course files and exam details for ${c} to help me prepare for my next exam: what to focus on, then practice questions.`;
+    case "whats-missing":
+      return `Use my Campus OS notes, assignments and exams for ${c} to help me find what I'm missing and catch up.`;
+    default: {
+      const q = input.question?.replace(/\s+/g, " ").trim().slice(0, 300);
+      return q
+        ? `Use my Campus OS account for ${c} to help me with this: ${q}`
+        : `Use my Campus OS notes for ${c} to help me study.`;
+    }
+  }
+}
