@@ -7,7 +7,7 @@ uses when it runs inside the app:
 | Feature | Native code | Website side |
 | --- | --- | --- |
 | Share a recording from Voice Memos or Files into Campus OS | `App/ShareExtension/ShareViewController.swift` (share extension), `App/App/SharedInbox.swift` (inbox both targets share through the App Group) | `src/components/lectures/NativeInbox.tsx` on /record, `src/components/NativeAppBridge.tsx` (banner, opens /record after a share) |
-| Recording that keeps going with the screen locked | `App/App/NativeRecorderPlugin.swift` (AVAudioRecorder, `UIBackgroundModes: audio`) | `src/components/lectures/LectureRecorder.tsx` |
+| Recording that keeps going with the screen locked, and is never lost (see below) | `App/App/NativeRecorderPlugin.swift` (AVAudioRecorder, `UIBackgroundModes: audio`) | `src/components/lectures/LectureRecorder.tsx` |
 | Connect Gmail (Google blocks sign-in inside web views) | `App/App/AuthSessionPlugin.swift` (ASWebAuthenticationSession) | `src/components/email/ConnectGmailButton.tsx`, `src/lib/native-oauth.ts` |
 | Due-date reminders | `@capacitor/local-notifications` | `src/components/dashboard/NativeReminders.tsx`, `src/lib/reminders.ts` |
 
@@ -16,6 +16,34 @@ The website reaches them through `src/lib/native-app.ts` and does nothing
 native when it runs in a browser. The app adds `CampusOSApp/1` to its user
 agent, so server code can tell it apart (the dashboard uses that for
 reminders).
+
+## Recordings are never thrown away
+
+A student once lost a whole lecture when another app's audio interrupted
+it and iOS later closed Campus OS. Since 1.2 (build 4) the recorder:
+
+- **Mixes with other audio** (`.playAndRecord` with `.mixWithOthers`), so an
+  ad or a video in another app doesn't interrupt it. A call or Siri still
+  does.
+- **Records in two-minute pieces** in the App Group's `Recording/` folder,
+  and saves which pieces belong to it (`session.json`) as it goes. Anything
+  that interrupts it closes the current piece properly (a closed piece is
+  always playable).
+- **Comes back after Campus OS is closed mid-recording:** on launch the
+  recording is restored paused with every playable piece (at most the last
+  two minutes are lost on a crash), the Record page says so, and the
+  student resumes or saves it. A bar on every page leads back.
+- **Joins the pieces on Stop** into one file in the inbox. If that fails,
+  nothing is deleted and Stop can be tried again. With no class chosen, it
+  lands in "Waiting to be added".
+- **Is only deleted by the student,** with a confirmation (Discard recording,
+  or Delete in "Waiting to be added").
+- With notifications allowed, an interruption in the background posts
+  "Recording paused".
+
+Test it in the Simulator with `pieceSeconds` turned down and the app
+pointed at a local server (below): record, `xcrun simctl terminate` the app
+mid-recording, launch it again, and the recording should come back paused.
 
 ## Build and run
 

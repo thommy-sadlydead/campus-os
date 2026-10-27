@@ -35,7 +35,11 @@ export type NativeRecorderState = "idle" | "recording" | "paused" | "error";
 export interface NativeRecorderStatus {
   state: NativeRecorderState;
   elapsedSeconds: number;
+  /** Paused by a call, another app or iOS, not by the student. */
   interrupted?: boolean;
+  /** App 1.2+: brought back after Campus OS closed mid-recording. */
+  recovered?: boolean;
+  title?: string;
   message?: string;
 }
 

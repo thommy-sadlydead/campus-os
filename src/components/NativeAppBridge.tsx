@@ -25,7 +25,7 @@ export function NativeAppBridge() {
   const router = useRouter();
   const pathname = usePathname();
   const [waiting, setWaiting] = useState(0);
-  const [recording, setRecording] = useState(false);
+  const [recording, setRecording] = useState<"recording" | "paused" | null>(null);
 
   useEffect(() => {
     if (!isNativeApp()) return;
@@ -70,7 +70,7 @@ export function NativeAppBridge() {
     const checkRecording = async () => {
       if (!hasNativePlugin("NativeRecorder")) return;
       const { state } = await NativeRecorder.status();
-      setRecording(state === "recording" || state === "paused");
+      setRecording(state === "recording" || state === "paused" ? state : null);
     };
     void check();
     void checkRecording();
@@ -91,10 +91,12 @@ export function NativeAppBridge() {
         className="mb-5 flex items-center gap-3 rounded-xl2 bg-danger-soft px-4 py-3 text-sm text-danger"
       >
         <span className="relative flex h-2.5 w-2.5 flex-none">
-          <span aria-hidden className="absolute inset-0 animate-ping rounded-full bg-danger opacity-60" />
+          {recording === "recording" && <span aria-hidden className="absolute inset-0 animate-ping rounded-full bg-danger opacity-60" />}
           <span aria-hidden className="relative h-2.5 w-2.5 rounded-full bg-danger" />
         </span>
-        <span className="flex-1 font-semibold">Recording a lecture</span>
+        <span className="flex-1 font-semibold">
+          {recording === "recording" ? "Recording a lecture" : "Recording paused. What's recorded so far is safe."}
+        </span>
         <span className="flex items-center gap-1 text-[13px] font-medium">
           Return
           <ChevronRightIcon className="h-4 w-4" />

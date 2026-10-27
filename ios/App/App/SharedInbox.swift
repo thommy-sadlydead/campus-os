@@ -49,6 +49,18 @@ enum SharedInbox {
         return directory
     }
 
+    /// Where a recording in progress keeps its pieces until it's stopped
+    /// (NativeRecorderPlugin). Not part of the inbox: nothing here is listed
+    /// until the recording is finished and committed.
+    static var recordingDirectory: URL? {
+        guard let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup) else {
+            return nil
+        }
+        let directory = container.appendingPathComponent("Recording", isDirectory: true)
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory
+    }
+
     private static let encoder: JSONEncoder = {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601

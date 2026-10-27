@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { PluginListenerHandle } from "@capacitor/core";
 import { hasNativePlugin, NativeRecorder, nativeErrorCode, readInboxFile, SharedInbox } from "@/lib/native-app";
 import { saveLectureAudio } from "./save-lecture-audio";
+import { INBOX_CHANGED_EVENT } from "./NativeInbox";
 import { MicIcon } from "@/components/icons";
 
 type Phase = "idle" | "starting" | "recording" | "paused" | "saving" | "failed";
@@ -57,6 +58,8 @@ export function LectureRecorder({
   const [elapsedMs, setElapsedMs] = useState(0);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  // Good news that isn't an error, like "Saved on this iPhone".
+  const [notice, setNotice] = useState<string | null>(null);
   const [title, setTitle] = useState(defaultTitle);
   const [failedFile, setFailedFile] = useState<File | null>(null);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
@@ -73,6 +76,7 @@ export function LectureRecorder({
   const recordedMsRef = useRef(0);
   const [native, setNative] = useState(false);
   const [interrupted, setInterrupted] = useState(false);
+  const [recovered, setRecovered] = useState(false);
   const nativeListenersRef = useRef<PluginListenerHandle[]>([]);
   const failedInboxIdRef = useRef<string | null>(null);
   // Read when the recording finishes, which can be long after the render
@@ -96,6 +100,8 @@ export function LectureRecorder({
         if (status.state !== "recording" && status.state !== "paused") return;
         setElapsedMs(status.elapsedSeconds * 1000);
         setInterrupted(!!status.interrupted);
+        setRecovered(!!status.recovered);
+        if (status.title) setTitle(status.title);
         setPhase(status.state);
         void followNativeRecording();
       });
@@ -198,6 +204,7 @@ export function LectureRecorder({
       const status = await NativeRecorder.status();
       setElapsedMs(status.elapsedSeconds * 1000);
       setInterrupted(!!status.interrupted);
+      setRecovered(!!status.recovered);
       if (status.state === "recording" || status.state === "paused") setPhase(status.state);
     } catch {
       // Keep showing the last known time; the recording itself is native.
@@ -219,6 +226,7 @@ export function LectureRecorder({
     }
     setElapsedMs(0);
     setInterrupted(false);
+    setRecovered(false);
     await followNativeRecording();
     setPhase("recording");
   }
@@ -247,10 +255,38 @@ export function LectureRecorder({
       const { id, durationSeconds } = await NativeRecorder.stop();
       setElapsedMs(durationSeconds * 1000);
       await uploadFromInbox(id);
-    } catch {
+    } catch (err) {
+      if (nativeErrorCode(err) === "empty") {
+        setPhase("idle");
+        setError("Nothing was recorded. Check the microphone and try again.");
+        return;
+      }
+      // App 1.2+ keeps the recording when saving fails: back to it, paused.
+      const status = await NativeRecorder.status().catch(() => null);
+      if (status?.state === "paused") {
+        setPhase("paused");
+        setError("Couldn't save the recording just now. It's still here: tap Stop and save to try again.");
+        void followNativeRecording();
+        return;
+      }
       setPhase("idle");
       setError("Couldn't finish the recording. If it was saved, you'll find it at the top of this page.");
     }
+  }
+
+  /** Deleting a recording in progress is always the student's decision, never automatic. */
+  async function discardNative() {
+    if (!confirm("Delete this recording? It isn't saved anywhere else, so it can't be recovered.")) return;
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = null;
+    nativeListenersRef.current.forEach((handle) => void handle.remove());
+    nativeListenersRef.current = [];
+    await NativeRecorder.discard().catch(() => {});
+    setRecovered(false);
+    setInterrupted(false);
+    setElapsedMs(0);
+    setError(null);
+    setPhase("idle");
   }
 
   async function uploadFromInbox(id: string) {
@@ -258,6 +294,17 @@ export function LectureRecorder({
     if (!item) {
       setPhase("idle");
       setError("That recording is no longer on this iPhone.");
+      return;
+    }
+    if (!classIdRef.current) {
+      // No class chosen (a recording brought back after Campus OS closed):
+      // it waits in the list above, where its class can be picked.
+      setPhase("idle");
+      setElapsedMs(0);
+      setRecovered(false);
+      setError(null);
+      setNotice("Saved on this iPhone. Pick its class under Waiting to be added, above, to add it.");
+      window.dispatchEvent(new Event(INBOX_CHANGED_EVENT));
       return;
     }
     failedInboxIdRef.current = id;
@@ -269,6 +316,7 @@ export function LectureRecorder({
   async function start() {
     if (!classId) return;
     setError(null);
+    setNotice(null);
     if (native) return startNative();
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
       setError("This browser can't record audio. Use Upload a recording instead.");
@@ -335,6 +383,8 @@ export function LectureRecorder({
 
   function resume() {
     if (native) {
+      setError(null);
+      setRecovered(false);
       void NativeRecorder.resume()
         .then(() => syncNativeStatus())
         .catch(() => setError("Couldn't resume. Stop and save what's recorded so far, then start again."));
@@ -454,14 +504,30 @@ export function LectureRecorder({
             Stop and save
           </button>
         </div>
-        {interrupted && phase === "paused" && (
-          <p className="max-w-xs text-sm text-warn">Paused by a call or another app. Tap Resume to keep recording.</p>
+        {phase === "paused" && recovered ? (
+          <p className="max-w-xs text-sm text-warn">
+            Campus OS closed during this recording. Everything up to then is saved: tap Resume to keep recording, or Stop
+            and save.
+          </p>
+        ) : (
+          interrupted &&
+          phase === "paused" && (
+            <p className="max-w-xs text-sm text-warn">
+              Paused by a call or another app. What&apos;s recorded so far is safe: tap Resume to keep recording.
+            </p>
+          )
         )}
+        {error && <p className="max-w-xs text-sm text-danger">{error}</p>}
         <p className="max-w-xs text-xs text-ink-faint">
           {native
-            ? "You can lock your phone or use other apps. Recording keeps going until you stop."
+            ? "You can lock your phone or use other apps. Recording keeps going until you stop, and a call only pauses it."
             : "Keep Campus OS open with the screen on until you stop."}
         </p>
+        {native && phase === "paused" && (
+          <button onClick={() => void discardNative()} className="text-xs font-medium text-ink-faint underline underline-offset-2 hover:text-danger">
+            Discard recording
+          </button>
+        )}
       </div>
     );
   }
@@ -539,6 +605,7 @@ export function LectureRecorder({
         When you stop, the recording uploads and Campus OS writes the transcript and notes for you.
       </p>
       {error && <p className="max-w-sm text-sm text-danger">{error}</p>}
+      {notice && <p className="max-w-sm text-sm text-ok">{notice}</p>}
     </div>
   );
 }

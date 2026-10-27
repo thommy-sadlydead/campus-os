@@ -72,7 +72,9 @@ export function RecordLecture({
           id="record-class"
           value={classId}
           onChange={(e) => setClassId(e.target.value)}
-          disabled={busy}
+          // A recording brought back after Campus OS closed has no class
+          // yet, so the class can still be picked then.
+          disabled={busy && !!classId}
           className="field"
         >
           <option value="" disabled>

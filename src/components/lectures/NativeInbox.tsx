@@ -10,6 +10,9 @@ import { formatMinutes } from "@/lib/time";
 import { saveLectureAudio } from "./save-lecture-audio";
 import type { RecordableClass } from "./RecordLecture";
 
+/** Sent when a recording lands in the inbox while the Record page is open. */
+export const INBOX_CHANGED_EVENT = "campusos:inbox-changed";
+
 interface Draft {
   classId: string;
   title: string;
@@ -60,7 +63,13 @@ export function NativeInbox({
     const listener = App.addListener("appStateChange", ({ isActive }) => {
       if (isActive) void load();
     });
-    return () => void listener.then((handle) => handle.remove());
+    // A recording just saved here without a class (LectureRecorder).
+    const reload = () => void load();
+    window.addEventListener(INBOX_CHANGED_EVENT, reload);
+    return () => {
+      void listener.then((handle) => handle.remove());
+      window.removeEventListener(INBOX_CHANGED_EVENT, reload);
+    };
   }, [load]);
 
   if (items.length === 0) return null;
@@ -89,7 +98,11 @@ export function NativeInbox({
   }
 
   async function remove(item: InboxItem) {
-    if (!confirm(`Delete "${item.title}" from Campus OS? It's still in Voice Memos if it came from there.`)) return;
+    const where =
+      item.source === "share"
+        ? "It's still in Voice Memos (or wherever you shared it from)."
+        : "It was recorded in Campus OS and isn't saved anywhere else, so it can't be recovered.";
+    if (!confirm(`Delete "${item.title}"? ${where}`)) return;
     await SharedInbox.remove({ id: item.id });
     void load();
   }
