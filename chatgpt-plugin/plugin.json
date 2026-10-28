@@ -6,9 +6,9 @@
   "author": {
     "name": "Reece Broderick",
     "email": "support@campus-os.net",
-    "url": "https://campus-os-mocha-pi.vercel.app"
+    "url": "https://app.campus-os.net"
   },
-  "homepage": "https://campus-os-mocha-pi.vercel.app",
+  "homepage": "https://app.campus-os.net",
   "keywords": ["education", "students", "study", "planner"],
   "extensions": {
     "com.openai": {
@@ -19,9 +19,9 @@
         "developerName": "Reece Broderick",
         "category": "Education",
         "capabilities": ["Read"],
-        "websiteURL": "https://campus-os-mocha-pi.vercel.app",
-        "privacyPolicyURL": "https://campus-os-mocha-pi.vercel.app/privacy",
-        "termsOfServiceURL": "https://campus-os-mocha-pi.vercel.app/terms",
+        "websiteURL": "https://app.campus-os.net",
+        "privacyPolicyURL": "https://app.campus-os.net/privacy",
+        "termsOfServiceURL": "https://app.campus-os.net/terms",
         "defaultPrompt": [
           "What do I have due this week in Campus OS?",
           "Make a study guide for my next exam from my Campus OS notes."

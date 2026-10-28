@@ -22,14 +22,13 @@ and `assets/`.
 
 ## Before submitting
 
-1. **Move Campus OS to its own domain** (for example `app.campus-os.net`):
-   add it in Vercel → the project → Domains, point the DNS record at Vercel
-   where the domain is registered, and set `APP_URL` to it. OpenAI never lets
-   a published plugin's MCP address change, so do this first. The old
-   `vercel.app` address keeps working for the iPhone app.
-2. **Change every URL in `plugin.json` and `mcp.json`** to the new domain.
+1. **Campus OS's own domain**: the plugin lives at `https://app.campus-os.net`
+   (`APP_URL` in Vercel, DNS at Squarespace). OpenAI never lets a published
+   plugin's MCP address change, so keep this domain. The old `vercel.app`
+   address keeps working for the iPhone app.
+2. **Every URL in `plugin.json` and `mcp.json`** uses that domain.
 3. **Test it privately in your own ChatGPT**: chatgpt.com/plugins → the plus
-   button → **Add custom MCP server**, with the URL `https://<domain>/mcp` and
+   button → **Add custom MCP server**, with the URL `https://app.campus-os.net/mcp` and
    OAuth, then **Create as a plugin**. In a new chat, type `@`, pick Campus OS,
    sign in, tap Allow, and try the test prompts below. After changing a tool,
    open it at chatgpt.com/plugins and select **Refresh**.
@@ -41,7 +40,7 @@ and `assets/`.
 
 1. platform.openai.com → Plugins → create a plugin, upload this folder as a
    ZIP, and connect the MCP server with **With MCP**: the URL
-   `https://<domain>/mcp`, OAuth.
+   `https://app.campus-os.net/mcp`, OAuth.
 2. **Domain verification**: the portal shows a token. Put it in Vercel as
    `OPENAI_APPS_CHALLENGE` and redeploy; Campus OS serves it at
    `/.well-known/openai-apps-challenge`.

@@ -3,7 +3,7 @@
   "mcpServers": {
     "campus-os": {
       "type": "streamable-http",
-      "url": "https://campus-os-mocha-pi.vercel.app/mcp",
+      "url": "https://app.campus-os.net/mcp",
       "extensions": {
         "com.openai": {
           "auth": {
