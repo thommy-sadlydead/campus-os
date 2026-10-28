@@ -7,6 +7,7 @@ import {
   TOOLS,
   meetingFor,
   minuteLabel,
+  noClassesNextStep,
   snippetAround,
   takeWithinBudget,
 } from "../src/lib/mcp/tool-defs";
@@ -190,6 +191,16 @@ describe("tool definitions", () => {
 });
 
 describe("tool helpers", () => {
+  it("points a student with no classes at connecting their school", () => {
+    expect(noClassesNextStep("https://app.campus-os.net")).toContain("https://app.campus-os.net/connect");
+    expect(noClassesNextStep(null)).not.toContain("http");
+    for (const name of ["list_classes", "get_upcoming_work"]) {
+      const output = TOOLS.find((t) => t.name === name)!.outputSchema as { properties: object; required: string[] };
+      expect(output.properties).toHaveProperty("next_step");
+      expect(output.required).not.toContain("next_step");
+    }
+  });
+
   it("formats meeting times", () => {
     expect([0, 540, 750, 1439].map(minuteLabel)).toEqual(["12:00 AM", "9:00 AM", "12:30 PM", "11:59 PM"]);
     expect(meetingFor({ dayOfWeek: 1, startMinute: 540, endMinute: 590, location: "Bio 210", label: "Lecture" })).toEqual({

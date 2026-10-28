@@ -154,6 +154,8 @@ function tool(
 }
 
 /** In a fixed order (MCP asks for a deterministic tools/list). */
+const nextStep = str("Only when the account has no classes yet: what to tell the student");
+
 export const TOOLS: ToolDescriptor[] = [
   tool(
     "get_profile",
@@ -168,7 +170,7 @@ export const TOOLS: ToolDescriptor[] = [
     "List classes",
     "Use this first to see the student's classes (with their class_id, meeting times, professor and current grade). Other tools take a class_id from here.",
     obj({ include_archived: bool("Also list archived classes (default false)") }, []),
-    obj({ timezone: str("The student's time zone"), classes: arr(classSummary) })
+    obj({ timezone: str("The student's time zone"), classes: arr(classSummary), next_step: nextStep }, ["timezone", "classes"])
   ),
   tool(
     "get_upcoming_work",
@@ -183,7 +185,7 @@ export const TOOLS: ToolDescriptor[] = [
       },
       []
     ),
-    obj({ timezone: str(), assignments: arr(assignmentItem), exams: arr(examItem) })
+    obj({ timezone: str(), assignments: arr(assignmentItem), exams: arr(examItem), next_step: nextStep }, ["timezone", "assignments", "exams"])
   ),
   tool(
     "get_class",
@@ -270,6 +272,16 @@ export const TOOLS: ToolDescriptor[] = [
 
 export const SERVER_INSTRUCTIONS =
   "Campus OS is the student's own school planner: their classes, assignments, exams, notes, lecture notes and course files. Everything here is read-only. Start with list_classes for class ids, or get_upcoming_work for what's due. Times come with labels already in the student's time zone. For study guides, summaries or quizzes, read the class's notes (get_notes) and course files (get_course_material) and stick to what they cover. Don't show ids to the student.";
+
+/**
+ * list_classes and get_upcoming_work add this when the account has no classes
+ * at all (a student who just signed up), so ChatGPT points them at connecting
+ * their school instead of just saying there's nothing there.
+ */
+export function noClassesNextStep(origin: string | null): string {
+  const where = origin ? ` at ${origin}/connect` : "";
+  return `This Campus OS account has no classes yet. Classes come from the student's school: tell them to connect Canvas, Schoology, D2L Brightspace or Blackboard in Campus OS${where}, then ask again.`;
+}
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 

@@ -8,7 +8,8 @@ import { MATERIALS_WITH_TEXT } from "@/lib/class-context";
 import { formatDueLabel } from "@/lib/time";
 import { htmlToReadableText } from "@/lib/text";
 import { profileIdFor } from "@/lib/oauth/oauth";
-import { meetingFor, snippetAround, takeWithinBudget, TOOL_INPUTS, type ToolName } from "@/lib/mcp/tool-defs";
+import { oauthOrigin } from "@/lib/oauth/oauth-server";
+import { meetingFor, noClassesNextStep, snippetAround, takeWithinBudget, TOOL_INPUTS, type ToolName } from "@/lib/mcp/tool-defs";
 
 // What each MCP tool does (descriptions and schemas in tool-defs.ts). Every
 // query is scoped to the account behind the access token: a class, note or
@@ -106,6 +107,12 @@ function classSummary(
   };
 }
 
+/** next_step for an account with no classes at all, archived included (see noClassesNextStep). */
+async function noClassesHint(userId: string): Promise<{ next_step?: string }> {
+  if (await prisma.class.count({ where: { userId } })) return {};
+  return { next_step: noClassesNextStep(await oauthOrigin()) };
+}
+
 async function ownedClass(userId: string, classId: string) {
   return prisma.class.findFirst({ where: { id: classId, userId }, select: { id: true, name: true } });
 }
@@ -129,7 +136,11 @@ const HANDLERS: { [K in ToolName]: (userId: string, input: import("zod").infer<(
       include: CLASS_SUMMARY_INCLUDE,
       orderBy: { name: "asc" },
     });
-    return ok({ timezone: user.timezone, classes: classes.map((c) => classSummary(c, now)) });
+    return ok({
+      timezone: user.timezone,
+      classes: classes.map((c) => classSummary(c, now)),
+      ...(classes.length ? {} : await noClassesHint(userId)),
+    });
   },
 
   async get_upcoming_work(userId, input) {
@@ -161,6 +172,7 @@ const HANDLERS: { [K in ToolName]: (userId: string, input: import("zod").infer<(
       timezone: tz,
       assignments: assignments.map((a) => assignmentItem(a, a.class.name, now, tz)),
       exams: exams.map((e) => examItem(e, e.class.name, now, tz)),
+      ...(input.class_id || assignments.length || exams.length ? {} : await noClassesHint(userId)),
     });
   },
 
