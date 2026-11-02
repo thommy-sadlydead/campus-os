@@ -43,6 +43,16 @@ describe("accessFor", () => {
     expect(accessFor({ ...base, trialEndsAt: NOW }, NOW)).toEqual({ kind: "none", trialEndedAt: NOW });
   });
 
+  it("keeps the review account in its trial after it ends", () => {
+    expect(accessFor({ ...base, trialEndsAt: new Date(NOW.getTime() - 30 * DAY) }, NOW, { rollingTrial: true })).toEqual({
+      kind: "trial",
+      trialEndsAt: new Date(NOW.getTime() + 7 * DAY),
+      daysLeft: 7,
+    });
+    expect(accessFor({ ...base, trialEndsAt: new Date(NOW.getTime() + 2 * DAY) }, NOW, { rollingTrial: true })).toMatchObject({ daysLeft: 2 });
+    expect(accessFor({ ...base, subscriptions: [sub()] }, NOW, { rollingTrial: true }).kind).toBe("subscribed");
+  });
+
   it("prefers a live subscription over the trial", () => {
     const access = accessFor({ ...base, trialEndsAt: new Date(NOW.getTime() + DAY), subscriptions: [sub()] }, NOW);
     expect(access.kind).toBe("subscribed");

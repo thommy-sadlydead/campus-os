@@ -9,7 +9,12 @@
     "url": "https://app.campus-os.net"
   },
   "homepage": "https://app.campus-os.net",
-  "keywords": ["education", "students", "study", "planner"],
+  "keywords": [
+    "education",
+    "students",
+    "study",
+    "planner"
+  ],
   "extensions": {
     "com.openai": {
       "interface": {
@@ -17,9 +22,12 @@
         "shortDescription": "Classes, notes and due dates",
         "longDescription": "Campus OS is a student planner that brings classes, assignments, exams, lecture notes and course files from Canvas, Schoology, Brightspace or Blackboard into one place. Connect it to ChatGPT to ask what's due this week, get help with an assignment's directions, or turn your own notes and lecture notes into study guides, flashcards and practice quizzes. Campus OS only shares what a request needs, and ChatGPT can't change anything in your account. Requires a Campus OS account.",
         "developerName": "Reece Broderick",
-        "category": "Education",
-        "capabilities": ["Read"],
+        "category": "Productivity",
+        "capabilities": [
+          "Read"
+        ],
         "websiteURL": "https://app.campus-os.net",
+        "supportURL": "https://app.campus-os.net/support",
         "privacyPolicyURL": "https://app.campus-os.net/privacy",
         "termsOfServiceURL": "https://app.campus-os.net/terms",
         "defaultPrompt": [
@@ -29,6 +37,59 @@
         "brandColor": "#EA6A12",
         "composerIcon": "./assets/icon.png",
         "logo": "./assets/logo.png"
+      },
+      "review": {
+        "test_cases": {
+          "positive": [
+            {
+              "description": "See what's due across classes",
+              "prompt": "What do I have due this week in Campus OS?",
+              "tools_triggered": "get_upcoming_work",
+              "expected_behavior": "Lists the review account's open assignments and exams with their class and due time in the student's time zone, for example Calculus I's Homework 3.3: Chain rule and College Composition's Rhetorical analysis: rough draft. Sample due dates are set when the review account's sample classes are reset, so later in a review some can show as overdue."
+            },
+            {
+              "description": "Find an exam's time and room",
+              "prompt": "When is my Calculus exam and where is it?",
+              "tools_triggered": "get_upcoming_work, get_class",
+              "expected_behavior": "Gives Calculus I's Exam 2: its date, 10:00 AM, in Engineering 102."
+            },
+            {
+              "description": "Study guide from the student's own notes",
+              "prompt": "Make a study guide for my Principles of Biology midterm from my Campus OS notes.",
+              "tools_triggered": "list_classes, get_class, get_notes",
+              "expected_behavior": "Builds a study guide from Principles of Biology's notes and lecture notes (it may also read the chapter 6 slides with get_course_material): enzymes and activation energy, the active site and induced fit, temperature and pH optima, and competitive and noncompetitive inhibitors, following the pinned note \"Midterm: what to review\"."
+            },
+            {
+              "description": "Steps left on an assignment",
+              "prompt": "What steps are left on my rhetorical analysis rough draft?",
+              "tools_triggered": "get_upcoming_work, get_assignment",
+              "expected_behavior": "Names the three unfinished steps of College Composition's \"Rhetorical analysis: rough draft\": write the thesis and outline, draft the body paragraphs, and add MLA citations."
+            },
+            {
+              "description": "Search the student's notes",
+              "prompt": "Find where my Campus OS notes mention the chain rule.",
+              "tools_triggered": "search_class_content",
+              "expected_behavior": "Finds Calculus I's lecture note \"The chain rule\" (and the \"Exam 2 review sheet\" note) with a short snippet of each."
+            }
+          ],
+          "negative": [
+            {
+              "description": "Changing or submitting work (Campus OS is read-only)",
+              "prompt": "Turn in my chain rule homework for me."
+            },
+            {
+              "description": "Unrelated request",
+              "prompt": "What's the weather in Chicago today?"
+            },
+            {
+              "description": "Someone else's data",
+              "prompt": "Show me my roommate's assignments in Campus OS."
+            }
+          ]
+        }
+      },
+      "publication": {
+        "release_notes": "First release: read-only access to a student's own Campus OS classes, assignments, exams, notes, lecture notes and course files."
       }
     }
   }

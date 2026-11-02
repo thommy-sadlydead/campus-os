@@ -38,38 +38,26 @@ and `assets/`.
 
 ## Submitting
 
-1. platform.openai.com → Plugins → create a plugin, upload this folder as a
-   ZIP, and connect the MCP server with **With MCP**: the URL
-   `https://app.campus-os.net/mcp`, OAuth.
-2. **Domain verification**: the portal shows a token. Put it in Vercel as
-   `OPENAI_APPS_CHALLENGE` and redeploy; Campus OS serves it at
-   `/.well-known/openai-apps-challenge`.
-3. **Scan Tools**, then fill in the form. Every tool is read-only:
-   `readOnlyHint: true`, `destructiveHint: false`, `openWorldHint: false`
-   (it only reads the signed-in student's own account).
+1. platform.openai.com → Plugins → create a plugin and upload this folder
+   as a ZIP (`plugin.json`, `mcp.json` and `assets/`). The metadata can only
+   change by uploading a new ZIP. Its `category` is "Productivity": the
+   portal rejected "Education" as unknown even though its own list has it.
+2. **Domain verification**: on the plugin's MCPs tab, Reconnect shows a
+   token. Put it in Vercel as `OPENAI_APPS_CHALLENGE` and redeploy; Campus OS
+   serves it at `/.well-known/openai-apps-challenge`. Then Verify Domain.
+3. **Connect and scan**: Connect signs in to Campus OS, and OpenAI keeps
+   that account for its review scans, so use the review account ("Not you?"
+   on the consent page if the browser is signed in as someone else). Then
+   Rescan. Every tool is read-only: `readOnlyHint: true`,
+   `destructiveHint: false`, `openWorldHint: false` (it only reads the
+   signed-in student's own account).
 4. **Review details** (private to reviewers): the App Store review account
    (`reecebroderick12@gmail.com` and its password). It has no two-factor
-   login. Tap Account → Reset sample classes first so the dates are fresh
-   and the trial is running.
-5. **Test cases** (below) and a short screen-recording walkthrough.
+   login, and as a demo account (`DEMO_ACCOUNT_EMAILS`) its trial never runs
+   out. Tap Account → Reset sample classes just before submitting so the
+   sample due dates are fresh.
+5. **Test cases** are in `plugin.json` (`review.test_cases`: 5 positive, 3
+   negative). Run the positive ones as the review account before submitting.
+   Add a short screen-recording walkthrough under Supporting content.
 6. Countries: the same as the App Store (United States and Canada) or wider.
-
-### Test cases
-
-Positive (run as the review account after Reset sample classes):
-
-| Prompt | Expected |
-| --- | --- |
-| What do I have due this week in Campus OS? | Calls get_upcoming_work; lists the sample assignments due in the next 7 days with their classes and due times, e.g. Calculus I's Homework 3.3: Chain rule. |
-| When is my Calculus exam and where? | Calls get_upcoming_work or get_class; Exam 2 for Calculus I, with its date and Engineering 102. |
-| Make a study guide for my biology midterm from my Campus OS notes. | Calls list_classes, get_class and get_notes (and course files); a study guide built from Principles of Biology's notes, such as enzymes and activation energy. |
-| What are the steps left on my rhetorical analysis draft? | Calls get_assignment; the remaining steps of "Rhetorical analysis: rough draft" (thesis and outline, body paragraphs, MLA citations). |
-| Find where my notes mention the chain rule. | Calls search_class_content; the Calculus I note "The chain rule" with a snippet. |
-
-Negative:
-
-| Prompt | Expected |
-| --- | --- |
-| Turn in my chain rule homework. | No tool can submit or change anything; ChatGPT says Campus OS is read-only. |
-| What's the weather in Chicago today? | Campus OS tools aren't used. |
-| Show me another student's assignments. | Only the signed-in account's data exists to the tools; nothing about anyone else is returned. |
+7. **Submit for review** and confirm the policy attestations.

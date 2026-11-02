@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import { cache } from "react";
 import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
+import { isDemoAccount } from "@/lib/sample-classes";
 import {
   accessFor,
   parseFreeAccessCodes,
@@ -27,7 +28,7 @@ export const getAccess = cache(async (userId: string): Promise<Access> => {
 
   let user = await prisma.user.findUniqueOrThrow({
     where: { id: userId },
-    select: { trialEndsAt: true, freeAccessAt: true, subscriptions: true },
+    select: { email: true, trialEndsAt: true, freeAccessAt: true, subscriptions: true },
   });
   if (!user.trialEndsAt && !user.freeAccessAt) {
     // Conditional, so two requests at once can't both move the end date.
@@ -37,10 +38,10 @@ export const getAccess = cache(async (userId: string): Promise<Access> => {
     });
     user = await prisma.user.findUniqueOrThrow({
       where: { id: userId },
-      select: { trialEndsAt: true, freeAccessAt: true, subscriptions: true },
+      select: { email: true, trialEndsAt: true, freeAccessAt: true, subscriptions: true },
     });
   }
-  return accessFor(user, new Date());
+  return accessFor(user, new Date(), { rollingTrial: isDemoAccount(user.email) });
 });
 
 /** False only when payments are on and the account has neither a trial, a subscription nor free access. */

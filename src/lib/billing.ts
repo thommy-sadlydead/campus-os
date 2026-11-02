@@ -59,10 +59,15 @@ export function subscriptionUnlocks(sub: SubscriptionLike, now: Date): boolean {
   return (sub.status === "active" || sub.status === "past_due") && sub.currentPeriodEnd > now;
 }
 
-/** What an account can do right now: free, subscribed, in its trial, or nothing until it subscribes. */
+/**
+ * What an account can do right now: free, subscribed, in its trial, or nothing until it subscribes.
+ * rollingTrial (the review account, DEMO_ACCOUNT_EMAILS) never runs out of trial: an App Store or
+ * ChatGPT review can outlast it, and reviewers should still see the trial and the plans.
+ */
 export function accessFor(
   account: { trialEndsAt: Date | null; freeAccessAt: Date | null; subscriptions: SubscriptionLike[] },
-  now: Date
+  now: Date,
+  { rollingTrial = false }: { rollingTrial?: boolean } = {}
 ): Access {
   if (account.freeAccessAt) return { kind: "free" };
 
@@ -75,6 +80,7 @@ export function accessFor(
     const daysLeft = Math.max(1, Math.ceil((account.trialEndsAt.getTime() - now.getTime()) / DAY_MS));
     return { kind: "trial", trialEndsAt: account.trialEndsAt, daysLeft };
   }
+  if (rollingTrial) return { kind: "trial", trialEndsAt: trialEndFrom(now), daysLeft: TRIAL_DAYS };
   return { kind: "none", trialEndedAt: account.trialEndsAt };
 }
 
