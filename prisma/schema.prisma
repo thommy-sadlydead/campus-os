@@ -66,6 +66,8 @@ model User {
   emails              Email[]
   pendingChanges      PendingChange[]
   oauthGrants         OAuthGrant[]
+  calendarFeed        CalendarFeed?
+  schoolRequests      SchoolAccessRequest[]
 
   @@index([appleAccountToken])
   @@index([stripeCustomerId])
@@ -155,10 +157,32 @@ model ScheduleEvent {
   endMinute   Int
   location    String?
   label       String? // "Lecture", "Lab", "Discussion"
+  // The semester's first and last day for this meeting ("2026-08-25", a
+  // calendar date in the student's time zone; see src/lib/meetings.ts).
+  // Null: it repeats every week with no start or end.
+  startsOn    String?
+  endsOn      String?
+  createdAt   DateTime @default(now())
 
   class Class @relation(fields: [classId], references: [id], onDelete: Cascade)
 
   @@index([classId])
+}
+
+// A student's class meetings as a calendar subscription, at
+// /calendar/<token>.ics, that Apple, Google or Outlook Calendar refreshes
+// on its own (src/lib/calendar-feed-server.ts). The link is the only key,
+// so it's a secret: tokenHash (hashToken, like Session) finds it, and
+// tokenEnc (encryptSecret) lets the Schedule page show it again. Resetting
+// the link replaces both, and the old link stops working.
+model CalendarFeed {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  tokenHash String   @unique
+  tokenEnc  String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 // SQLite has no native enum type (Prisma's `enum` keyword only works on
@@ -459,6 +483,30 @@ model LmsConnection {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, provider])
+}
+
+// A student asking their school to turn on Campus OS in Brightspace or
+// Blackboard (Connect → that LMS → Ask your school), whose APIs only open
+// to apps a school's admin has enabled. The student sends the email from
+// their own mail app; this row counts who asked at each school and keeps
+// the address they sent it to (see src/lib/lms/school-request.ts).
+//   provider: "brightspace" | "blackboard"
+//   schoolHost: the host of their LMS address (LmsConnection.baseUrl),
+//     like "learn.school.edu"
+//   contactEmail: where they sent it, usually the school's IT help desk
+model SchoolAccessRequest {
+  id           String   @id @default(cuid())
+  userId       String
+  provider     String
+  schoolHost   String
+  contactEmail String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
+  @@index([provider, schoolHost])
 }
 
 // ---------------------------------------------------------------------------

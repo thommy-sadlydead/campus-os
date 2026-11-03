@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
+import { DATE_PATTERN, parseMeetingDays } from "@/lib/meetings";
 
 /**
  * Confirms the class belongs to the current user, or throws. These are all
@@ -248,11 +249,13 @@ export async function deleteResourceAction(resourceId: string) {
 // ---------------------------------------------------------------------------
 
 const scheduleEventSchema = z.object({
-  dayOfWeek: z.coerce.number().int().min(0).max(6),
+  days: z.array(z.number().int().min(0).max(6)).min(1, "Pick at least one day."),
   start: z.string().regex(/^\d{2}:\d{2}$/),
   end: z.string().regex(/^\d{2}:\d{2}$/),
   location: z.string().max(80).optional(),
   label: z.string().max(60).optional(),
+  startsOn: z.string().regex(DATE_PATTERN).optional(),
+  endsOn: z.string().regex(DATE_PATTERN).optional(),
 });
 
 function hhmmToMinutes(hhmm: string): number {
@@ -260,41 +263,59 @@ function hhmmToMinutes(hhmm: string): number {
   return h * 60 + m;
 }
 
+/**
+ * A weekly meeting on every day picked (one ScheduleEvent per weekday), from
+ * the semester's first day to its last when they're given. A day that
+ * already has this exact meeting isn't added twice.
+ */
 export async function addScheduleEventAction(classId: string, formData: FormData) {
   const user = await requireUser();
   await requireOwnedClass(classId, user.id);
 
   const parsed = scheduleEventSchema.parse({
-    dayOfWeek: formData.get("dayOfWeek"),
+    days: parseMeetingDays(formData.getAll("dayOfWeek")),
     start: formData.get("start"),
     end: formData.get("end"),
     location: formData.get("location") || undefined,
     label: formData.get("label") || undefined,
+    startsOn: formData.get("startsOn") || undefined,
+    endsOn: formData.get("endsOn") || undefined,
   });
 
   const startMinute = hhmmToMinutes(parsed.start);
   const endMinute = hhmmToMinutes(parsed.end);
   if (endMinute <= startMinute) throw new Error("End time must be after start time.");
+  if (parsed.startsOn && parsed.endsOn && parsed.endsOn < parsed.startsOn) {
+    throw new Error("The last day must be after the first day.");
+  }
 
-  await prisma.scheduleEvent.create({
-    data: {
-      classId,
-      dayOfWeek: parsed.dayOfWeek,
-      startMinute,
-      endMinute,
-      location: parsed.location || null,
-      label: parsed.label || null,
-    },
-  });
+  const meeting = {
+    classId,
+    startMinute,
+    endMinute,
+    location: parsed.location || null,
+    label: parsed.label || null,
+    startsOn: parsed.startsOn ?? null,
+    endsOn: parsed.endsOn ?? null,
+  };
+  const existing = await prisma.scheduleEvent.findMany({ where: meeting, select: { dayOfWeek: true } });
+  const days = parsed.days.filter((d) => !existing.some((e) => e.dayOfWeek === d));
+  if (days.length) await prisma.scheduleEvent.createMany({ data: days.map((dayOfWeek) => ({ ...meeting, dayOfWeek })) });
   revalidatePath(`/classes/${classId}`);
   revalidatePath("/schedule");
 }
 
 export async function deleteScheduleEventAction(eventId: string) {
+  await deleteScheduleEventsAction([eventId]);
+}
+
+/** Removes a meeting on all its days at once (the class Overview lists them grouped). */
+export async function deleteScheduleEventsAction(eventIds: string[]) {
   const user = await requireUser();
-  const event = await prisma.scheduleEvent.findUnique({ where: { id: eventId }, include: { class: true } });
-  if (!event || event.class.userId !== user.id) throw new Error("Not found.");
-  await prisma.scheduleEvent.delete({ where: { id: eventId } });
-  revalidatePath(`/classes/${event.classId}`);
+  const ids = z.array(z.string()).min(1).max(7).parse(eventIds);
+  const events = await prisma.scheduleEvent.findMany({ where: { id: { in: ids } }, include: { class: true } });
+  if (events.length !== ids.length || events.some((e) => e.class.userId !== user.id)) throw new Error("Not found.");
+  await prisma.scheduleEvent.deleteMany({ where: { id: { in: ids } } });
+  for (const classId of new Set(events.map((e) => e.classId))) revalidatePath(`/classes/${classId}`);
   revalidatePath("/schedule");
 }

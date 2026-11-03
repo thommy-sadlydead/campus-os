@@ -2,11 +2,13 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { updateClassOverviewAction, addScheduleEventAction, deleteScheduleEventAction } from "@/app/classes/[id]/actions";
+import { updateClassOverviewAction, addScheduleEventAction, deleteScheduleEventsAction } from "@/app/classes/[id]/actions";
 import { formatDueLabel } from "@/lib/time";
 import { CardHeader } from "@/components/ui/CardHeader";
 import { lmsName } from "@/lib/lms/providers";
 import { PencilIcon, XIcon } from "@/components/icons";
+import { DayPicker, SemesterDates } from "@/components/schedule/RepeatFields";
+import { formatDays, formatMeetingDates, groupMeetings, timeLabel, type MeetingDates } from "@/lib/meetings";
 
 export interface OverviewClassInfo {
   id: string;
@@ -29,6 +31,8 @@ export interface OverviewScheduleEvent {
   endMinute: number;
   location: string | null;
   label: string | null;
+  startsOn: string | null;
+  endsOn: string | null;
 }
 
 export interface OverviewEmail {
@@ -39,30 +43,24 @@ export interface OverviewEmail {
   gmailMessageId: string;
 }
 
-const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-function minutesToLabel(min: number): string {
-  const h = Math.floor(min / 60);
-  const m = min % 60;
-  const ampm = h >= 12 ? "PM" : "AM";
-  const h12 = h % 12 || 12;
-  return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
-}
-
 export function OverviewPanel({
   classInfo,
   scheduleEvents,
+  semester,
   recentEmails,
   tz,
 }: {
   classInfo: OverviewClassInfo;
   scheduleEvents: OverviewScheduleEvent[];
+  /** The semester dates new meetings start with (see semesterToReuse). */
+  semester: MeetingDates | null;
   recentEmails: OverviewEmail[];
   tz: string;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [days, setDays] = useState<number[]>([]);
   const now = new Date();
 
   return (
@@ -153,19 +151,20 @@ export function OverviewPanel({
 
         {scheduleEvents.length > 0 && (
           <ul className="mt-4 flex flex-col gap-1.5">
-            {scheduleEvents
-              .sort((a, b) => a.dayOfWeek - b.dayOfWeek || a.startMinute - b.startMinute)
-              .map((ev) => (
-                <li key={ev.id} className="flex items-center justify-between gap-2 rounded-lg bg-surface-2 py-1.5 pl-3 pr-1.5 text-sm">
+            {groupMeetings(scheduleEvents).map((m) => {
+              const dates = formatMeetingDates(m);
+              return (
+                <li key={m.ids.join()} className="flex items-center justify-between gap-2 rounded-lg bg-surface-2 py-1.5 pl-3 pr-1.5 text-sm">
                   <span className="min-w-0 tabular-nums">
-                    {DAY_LABELS[ev.dayOfWeek]} {minutesToLabel(ev.startMinute)}–{minutesToLabel(ev.endMinute)}
-                    {ev.location ? ` · ${ev.location}` : ""}
-                    {ev.label ? ` · ${ev.label}` : ""}
+                    <span className="font-medium text-ink">{formatDays(m.days)}</span> {timeLabel(m.startMinute)}–{timeLabel(m.endMinute)}
+                    {m.location ? ` · ${m.location}` : ""}
+                    {m.label ? ` · ${m.label}` : ""}
+                    <span className="block text-xs text-ink-faint">{dates ? `Weekly, ${dates}` : "Every week"}</span>
                   </span>
                   <form
                     action={() => {
                       startTransition(async () => {
-                        await deleteScheduleEventAction(ev.id);
+                        await deleteScheduleEventsAction(m.ids);
                         router.refresh();
                       });
                     }}
@@ -179,34 +178,32 @@ export function OverviewPanel({
                     </button>
                   </form>
                 </li>
-              ))}
+              );
+            })}
           </ul>
         )}
 
         <form
           action={(fd) => {
+            if (days.length === 0) return;
             startTransition(async () => {
               await addScheduleEventAction(classInfo.id, fd);
+              setDays([]);
               router.refresh();
             });
           }}
           className="mt-4 flex flex-col gap-2 border-t border-border-soft pt-4"
         >
-          <select name="dayOfWeek" defaultValue="1" className="field field-sm w-auto">
-            {DAY_LABELS.map((d, i) => (
-              <option key={d} value={i}>
-                {d}
-              </option>
-            ))}
-          </select>
+          <DayPicker days={days} onChange={setDays} compact />
           <div className="flex gap-2">
             <input type="time" name="start" required className="field field-sm w-full" />
             <input type="time" name="end" required className="field field-sm w-full" />
           </div>
           <input type="text" name="location" placeholder="Room (optional)" className="field field-sm w-auto" />
           <input type="text" name="label" placeholder="Lecture / Lab / Discussion (optional)" className="field field-sm w-auto" />
-          <button type="submit" disabled={pending} className="btn btn-secondary btn-sm">
-            Add meeting time
+          <SemesterDates initial={semester} compact />
+          <button type="submit" disabled={pending || days.length === 0} className="btn btn-secondary btn-sm">
+            {days.length > 1 ? `Add on ${days.length} days` : "Add meeting time"}
           </button>
         </form>
       </div>

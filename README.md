@@ -92,7 +92,25 @@ as out of scope.
 - **Schedule**: a 7-day agenda combining recurring class meeting times
   (Canvas doesn't provide these — add them from Schedule directly or from a
   class's Overview tab) with real assignment/exam due dates landing on
-  each day, sorted chronologically together.
+  each day, sorted chronologically together. A meeting repeats weekly on
+  every day picked (Mon, Wed, Fri in one go; one `ScheduleEvent` row per
+  weekday, shown grouped on the Overview tab), optionally between the
+  semester's first and last day (`startsOn`/`endsOn`), after which it drops
+  off the Schedule, Record's class guess and ChatGPT. **Add to your
+  calendar** gives each student a secret subscription link
+  (`/calendar/<token>.ics`, `CalendarFeed`) for Apple, Google or Outlook
+  Calendar: weekly repeating events in their time zone that update as
+  meetings change (`src/lib/calendar-feed.ts`, tested).
+- **Ask your school** (Connect → Brightspace/Blackboard, once connected):
+  those two only open their APIs to apps a school's admin has turned on,
+  so the card writes the request email (with `BLACKBOARD_APP_ID` for
+  Blackboard admins, copying `CONTACT_EMAIL`) for the student to send from
+  their own mail app, Gmail or Outlook. Opening it counts the request per
+  school (`SchoolAccessRequest`), and the address most students at a school
+  used is suggested to the next one, only when it's at the school's own
+  domain (`src/lib/lms/school-request.ts`, tested). To see which schools
+  asked: `SELECT provider, "schoolHost", count(*) FROM "SchoolAccessRequest"
+  GROUP BY 1, 2 ORDER BY 3 DESC`.
 - **Gmail email intelligence** (`/email`): connect your school Gmail via
   OAuth (read-only, no password ever touches this app), get a summarized
   **Inbox Academic Feed** of only the relevant emails (grouped by class and
@@ -359,6 +377,8 @@ User ─┬─ Class ─┬─ ScheduleEvent
       ├─ EmailAccount (Gmail OAuth link — one per user)
       ├─ CanvasAccount (Canvas access token — one per user)
       ├─ LmsConnection (Schoology key or Brightspace/Blackboard feed — one per LMS)
+      ├─ CalendarFeed (secret calendar subscription link — one per user)
+      ├─ SchoolAccessRequest (asked their school to turn on Campus OS — one per LMS)
       ├─ Email ─── PendingChange (conflict-resolution queue)
       └─ AvailabilityBlock (explicit free-time entries)
 ```
@@ -844,6 +864,11 @@ Not built — one deliberately flagged gap, unrelated to the phase plan:
   transcripts from AssemblyAI, and revokes the Gmail grant at Google.
   Disconnecting Gmail revokes the grant too. AssemblyAI transcripts are also
   deleted as soon as a lecture's transcript text is saved.
+- A calendar link (`CalendarFeed`) is the only key to that student's feed,
+  so it's stored like a session token (an HMAC to find it) plus an
+  encrypted copy for showing it again; Schedule → Make a new link replaces
+  it. The feed has class names, codes, meeting times and rooms only, and
+  stops (403) when the account has no access.
 - Gmail sync keeps the preview and full text only for school-related
   messages; anything else is stored as sender, subject and date so the
   next sync can skip it.

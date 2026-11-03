@@ -4,12 +4,16 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { AppShell } from "@/components/AppShell";
 import { ScheduleAddForm } from "@/components/schedule/ScheduleAddForm";
+import { CalendarSyncCard } from "@/components/schedule/CalendarSyncCard";
 import { deleteScheduleEventAction } from "@/app/classes/[id]/actions";
 import { lmsLink, type LmsLink } from "@/lib/lms/providers";
 import { dayKey, formatTzTime } from "@/lib/time";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { ChecklistIcon, ExternalIcon, PencilIcon, XIcon } from "@/components/icons";
 import { courseStyle } from "@/lib/course-style";
+import { meetingRunsOn } from "@/lib/meetings";
+import { semesterForNewMeetings } from "@/lib/meetings-server";
+import { calendarLinksFor } from "@/lib/calendar-feed-server";
 
 function minutesToLabel(min: number): string {
   const h = Math.floor(min / 60);
@@ -55,7 +59,7 @@ export default async function SchedulePage() {
   const user = await requireUser();
   const now = new Date();
 
-  const [classes, events, assignments, exams] = await Promise.all([
+  const [classes, events, assignments, exams, semester, calendarLinks] = await Promise.all([
     prisma.class.findMany({ where: { userId: user.id, archived: false }, orderBy: { name: "asc" } }),
     prisma.scheduleEvent.findMany({
       where: { class: { userId: user.id, archived: false } },
@@ -74,6 +78,8 @@ export default async function SchedulePage() {
       where: { class: { userId: user.id, archived: false }, examAt: { not: null } },
       include: { class: true },
     }),
+    semesterForNewMeetings(user.id, user.timezone),
+    calendarLinksFor(user.id),
   ]);
 
   // Bucket recurring meeting blocks by weekday (0 = Sunday .. 6 = Saturday,
@@ -132,7 +138,8 @@ export default async function SchedulePage() {
     const iso = Number(formatInTimeZone(instant, user.timezone, "i")); // 1 = Mon .. 7 = Sun
     const dow = iso % 7; // 0 = Sun .. 6 = Sat, matches ScheduleEvent.dayOfWeek
 
-    const classEntries: AgendaEntry[] = (eventsByDow.get(dow) ?? []).map((ev) => ({
+    // Only meetings inside their semester dates, when they have them.
+    const classEntries: AgendaEntry[] = (eventsByDow.get(dow) ?? []).filter((ev) => meetingRunsOn(ev, key)).map((ev) => ({
       type: "class",
       sortMinute: ev.startMinute,
       scheduleEventId: ev.id,
@@ -251,7 +258,10 @@ export default async function SchedulePage() {
             ))}
           </div>
 
-          <ScheduleAddForm classes={classes.map((c) => ({ id: c.id, name: c.name, color: c.color }))} />
+          <div className="flex flex-col gap-4 lg:sticky lg:top-10 lg:h-fit">
+            <ScheduleAddForm classes={classes.map((c) => ({ id: c.id, name: c.name, color: c.color }))} semester={semester} />
+            <CalendarSyncCard links={calendarLinks} />
+          </div>
         </div>
       )}
     </AppShell>

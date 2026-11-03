@@ -50,6 +50,15 @@ describe("suggestClassToRecord", () => {
   it("returns null with no schedule at all", () => {
     expect(suggestClassToRecord([], at("11:00"), TZ)).toBeNull();
   });
+
+  it("skips a meeting outside its semester dates", () => {
+    const ended = { ...TUE_COMP, endsOn: "2026-09-28" };
+    const starts = { ...TUE_COMP, startsOn: "2026-09-30" };
+    expect(suggestClassToRecord([ended], at("11:00"), TZ)).toBeNull();
+    expect(suggestClassToRecord([starts], at("11:00"), TZ)).toBeNull();
+    // The first and last day count.
+    expect(suggestClassToRecord([{ ...TUE_COMP, startsOn: "2026-09-29", endsOn: "2026-09-29" }], at("11:00"), TZ)?.classId).toBe("comp");
+  });
 });
 
 describe("defaultLectureTitle", () => {

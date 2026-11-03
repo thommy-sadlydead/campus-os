@@ -1,33 +1,42 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { addScheduleEventAction } from "@/app/classes/[id]/actions";
 import { CardHeader } from "@/components/ui/CardHeader";
 import { PlusIcon } from "@/components/icons";
+import { DayPicker, SemesterDates } from "@/components/schedule/RepeatFields";
+import type { MeetingDates } from "@/lib/meetings";
 
-const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-export function ScheduleAddForm({ classes }: { classes: Array<{ id: string; name: string; color: number }> }) {
+export function ScheduleAddForm({
+  classes,
+  semester,
+}: {
+  classes: Array<{ id: string; name: string; color: number }>;
+  /** The dates of the last meeting added with some, to start from. */
+  semester: MeetingDates | null;
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [days, setDays] = useState<number[]>([]);
 
   return (
     <form
       action={(fd) => {
         const classId = String(fd.get("classId") || "");
-        if (!classId) return;
+        if (!classId || days.length === 0) return;
         startTransition(async () => {
           await addScheduleEventAction(classId, fd);
+          setDays([]);
           router.refresh();
         });
       }}
-      className="card card-pad h-fit lg:sticky lg:top-10"
+      className="card card-pad h-fit"
     >
       <CardHeader
         icon={<PlusIcon className="h-[18px] w-[18px]" />}
         title="Add a meeting time"
-        description="Repeats every week on the day you pick."
+        description="Repeats every week on the days you pick."
       />
       <div className="mt-4 flex flex-col gap-3">
         <label>
@@ -41,16 +50,7 @@ export function ScheduleAddForm({ classes }: { classes: Array<{ id: string; name
             ))}
           </select>
         </label>
-        <label>
-          <span className="field-label">Day</span>
-          <select name="dayOfWeek" defaultValue="1" className="field">
-            {DAY_LABELS.map((d, i) => (
-              <option key={d} value={i}>
-                {d}
-              </option>
-            ))}
-          </select>
-        </label>
+        <DayPicker days={days} onChange={setDays} />
         <div className="grid grid-cols-2 gap-2">
           <label>
             <span className="field-label">Start</span>
@@ -69,8 +69,9 @@ export function ScheduleAddForm({ classes }: { classes: Array<{ id: string; name
           <span className="field-label">Type (optional)</span>
           <input type="text" name="label" placeholder="Lecture / Lab / Discussion" className="field" />
         </label>
-        <button type="submit" disabled={pending} className="btn btn-primary mt-1">
-          {pending ? "Adding…" : "Add meeting time"}
+        <SemesterDates initial={semester} />
+        <button type="submit" disabled={pending || days.length === 0} className="btn btn-primary mt-1">
+          {pending ? "Adding…" : days.length > 1 ? `Add on ${days.length} days` : "Add meeting time"}
         </button>
       </div>
     </form>

@@ -14,6 +14,10 @@ import { getLmsConnection } from "@/lib/lms/connections";
 import { LMS_PROVIDER_INFO, type FeedProvider } from "@/lib/lms/providers";
 import { parseReport } from "@/lib/lms/report";
 import { disconnectLmsAction, syncLmsAction } from "@/app/connect/actions";
+import { AskSchoolCard } from "@/components/connect/AskSchoolCard";
+import { requestOrigin } from "@/lib/billing-server";
+import { schoolRequestEmail } from "@/lib/lms/school-request";
+import { schoolRequestStatus } from "@/lib/lms/school-request-server";
 
 const STEPS: Record<FeedProvider, React.ReactNode[]> = {
   brightspace: [
@@ -79,6 +83,17 @@ export async function FeedProviderPage({ provider }: { provider: FeedProvider })
     );
   }
 
+  const [askStatus, appUrl] = await Promise.all([schoolRequestStatus(user.id, provider, connection.baseUrl), requestOrigin()]);
+  const supportEmail = process.env.CONTACT_EMAIL?.trim() || null;
+  const askEmail = schoolRequestEmail({
+    provider,
+    providerName: info.name,
+    studentName: user.name,
+    appUrl,
+    supportEmail,
+    blackboardAppId: process.env.BLACKBOARD_APP_ID?.trim() || null,
+  });
+
   return (
     <AppShell active="/connect" userName={user.name ?? user.email}>
       <BackToConnect />
@@ -108,6 +123,21 @@ export async function FeedProviderPage({ provider }: { provider: FeedProvider })
       />
 
       <SyncReportCard report={parseReport(connection.lastSyncReport)} lmsName={info.name} tz={user.timezone} footnote={limits} />
+
+      {askStatus && (
+        <AskSchoolCard
+          provider={provider}
+          providerName={info.name}
+          host={askStatus.host}
+          subject={askEmail.subject}
+          body={askEmail.body}
+          cc={supportEmail}
+          savedContact={askStatus.contactEmail}
+          suggestedContact={askStatus.suggestedContact}
+          askedLabel={askStatus.askedAt ? formatPastMoment(askStatus.askedAt, new Date(), user.timezone) : null}
+          othersAsked={askStatus.othersAsked}
+        />
+      )}
 
       <div className="card card-pad">
         <CardHeader

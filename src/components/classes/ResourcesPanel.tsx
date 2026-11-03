@@ -106,7 +106,7 @@ function emptyMaterialsNote(lmsProvider: string | null): string {
   const name = lmsName(lmsProvider);
   if (!name) return "Nothing here yet. Add your own above, or connect Canvas or Schoology to import a course's files automatically.";
   if (isLmsProvider(lmsProvider) && !LMS_PROVIDER_INFO[lmsProvider].capabilities.materials) {
-    return `${name} doesn't share course files with other apps. Add yours above: upload a file, paste text, or add a link.`;
+    return `${name} only shares course files with apps your school has turned on (Connect → ${name} → Ask your school). Until then, add yours above: upload a file, paste text, or add a link.`;
   }
   return `Nothing here yet. Use "Go fetch materials" on the ${name} page to import this course's files, or add your own above.`;
 }

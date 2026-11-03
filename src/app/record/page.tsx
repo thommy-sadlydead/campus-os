@@ -22,6 +22,8 @@ export default async function RecordPage() {
       dayOfWeek: e.dayOfWeek,
       startMinute: e.startMinute,
       endMinute: e.endMinute,
+      startsOn: e.startsOn,
+      endsOn: e.endsOn,
     }))
   );
   const suggestion = suggestClassToRecord(slots, now, user.timezone);

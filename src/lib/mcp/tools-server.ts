@@ -5,7 +5,8 @@ import { consumeRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { assignmentStatusLabel } from "@/lib/assignment-status";
 import { classMaterialTypeLabel } from "@/lib/lecture-notes";
 import { MATERIALS_WITH_TEXT } from "@/lib/class-context";
-import { formatDueLabel } from "@/lib/time";
+import { dayKey, formatDueLabel } from "@/lib/time";
+import { meetingHasEnded, type MeetingDates } from "@/lib/meetings";
 import { htmlToReadableText } from "@/lib/text";
 import { profileIdFor } from "@/lib/oauth/oauth";
 import { oauthOrigin } from "@/lib/oauth/oauth-server";
@@ -88,12 +89,14 @@ function classSummary(
     professor: string | null;
     room: string | null;
     currentGrade: string | null;
-    scheduleEvents: Parameters<typeof meetingFor>[0][];
+    scheduleEvents: (Parameters<typeof meetingFor>[0] & MeetingDates)[];
     assignments: { status: string }[];
     exams: { examAt: Date | null }[];
   },
-  now: Date
+  now: Date,
+  tz: string
 ) {
+  const today = dayKey(now, tz);
   return {
     id: c.id,
     name: c.name,
@@ -101,7 +104,8 @@ function classSummary(
     professor: c.professor,
     room: c.room,
     current_grade: c.currentGrade,
-    meetings: c.scheduleEvents.map(meetingFor),
+    // A meeting whose semester is over isn't on the student's schedule any more.
+    meetings: c.scheduleEvents.filter((e) => !meetingHasEnded(e, today)).map(meetingFor),
     open_assignments: c.assignments.filter((a) => !DONE.includes(a.status)).length,
     upcoming_exams: c.exams.filter((e) => e.examAt && e.examAt >= now).length,
   };
@@ -138,7 +142,7 @@ const HANDLERS: { [K in ToolName]: (userId: string, input: import("zod").infer<(
     });
     return ok({
       timezone: user.timezone,
-      classes: classes.map((c) => classSummary(c, now)),
+      classes: classes.map((c) => classSummary(c, now, user.timezone)),
       ...(classes.length ? {} : await noClassesHint(userId)),
     });
   },
@@ -202,7 +206,7 @@ const HANDLERS: { [K in ToolName]: (userId: string, input: import("zod").infer<(
       prisma.exam.findMany({ where: { classId: c.id }, orderBy: { examAt: "asc" }, take: 100 }),
     ]);
     return ok({
-      class: classSummary(c, now),
+      class: classSummary(c, now, user.timezone),
       assignments: assignments.map((a) => assignmentItem(a, c.name, now, user.timezone)),
       exams: exams.map((e) => examItem(e, c.name, now, user.timezone)),
       notes: c.noteSections.flatMap((s) =>

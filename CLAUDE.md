@@ -226,6 +226,14 @@ session cookies, no third-party auth.
   - Each step is claimed with a conditional `updateMany` (status in the
     `where`), because the webhook and the page's polling can both try to
     move the same lecture at once. Only the claimer writes the notes.
+- **Schedule (meeting times)**: `meetings.ts` (pure: semester dates,
+  grouping a class's per-weekday rows, labels; tested), `calendar-feed.ts`
+  (pure iCalendar feed with RRULE and VTIMEZONE; tested — note date-fns-tz's
+  `getTimezoneOffset` reads its date as a wall-clock time, so offsets come
+  from `formatInTimeZone(…, "xxx")`), `calendar-feed-server.ts` (the secret
+  link, `CalendarFeed`) and the route `src/app/calendar/[token]`. Meetings
+  are one `ScheduleEvent` per weekday; keep it that way, since Record, the
+  MCP tools and email changes all read single rows.
 - **Priority/workload**: `priority-engine.ts`, `workload.ts`,
   `risk-engine.ts`, `breakdown-heuristics.ts` — all pure, dependency-free,
   heavily unit-tested; this is the oldest and most stable part of the app.
@@ -293,7 +301,7 @@ session cookies, no third-party auth.
 ## Verifying a change before calling it done
 
 1. `npx tsc --noEmit` (after `npx prisma generate` if the schema changed)
-2. `npx vitest run` — 408 tests as of this writing across 35 files
+2. `npx vitest run` — 442 tests as of this writing across 37 files
 3. Clean build: `rm -rf .next && npx next build` (use `next build` directly
    to skip the `db push` the `npm run build` script triggers, if you're not
    ready to push schema changes yet)

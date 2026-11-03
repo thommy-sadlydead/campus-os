@@ -17,6 +17,7 @@ import { hasAiConsent } from "@/lib/ai-consent";
 import { listConnectedApps } from "@/lib/oauth/oauth-server";
 import { chatgptStudyPrompts } from "@/lib/flashcards";
 import type { StudySourceOption } from "@/components/study/study-types";
+import { semesterForNewMeetings } from "@/lib/meetings-server";
 
 // Server Actions invoked from this page (notably generateNotes, via
 // pollLectureStatusAction/retryLectureAction in lecture-actions.ts) can now
@@ -99,13 +100,14 @@ export default async function ClassPage({
 
   // The Study tab: decks, what cards can be made from, and whether the
   // student has connected Campus OS in ChatGPT.
-  const [decks, connectedApps] = await Promise.all([
+  const [decks, connectedApps, semester] = await Promise.all([
     prisma.flashcardDeck.findMany({
       where: { classId: cls.id },
       include: { cards: { orderBy: { order: "asc" } } },
       orderBy: { createdAt: "desc" },
     }),
     listConnectedApps(user.id),
+    semesterForNewMeetings(user.id, user.timezone),
   ]);
   const notesWithText = cls.noteSections.flatMap((s) => s.notes).filter((n) => n.bodyMarkdown.trim());
   const readableMaterials = cls.materials.filter(
@@ -163,7 +165,10 @@ export default async function ClassPage({
           endMinute: e.endMinute,
           location: e.location,
           label: e.label,
+          startsOn: e.startsOn,
+          endsOn: e.endsOn,
         }))}
+        semester={semester}
         assignments={cls.assignments.map((a) => ({
           id: a.id,
           name: a.name,

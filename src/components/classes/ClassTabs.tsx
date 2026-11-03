@@ -11,11 +11,13 @@ import { ClassAssistant } from "@/components/classes/ClassAssistant";
 import { StudyPanel } from "@/components/study/StudyPanel";
 import type { ChatGptStudyInfo, StudyDeck, StudySourceOption } from "@/components/study/study-types";
 import { CLASS_TABS, type ClassTab } from "@/components/classes/class-tabs";
+import type { MeetingDates } from "@/lib/meetings";
 
 export function ClassTabs({
   initialTab,
   classInfo,
   scheduleEvents,
+  semester,
   assignments,
   noteSections,
   lectures,
@@ -30,6 +32,7 @@ export function ClassTabs({
   initialTab: ClassTab;
   classInfo: OverviewClassInfo;
   scheduleEvents: OverviewScheduleEvent[];
+  semester: MeetingDates | null;
   assignments: ClassAssignmentRow[];
   noteSections: NotesBoardSection[];
   lectures: LectureRow[];
@@ -113,7 +116,7 @@ export function ClassTabs({
       </div>
 
       {tab === "Overview" && (
-        <OverviewPanel classInfo={classInfo} scheduleEvents={scheduleEvents} recentEmails={recentEmails} tz={tz} />
+        <OverviewPanel classInfo={classInfo} scheduleEvents={scheduleEvents} semester={semester} recentEmails={recentEmails} tz={tz} />
       )}
       {/* On the Study tab the assistant comes first, then flashcards and ChatGPT. */}
       {tab === "Study" && (

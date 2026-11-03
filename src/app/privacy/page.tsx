@@ -32,7 +32,7 @@ export default function PrivacyPage() {
         <header>
           <p className="eyebrow">Legal</p>
           <h1 className="mt-2 font-display text-3xl font-semibold text-ink sm:text-4xl">Privacy policy</h1>
-          <p className="mt-1 text-xs text-ink-faint">Last updated October 26, 2026</p>
+          <p className="mt-1 text-xs text-ink-faint">Last updated November 3, 2026</p>
           <p className="mt-4">
             Campus OS is a personal academic organizer. It pulls your classes and assignments from your school&apos;s
             learning system (Canvas, Schoology, D2L Brightspace or Blackboard), reads
@@ -83,6 +83,17 @@ export default function PrivacyPage() {
             <li>
               <strong className="text-ink">Connected apps, if you connect one (ChatGPT):</strong> which app, when you
               connected it and last used it, and its access tokens as one-way hashes (never the tokens themselves).
+            </li>
+            <li>
+              <strong className="text-ink">If you ask your school to turn on Campus OS</strong> (Connect → Brightspace
+              or Blackboard): which school, when, and the address you sent the email to. Other students at the same
+              school see how many students have asked (never who), and the address most of them used, only when
+              it&apos;s at the school&apos;s own domain. The email itself goes from your own email account.
+            </li>
+            <li>
+              <strong className="text-ink">Your calendar link, if you make one:</strong> the private link your calendar
+              app uses for your class meeting times, as a one-way hash plus an encrypted copy so Schedule can show it to
+              you again.
             </li>
             <li>
               <strong className="text-ink">Your plan, if you subscribe:</strong> which plan, its status and renewal
@@ -142,6 +153,12 @@ export default function PrivacyPage() {
                 OpenAI&apos;s privacy policy
               </a>
               . Disconnect any time under Account → Connected apps; changing your password disconnects it too.
+            </li>
+            <li>
+              <strong className="text-ink">Your calendar app</strong> (Apple, Google, Outlook or another), only if you
+              add your classes to it from Schedule. It reads your class names, course codes, meeting times and rooms
+              from your private link every few hours, under that calendar&apos;s own privacy policy. Anyone you give the
+              link to can see the same. Schedule → Make a new link stops the old one working.
             </li>
             <li>
               <strong className="text-ink">Google (Gmail)</strong> and <strong className="text-ink">your school&apos;s

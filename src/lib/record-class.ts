@@ -1,4 +1,5 @@
 import { formatInTimeZone } from "date-fns-tz";
+import { meetingRunsOn } from "@/lib/meetings";
 
 // Picks the class a student is most likely recording right now, from their
 // weekly schedule (ScheduleEvent), so "Record" can start with the right
@@ -9,6 +10,9 @@ export interface ScheduleSlot {
   dayOfWeek: number; // 0 = Sunday .. 6 = Saturday, like ScheduleEvent
   startMinute: number; // minutes after local midnight
   endMinute: number;
+  /** The semester's first and last day ("2026-08-25"), when the meeting has them. */
+  startsOn?: string | null;
+  endsOn?: string | null;
 }
 
 export type SuggestionReason = "in-session" | "starting-soon" | "just-ended";
@@ -31,7 +35,10 @@ export function localDayAndMinute(now: Date, tz: string): { dayOfWeek: number; m
 
 export function suggestClassToRecord(slots: ScheduleSlot[], now: Date, tz: string): ClassSuggestion | null {
   const { dayOfWeek, minute } = localDayAndMinute(now, tz);
-  const today = slots.filter((s) => s.dayOfWeek === dayOfWeek);
+  const date = formatInTimeZone(now, tz, "yyyy-MM-dd");
+  const today = slots.filter(
+    (s) => s.dayOfWeek === dayOfWeek && meetingRunsOn({ startsOn: s.startsOn ?? null, endsOn: s.endsOn ?? null }, date)
+  );
 
   const inSession = today.find((s) => minute >= s.startMinute && minute <= s.endMinute);
   if (inSession) return { classId: inSession.classId, reason: "in-session" };
