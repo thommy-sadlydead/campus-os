@@ -6,9 +6,25 @@ import { defaultLectureTitle, suggestClassToRecord } from "@/lib/record-class";
 import { hasAiConsent } from "@/lib/ai-consent";
 import { AiConsentCard } from "@/components/account/AiConsent";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { featuresFor } from "@/lib/features-server";
+import Link from "next/link";
 
 export default async function RecordPage() {
   const user = await requireUser();
+  if (!(await featuresFor(user)).has("lectures")) {
+    return (
+      <AppShell active="/record" userName={user.name ?? user.email}>
+        <PageHeader title="Record a lecture" />
+        <div className="empty">
+          Lecture recording is turned off.{" "}
+          <Link href="/account#features" className="font-medium text-ink underline decoration-border underline-offset-2 hover:decoration-ink">
+            Turn it on under Account → Features
+          </Link>{" "}
+          to record or upload lectures.
+        </div>
+      </AppShell>
+    );
+  }
   const classes = await prisma.class.findMany({
     where: { userId: user.id, archived: false },
     orderBy: { name: "asc" },

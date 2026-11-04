@@ -33,6 +33,9 @@ export const RATE_LIMITS = {
   // Interactive AI features: dashboard, class assistant, assignment
   // breakdowns. Generous for one student's real use.
   ai: { limit: 200, windowMs: DAY },
+  // Refreshing Canvas grades after Today loads (src/lib/grades-server.ts):
+  // once every six hours at most, per account.
+  gradesRefresh: { limit: 1, windowMs: 6 * 60 * MINUTE },
   // New lectures (each one means an AssemblyAI transcription and a long
   // note-generation call), plus audio upload tokens as a backstop for
   // uploads that never become a lecture.

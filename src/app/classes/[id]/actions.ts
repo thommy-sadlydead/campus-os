@@ -5,6 +5,9 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import { DATE_PATTERN, meetingTimeProblem, parseMeetingDays } from "@/lib/meetings";
+import { parseGradePercent } from "@/lib/grades";
+import { recordGrade } from "@/lib/grade-records";
+import { featuresFor } from "@/lib/features-server";
 
 /**
  * Confirms the class belongs to the current user, or throws. These are all
@@ -20,37 +23,70 @@ async function requireOwnedClass(classId: string, userId: string) {
 }
 
 // ---------------------------------------------------------------------------
-// Overview — professor / room / current grade. Canvas never provides these
-// (confirmed by inspecting scripts/sync-canvas.ts), so this is either typed
-// in directly or filled in later by an accepted email PendingChange.
+// Overview — professor / room / current grade, and with Getting help on,
+// the professor's email and office hours. The LMS doesn't provide these,
+// so they're typed in, found in the syllabus (findHelpInSyllabusAction),
+// or filled in later by an accepted email PendingChange. A Canvas grade
+// comes from the sync instead (src/lib/grade-records.ts).
 // ---------------------------------------------------------------------------
 
 const overviewSchema = z.object({
   professor: z.string().max(120).optional(),
   room: z.string().max(120).optional(),
   currentGrade: z.string().max(20).optional(),
+  professorEmail: z.string().trim().max(200).email().optional(),
+  officeHours: z.string().trim().max(200).optional(),
 });
 
 export async function updateClassOverviewAction(classId: string, formData: FormData) {
   const user = await requireUser();
-  await requireOwnedClass(classId, user.id);
+  const cls = await requireOwnedClass(classId, user.id);
+  const features = await featuresFor(user);
 
-  const parsed = overviewSchema.parse({
+  const parsed = overviewSchema.safeParse({
     professor: formData.get("professor") || undefined,
     room: formData.get("room") || undefined,
     currentGrade: formData.get("currentGrade") || undefined,
+    professorEmail: formData.get("professorEmail") || undefined,
+    officeHours: formData.get("officeHours") || undefined,
   });
+  if (!parsed.success) {
+    return { error: parsed.error.issues.some((i) => i.path[0] === "professorEmail") ? "That email address doesn't look right." : "Check the details and try again." };
+  }
 
   await prisma.class.update({
     where: { id: classId },
     data: {
-      professor: parsed.professor ?? null,
-      room: parsed.room ?? null,
-      currentGrade: parsed.currentGrade ?? null,
+      professor: parsed.data.professor ?? null,
+      room: parsed.data.room ?? null,
+      currentGrade: parsed.data.currentGrade ?? null,
+      // Only on the form with Getting help on, so turning it off doesn't clear them.
+      ...(features.has("get-help")
+        ? { professorEmail: parsed.data.professorEmail ?? null, officeHours: parsed.data.officeHours ?? null }
+        : {}),
     },
   });
 
+  // A typed grade with a number in it ("88%", "B+ (88%)") counts as the
+  // class's grade, so the dashboard can tell when it slips.
+  const typed = parseGradePercent(parsed.data.currentGrade);
+  if (features.has("grades") && typed !== null && parsed.data.currentGrade !== cls.currentGrade) {
+    await recordGrade(prisma, classId, { percent: typed, letter: null }, "manual");
+  }
+
   revalidatePath(`/classes/${classId}`);
+  return undefined;
+}
+
+/** The student's goal for a class, for the final-exam calculator and "below your goal". */
+export async function setGradeTargetAction(classId: string, target: number | null): Promise<void> {
+  const user = await requireUser();
+  await requireOwnedClass(classId, user.id);
+  const value = target === null ? null : Number(target);
+  if (value !== null && !(Number.isFinite(value) && value > 0 && value <= 100)) return;
+  await prisma.class.update({ where: { id: classId }, data: { gradeTarget: value } });
+  revalidatePath(`/classes/${classId}`);
+  revalidatePath("/dashboard");
 }
 
 // ---------------------------------------------------------------------------

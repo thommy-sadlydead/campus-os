@@ -9,9 +9,12 @@ import { courseInitials, courseStyle } from "@/lib/course-style";
 import { loadWorkItemsForUser } from "@/lib/workload";
 import { rankWorkItems, computeWorkloadSummary, type WorkItem } from "@/lib/priority-engine";
 import { assessRisk, type RiskAssessment } from "@/lib/risk-engine";
+import { featuresFor } from "@/lib/features-server";
+import { formatPercent } from "@/lib/grades";
 
 export default async function ClassesPage() {
   const user = await requireUser();
+  const features = await featuresFor(user);
   const now = new Date();
 
   const [classes, items] = await Promise.all([
@@ -84,7 +87,7 @@ export default async function ClassesPage() {
                 >
                   {courseInitials(c.name)}
                 </span>
-                <RiskBadge level={risk.level} />
+                {features.has("risk") && <RiskBadge level={risk.level} />}
               </div>
               {c.code && <p className="eyebrow mt-4">{c.code}</p>}
               <h2 className={`${c.code ? "mt-1" : "mt-4"} text-base font-semibold leading-snug text-ink`}>{c.name}</h2>
@@ -95,6 +98,9 @@ export default async function ClassesPage() {
                 <Count n={c._count.assignments} label="assignment" />
                 <Count n={c._count.exams} label="exam" />
                 <Count n={c._count.resources + c._count.materials} label="resource" />
+                {features.has("grades") && c.gradePercent != null && (
+                  <span className="font-medium text-ink">{formatPercent(c.gradePercent)}</span>
+                )}
                 <ChevronRightIcon className="ml-auto h-4 w-4 flex-none text-ink-faint transition-transform group-hover:translate-x-0.5 group-hover:text-ink" />
               </div>
             </Link>

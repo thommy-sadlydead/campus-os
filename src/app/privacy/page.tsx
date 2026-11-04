@@ -32,7 +32,7 @@ export default function PrivacyPage() {
         <header>
           <p className="eyebrow">Legal</p>
           <h1 className="mt-2 font-display text-3xl font-semibold text-ink sm:text-4xl">Privacy policy</h1>
-          <p className="mt-1 text-xs text-ink-faint">Last updated November 3, 2026</p>
+          <p className="mt-1 text-xs text-ink-faint">Last updated November 4, 2026</p>
           <p className="mt-4">
             Campus OS is a personal academic organizer. It pulls your classes and assignments from your school&apos;s
             learning system (Canvas, Schoology, D2L Brightspace or Blackboard), reads
@@ -50,8 +50,9 @@ export default function PrivacyPage() {
             <li>
               <strong className="text-ink">Canvas, if you connect it:</strong> your Canvas address and access token
               (encrypted), your courses, assignments, due dates and submission status, and the text of course files,
-              pages and syllabi it imports. Files you upload yourself keep only their text; the file is deleted once
-              the text is read.
+              pages and syllabi it imports. If you turn on Grades, also your current grade in each course when Canvas
+              shows it to you, and each time it changes. Files you upload yourself keep only their text; the file is
+              deleted once the text is read.
             </li>
             <li>
               <strong className="text-ink">Schoology, if you connect it:</strong> your Schoology address and API key
@@ -78,7 +79,10 @@ export default function PrivacyPage() {
             <li>
               <strong className="text-ink">What you add yourself:</strong> notes, schedule, resources, exams,
               availability, and the flashcards you make on a class&apos;s Study tab (with which ones you&apos;ve marked
-              learned).
+              learned and when each is due for review). Also, depending on the features you turn on: which features
+              those are, grades you type in and your grade goals, professors&apos; email addresses and office hours,
+              your work and other weekly commitments and the latest you want to study, and exam prep sessions with
+              whether you did them.
             </li>
             <li>
               <strong className="text-ink">Connected apps, if you connect one (ChatGPT):</strong> which app, when you
@@ -113,7 +117,7 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong className="text-ink">Anthropic (Claude)</strong> writes AI answers, lecture notes, flashcards and
-              assignment breakdowns, sorts email, and reads scanned PDFs. It receives only what each feature
+              assignment breakdowns, sorts email, reads scanned PDFs, and finds office hours in a syllabus when you ask. It receives only what each feature
               needs, such as a class&apos;s notes and assignments, an email&apos;s text, or a lecture transcript.
               Anthropic{" "}
               <a

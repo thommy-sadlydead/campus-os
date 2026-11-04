@@ -97,6 +97,14 @@ session cookies, no third-party auth.
   throws at render). Shared helpers used on both sides go in a plain module:
   see `src/components/classes/class-tabs.ts` and
   `src/components/assignments/assignment-grid.ts`.
+- **Optional features are switched per account** (`src/lib/features.ts`,
+  picked at `/welcome` and under Account → Features). Server code asks
+  `featuresFor(user)` (`src/lib/features-server.ts`); client components
+  ask `useFeature(id)` from `FeaturesProvider`, which AppShell provides.
+  A new optional feature goes in `FEATURES` with `isNew: true`, so accounts
+  that haven't picked don't suddenly get it (they keep `LEGACY_FEATURES`),
+  and turning one off hides it but never deletes its data. Syncs keep
+  grades only for students with Grades on (`gradesOn`).
 - **Phones get a bottom tab bar** (`src/components/MobileNav.tsx`, below
   `lg`); the sidebar in `AppShell` is for wide screens. The viewport uses
   `viewport-fit=cover`, so anything fixed to the top or bottom pads itself
@@ -301,7 +309,7 @@ session cookies, no third-party auth.
 ## Verifying a change before calling it done
 
 1. `npx tsc --noEmit` (after `npx prisma generate` if the schema changed)
-2. `npx vitest run` — 466 tests as of this writing across 39 files
+2. `npx vitest run` — 514 tests as of this writing across 44 files
 3. Clean build: `rm -rf .next && npx next build` (use `next build` directly
    to skip the `db push` the `npm run build` script triggers, if you're not
    ready to push schema changes yet)

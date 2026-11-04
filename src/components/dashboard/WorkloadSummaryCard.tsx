@@ -7,10 +7,13 @@ export function WorkloadSummaryCard({
   summary,
   now,
   tz,
+  freeTime = true,
 }: {
   summary: WorkloadSummary;
   now: Date;
   tz: string;
+  /** Whether "Free time today" is on (src/lib/features.ts); without it, nothing about logged free time. */
+  freeTime?: boolean;
 }) {
   return (
     <section className="card card-pad">
@@ -29,14 +32,16 @@ export function WorkloadSummaryCard({
             <span className="ml-1 text-xs font-normal text-ink-faint">(+{summary.itemsMissingEstimateToday} unestimated)</span>
           )}
         </Row>
-        <Row label="Free time logged today">
-          {summary.availableMinutesToday == null ? (
-            <span className="font-normal text-ink-faint">not tracked yet</span>
-          ) : (
-            formatMinutes(summary.availableMinutesToday)
-          )}
-        </Row>
-        {summary.aheadBehindMinutes != null && (
+        {freeTime && (
+          <Row label="Free time logged today">
+            {summary.availableMinutesToday == null ? (
+              <span className="font-normal text-ink-faint">not tracked yet</span>
+            ) : (
+              formatMinutes(summary.availableMinutesToday)
+            )}
+          </Row>
+        )}
+        {freeTime && summary.aheadBehindMinutes != null && (
           <Row label="Ahead / behind">
             <span className={summary.aheadBehindMinutes < 0 ? "text-danger" : "text-ok"}>
               {summary.aheadBehindMinutes >= 0 ? "+" : ""}

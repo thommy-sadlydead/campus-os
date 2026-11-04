@@ -30,6 +30,7 @@ import {
 import { applyLmsCourses, type LmsAssignmentInput, type LmsCourseInput, type LmsExamInput } from "./lms/apply";
 import { calendarOnlyExams, isExamLikeName } from "./lms/exams";
 import { emptyReport, type SyncReport } from "./lms/report";
+import { canvasCourseGrade } from "./grades";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -88,7 +89,9 @@ export async function syncCanvasForUser(
   prisma: PrismaClient,
   userId: string,
   cfg: CanvasConfig,
-  now: Date = new Date()
+  now: Date = new Date(),
+  /** recordGrades: keep course grades, for a student with Grades on (gradesOn in src/lib/grade-records.ts). */
+  options: { recordGrades?: boolean } = {}
 ): Promise<SyncReport> {
   const report = emptyReport("canvas", now);
   const courses = await fetchActiveCourses(cfg);
@@ -134,10 +137,11 @@ export async function syncCanvasForUser(
       assignments,
       exams: calendarOnlyExams(calendarExams.get(String(course.id)) ?? [], examNames),
       problem,
+      grade: canvasCourseGrade(course),
     });
   }
 
-  const applied = await applyLmsCourses(prisma, userId, "canvas", inputs, now);
+  const applied = await applyLmsCourses(prisma, userId, "canvas", inputs, now, options);
   report.classes = applied.classes;
   report.reopened = applied.reopened;
   if (applied.checkedOff > 0) report.checkedOff = applied.checkedOff;

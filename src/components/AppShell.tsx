@@ -6,7 +6,8 @@ import { Logo, LogoMark } from "@/components/Logo";
 import { getCurrentUser } from "@/lib/auth";
 import { getAccess, paymentsEnabled } from "@/lib/billing-server";
 import { lmsNavItem } from "@/lib/lms/connections";
-import { canUseGmail } from "@/lib/gmail-access";
+import { featuresFor } from "@/lib/features-server";
+import { FeaturesProvider } from "@/components/FeaturesProvider";
 import {
   AlertIcon,
   BookIcon,
@@ -110,8 +111,11 @@ export async function AppShell({
   // and its pages all pass active="/connect".
   const user = await getCurrentUser();
   const lms = user ? await lmsNavItem(user.id) : { href: "/connect", label: "Connect classes" };
-  // Email only for accounts that can connect Gmail (src/lib/gmail-access.ts).
-  const email = user ? await canUseGmail(user) : false;
+  // The student's features (src/lib/features.ts). Email is only available
+  // to accounts that can connect Gmail (src/lib/gmail-access.ts).
+  const features = user ? await featuresFor(user) : new Set<never>();
+  const email = features.has("email");
+  const record = features.has("lectures");
   const connections = [
     ...(email ? [{ href: "/email", label: "Email", Icon: MailIcon, match: "/email" }] : []),
     { href: lms.href, label: lms.label, Icon: LayersIcon, match: "/connect" },
@@ -138,12 +142,14 @@ export async function AppShell({
             <Logo />
           </Link>
         </div>
-        <div className="px-3 pt-1">
-          <Link href="/record" aria-current={active === "/record" ? "page" : undefined} className="btn btn-brand w-full">
-            <MicIcon className="h-[18px] w-[18px]" />
-            Record a lecture
-          </Link>
-        </div>
+        {record && (
+          <div className="px-3 pt-1">
+            <Link href="/record" aria-current={active === "/record" ? "page" : undefined} className="btn btn-brand w-full">
+              <MicIcon className="h-[18px] w-[18px]" />
+              Record a lecture
+            </Link>
+          </div>
+        )}
         <nav aria-label="Main" className="mt-6 flex flex-1 flex-col gap-6 overflow-y-auto px-3">
           <div>
             <p className="eyebrow mb-2 px-3">Workspace</p>
@@ -211,10 +217,10 @@ export async function AppShell({
         <main className="mx-auto max-w-6xl px-4 pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-5 sm:px-6 lg:px-10 lg:pb-16 lg:pt-10">
           <NativeAppBridge />
           <BillingBanner />
-          {children}
+          <FeaturesProvider features={[...features]}>{children}</FeaturesProvider>
         </main>
       </div>
-      <MobileNav active={active} lms={lms} email={email} />
+      <MobileNav active={active} lms={lms} email={email} record={record} />
     </div>
   );
 }

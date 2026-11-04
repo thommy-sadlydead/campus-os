@@ -40,6 +40,15 @@ model User {
   // they haven't (or turned it off), and nothing is sent; see
   // src/lib/ai-consent.ts. Required by App Store guideline 5.1.2(i).
   aiConsentAt  DateTime?
+  // Which optional features the student turned on (src/lib/features.ts),
+  // as feature ids. featuresChosenAt is null until they pick (at sign-up or
+  // under Account → Features): until then an account made before the
+  // picker existed keeps every feature it had (LEGACY_FEATURES).
+  features         String[]  @default([])
+  featuresChosenAt DateTime?
+  // The latest an exam prep session may end, in minutes after midnight
+  // (local time). Null means the default, 10 PM (DEFAULT_STUDY_CUTOFF).
+  studyCutoffMinute Int?
   // Payments (src/lib/billing.ts), enforced only when PAYMENTS_ENABLED=1.
   // trialEndsAt: end of the free trial; set at sign-up, or on the first
   // visit after payments went live for accounts made before. Null means
@@ -67,6 +76,8 @@ model User {
   pendingChanges      PendingChange[]
   oauthGrants         OAuthGrant[]
   calendarFeed        CalendarFeed?
+  commitments         Commitment[]
+  studySessions       StudySession[]
   schoolRequests      SchoolAccessRequest[]
 
   @@index([appleAccountToken])
@@ -125,6 +136,19 @@ model Class {
   // Canvas-era name.
   lmsCourseId    String?  @map("canvasCourseId")
   currentGrade   String?
+  // Grades (src/lib/grades.ts). gradePercent is the course's current
+  // score: from Canvas when it shows students their total, or read from
+  // what the student typed into currentGrade. gradeSource: "canvas" |
+  // "manual". gradeTarget is the student's goal, for the final-exam
+  // calculator and "below your goal" warnings.
+  gradePercent   Float?
+  gradeLetter    String?
+  gradeSource    String?
+  gradeUpdatedAt DateTime?
+  gradeTarget    Float?
+  // Get help (src/lib/get-help.ts): typed in, or found in the syllabus.
+  professorEmail String?
+  officeHours    String?
   archived       Boolean  @default(false)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -141,6 +165,8 @@ model Class {
   pendingChanges PendingChange[]
   syncState      MaterialSyncState?
   flashcardDecks FlashcardDeck[]
+  gradeSnapshots GradeSnapshot[]
+  studySessions  StudySession[]
 
   @@unique([userId, lmsProvider, lmsCourseId])
   @@index([userId])
@@ -259,6 +285,7 @@ model Exam {
   createdAt          DateTime @default(now())
 
   class Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+  studySessions StudySession[]
 
   @@unique([classId, lmsItemId])
   @@index([classId])
@@ -729,6 +756,7 @@ model FlashcardDeck {
 
   class Class       @relation(fields: [classId], references: [id], onDelete: Cascade)
   cards Flashcard[]
+  studySessions StudySession[]
 
   @@index([classId])
 }
@@ -741,8 +769,74 @@ model Flashcard {
   back   String
   order  Int
   known  Boolean @default(false)
+  // Spaced review (src/lib/spaced-review.ts): box is how many times in a
+  // row the student got it right (0 = new or just missed), dueAt when it
+  // should come back. Null dueAt means it's never been studied (new).
+  box        Int       @default(0)
+  dueAt      DateTime?
+  reviewedAt DateTime?
 
   deck FlashcardDeck @relation(fields: [deckId], references: [id], onDelete: Cascade)
 
   @@index([deckId])
+}
+
+// ---------------------------------------------------------------------------
+// Grades, exam prep and commitments (src/lib/grades.ts, exam-prep.ts)
+// ---------------------------------------------------------------------------
+
+// A class's grade each time it changed, so the dashboard can tell when
+// it's slipping (gradeSlip in src/lib/grades.ts).
+model GradeSnapshot {
+  id      String   @id @default(cuid())
+  classId String
+  percent Float
+  takenAt DateTime @default(now())
+
+  class Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@index([classId, takenAt])
+}
+
+// Something outside class that takes up time every week: a work shift,
+// practice, a club. One row per weekday, like ScheduleEvent, with the same
+// optional first and last day ("2026-08-25"). Exam prep plans avoid these.
+model Commitment {
+  id          String   @id @default(cuid())
+  userId      String
+  label       String
+  dayOfWeek   Int // 0 = Sunday .. 6 = Saturday
+  startMinute Int
+  endMinute   Int
+  startsOn    String?
+  endsOn      String?
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// One session of an exam prep plan (src/lib/exam-prep.ts): a short self-
+// quiz before an exam, usually on the plan's flashcard deck.
+// status: "PLANNED" | "DONE" | "SKIPPED".
+model StudySession {
+  id          String    @id @default(cuid())
+  userId      String
+  classId     String
+  examId      String
+  deckId      String?
+  startsAt    DateTime
+  minutes     Int
+  status      String    @default("PLANNED")
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  user  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  class Class          @relation(fields: [classId], references: [id], onDelete: Cascade)
+  exam  Exam           @relation(fields: [examId], references: [id], onDelete: Cascade)
+  deck  FlashcardDeck? @relation(fields: [deckId], references: [id], onDelete: SetNull)
+
+  @@index([userId, startsAt])
+  @@index([examId])
 }

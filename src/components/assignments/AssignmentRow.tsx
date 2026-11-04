@@ -9,6 +9,7 @@ import { stripHtml } from "@/lib/text";
 import { ASSIGNMENT_STATUS_LABEL, type AssignmentStatus } from "@/lib/assignment-status";
 import type { LmsLink } from "@/lib/lms/providers";
 import { assignmentGridColumns } from "./assignment-grid";
+import { useFeature } from "@/components/FeaturesProvider";
 import { CheckIcon, ChevronRightIcon, ExternalIcon, SparkIcon, XIcon } from "@/components/icons";
 
 export interface AssignmentRowTask {
@@ -68,6 +69,7 @@ export function AssignmentRow({
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [removed, setRemoved] = useState<Set<string>>(new Set());
   const [pending, startTransition] = useTransition();
+  const canBreakDown = useFeature("breakdown");
 
   const tasks = assignment.tasks
     .filter((t) => !removed.has(t.id))
@@ -130,7 +132,8 @@ export function AssignmentRow({
             ) : breakdownMessage ? (
               <div className="mt-1 text-xs text-ink-faint">{breakdownMessage}</div>
             ) : (
-              !done && (
+              !done &&
+              canBreakDown && (
                 <button
                   onClick={runBreakdown}
                   disabled={pending}

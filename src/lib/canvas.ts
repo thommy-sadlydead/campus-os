@@ -14,6 +14,9 @@ export interface CanvasCourse {
   name?: string;
   course_code?: string;
   access_restricted_by_date?: boolean;
+  // The student's own enrollment, with the course total when the course
+  // shows it to students (include[]=total_scores; see canvasCourseGrade).
+  enrollments?: { type?: string; computed_current_score?: number | null; computed_current_grade?: string | null }[];
 }
 
 export interface CanvasAssignment {
@@ -135,7 +138,7 @@ async function canvasGetAllPages<T>(cfg: CanvasConfig, path: string): Promise<T[
 }
 
 export async function fetchActiveCourses(cfg: CanvasConfig): Promise<CanvasCourse[]> {
-  return canvasGetAllPages<CanvasCourse>(cfg, "/api/v1/courses?enrollment_state=active");
+  return canvasGetAllPages<CanvasCourse>(cfg, "/api/v1/courses?enrollment_state=active&include[]=total_scores");
 }
 
 /** Courses the student was invited to but hasn't accepted yet; Canvas hides their work until they do. */

@@ -2,11 +2,14 @@
 
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { loadClassContext, classSystemPrompt } from "@/lib/class-context";
-import { askClaude, getAnthropicClient } from "@/lib/anthropic";
+import { MATERIALS_WITH_TEXT, loadClassContext, classSystemPrompt } from "@/lib/class-context";
+import { askClaude, askClaudeForJson, getAnthropicClient } from "@/lib/anthropic";
 import { AI_LIMIT_MESSAGE, allowAiRequest } from "@/lib/rate-limit";
 import { AI_CONSENT_MESSAGE, hasAiConsent } from "@/lib/ai-consent";
 import { formatDueLabel } from "@/lib/time";
+import { featuresFor } from "@/lib/features-server";
+import { revalidatePath } from "next/cache";
+import { SYLLABUS_HELP_SYSTEM, parseSyllabusHelp } from "@/lib/get-help";
 
 export interface ClassAssistantResult {
   answer: string;
@@ -82,9 +85,9 @@ export async function askClassAssistantAction(
     return { answer: AI_LIMIT_MESSAGE, usedAi: false };
   }
 
-  const ctx = await loadClassContext(classId, user.id, user.timezone);
+  const [ctx, features] = await Promise.all([loadClassContext(classId, user.id, user.timezone), featuresFor(user)]);
   const aiAnswer = await askClaude({
-    system: classSystemPrompt(ctx),
+    system: classSystemPrompt(ctx, { tutorMode: features.has("tutor-mode") }),
     prompt: question,
     // A real study guide or quiz over a data-rich class can easily need
     // several thousand words — 700 was cutting those off mid-sentence, and
@@ -133,4 +136,40 @@ export async function askClassAssistantAction(
     ].join("\n"),
     usedAi: false,
   };
+}
+
+export type SyllabusHelpResult = { error?: string; found?: { professorEmail: string | null; officeHours: string | null } };
+
+/**
+ * Getting help: reads the class's syllabus for the professor's email and
+ * office hours, and fills in whichever of the two isn't set yet.
+ */
+export async function findHelpInSyllabusAction(classId: string): Promise<SyllabusHelpResult> {
+  const user = await requireUser();
+  const cls = await requireOwnedClass(classId, user.id);
+  if (!hasAiConsent(user)) return { error: AI_CONSENT_MESSAGE };
+
+  const syllabi = await prisma.classMaterial.findMany({
+    where: { classId, type: "SYLLABUS", ...MATERIALS_WITH_TEXT },
+    orderBy: { createdAt: "desc" },
+    take: 2,
+  });
+  const text = syllabi.map((m) => m.content).join("\n\n").slice(0, 30_000);
+  if (!text.trim()) {
+    return { error: "There's no syllabus on file for this class. Add it under Resources, or type these in." };
+  }
+  if (!(await allowAiRequest(user.id))) return { error: AI_LIMIT_MESSAGE };
+
+  const json = await askClaudeForJson<unknown>({ system: SYLLABUS_HELP_SYSTEM, prompt: `Syllabus for ${cls.name}:\n\n${text}`, maxTokens: 300 });
+  if (json === null) return { error: "Couldn't read the syllabus just now. Try again in a moment." };
+  const found = parseSyllabusHelp(json);
+  await prisma.class.update({
+    where: { id: classId },
+    data: {
+      ...(found.professorEmail && !cls.professorEmail ? { professorEmail: found.professorEmail } : {}),
+      ...(found.officeHours && !cls.officeHours ? { officeHours: found.officeHours } : {}),
+    },
+  });
+  revalidatePath(`/classes/${classId}`);
+  return { found };
 }

@@ -145,7 +145,24 @@ export async function loadClassContext(classId: string, userId: string, tz: stri
   };
 }
 
-export function classSystemPrompt(ctx: ClassContext): string {
+/**
+ * Tutor mode (src/lib/features.ts): for anything that looks like graded
+ * work, hints and questions instead of the finished answer. Students who
+ * leaned on an unguarded AI tutor did worse once it was gone; with these
+ * guardrails they didn't (Bastani et al., PNAS 2025).
+ */
+export const TUTOR_MODE_INSTRUCTIONS = [
+  "Tutor mode is on. When the student asks you to solve, answer or write something that looks like graded work " +
+    "(a homework or assignment problem, a quiz or test question, an essay, a lab write-up or a discussion post), " +
+    "don't give the finished answer and don't write it for them.",
+  "Instead, in one short line say you'll help them work it out, then do one of these: give a hint or the first step, " +
+    "ask a guiding question, point to the part of their notes that covers it, or work a similar example with different numbers.",
+  "Let them try. When they share an attempt, check it: say what's right, what to fix and why, without rewriting the whole thing.",
+  "If they ask for the answer anyway, explain that tutor mode is on and they can turn it off under Account → Features.",
+  "Explaining concepts, summarizing their notes, making study guides and quizzing them are fine as usual.",
+].join(" ");
+
+export function classSystemPrompt(ctx: ClassContext, options: { tutorMode?: boolean } = {}): string {
   return [
     `You are a study assistant scoped ONLY to the class "${ctx.className}"${ctx.professor ? ` (taught by ${ctx.professor})` : ""}.`,
     "Use ONLY the context below. Never invent facts, dates, grades, or content that isn't present in it.",
@@ -162,6 +179,7 @@ export function classSystemPrompt(ctx: ClassContext): string {
       "scannable, but don't drop real content to get there — the shorter feel should come from tighter " +
       "formatting (tables, arrows, selective bolding), not from covering less of what's actually in the " +
       "context below.",
+    ...(options.tutorMode ? ["", TUTOR_MODE_INSTRUCTIONS] : []),
     "",
     "=== NOTES ===",
     ctx.notesText,

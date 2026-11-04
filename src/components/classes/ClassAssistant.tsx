@@ -9,6 +9,7 @@ import { copyToClipboard } from "@/lib/clipboard";
 import { chatgptFollowUpPrompt, chatgptUrl } from "@/lib/flashcards";
 import { ChatIcon, CheckIcon, CopyIcon, ExternalIcon, SparkIcon } from "@/components/icons";
 import type { ChatGptStudyInfo } from "@/components/study/study-types";
+import { useFeature } from "@/components/FeaturesProvider";
 
 const QUICK_ACTIONS: Array<{ key: string; label: string }> = [
   { key: "whats-due-next", label: "What is due next?" },
@@ -29,6 +30,7 @@ export function ClassAssistant({
   /** For "Study this with ChatGPT" under an answer (see ChatGptStudyCard). */
   chatgpt?: ChatGptStudyInfo;
 }) {
+  const tutorMode = useFeature("tutor-mode");
   const [result, setResult] = useState<ClassAssistantResult | null>(null);
   // What the answer on screen was asked, so ChatGPT can pick up the same help.
   const [asked, setAsked] = useState<{ quickAction?: string; question?: string }>({});
@@ -95,6 +97,12 @@ export function ClassAssistant({
             Scoped to this class only — your notes, assignments, exams, resources, lecture notes, books/slides, and any
             relevant emails.
           </p>
+          {tutorMode && (
+            <p className="mt-1.5 text-[13px] leading-snug text-ink-soft">
+              <span className="font-medium text-ink">Tutor mode is on:</span> for homework questions you&apos;ll get hints and
+              questions, not finished answers.
+            </p>
+          )}
         </div>
       </div>
 

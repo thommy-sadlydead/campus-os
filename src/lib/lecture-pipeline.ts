@@ -7,6 +7,8 @@ import { getAnthropicClient, askClaudeForJson, MODEL } from "@/lib/anthropic";
 import { MATERIALS_WITH_TEXT } from "@/lib/class-context";
 import { addLectureToNotes } from "@/lib/lecture-notes-sync";
 import { buildLectureNotesPrompt, MAX_MATERIALS_CHARS, type ClassMaterialInput } from "@/lib/lecture-notes";
+import { enabledFeatures } from "@/lib/features";
+import { isDemoAccount } from "@/lib/sample-classes";
 
 // The lecture pipeline (UPLOADED -> TRANSCRIBING -> GENERATING_NOTES ->
 // READY/FAILED), shared by the Lectures tab's Server Actions and the
@@ -225,7 +227,12 @@ export async function generateNotes(lectureId: string, transcriptText: string, c
     orderBy: { createdAt: "asc" },
   });
   const materials = await selectRelevantMaterials(transcriptText, allMaterials);
-  const { system, prompt } = buildLectureNotesPrompt(transcriptText, materials);
+  const owner = await prisma.class.findUnique({
+    where: { id: classId },
+    select: { user: { select: { email: true, features: true, featuresChosenAt: true } } },
+  });
+  const testYourself = owner ? enabledFeatures(owner.user, { demo: isDemoAccount(owner.user.email) }).has("smart-review") : false;
+  const { system, prompt } = buildLectureNotesPrompt(transcriptText, materials, { testYourself });
   try {
     // 2000 was cutting notes off partway through anything longer than a
     // few minutes of real lecture content (verified: real lecture notes

@@ -86,7 +86,9 @@ export async function registerAction(_prev: AuthActionState, formData: FormData)
   });
 
   await createSession(user.id);
-  redirect(safeNextPath(String(formData.get("next") ?? "")) ?? "/dashboard");
+  // A new account picks its features first (src/app/welcome), unless it's
+  // signing up on the way somewhere (connecting ChatGPT): Today asks later.
+  redirect(safeNextPath(String(formData.get("next") ?? "")) ?? "/welcome?new=1");
 }
 
 export async function logoutAction(): Promise<void> {

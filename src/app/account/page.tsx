@@ -8,12 +8,16 @@ import { getAccess, isAppRequest, paymentsEnabled } from "@/lib/billing-server";
 import { PlanSection } from "@/components/billing/PlanSection";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { CardHeader } from "@/components/ui/CardHeader";
-import { AlertIcon, BookIcon, LinkIcon, LockIcon, MailIcon, SparkIcon } from "@/components/icons";
+import { AlertIcon, BookIcon, LayersIcon, LinkIcon, LockIcon, MailIcon, SparkIcon } from "@/components/icons";
 import { listConnectedApps } from "@/lib/oauth/oauth-server";
 import { formatPastMoment } from "@/lib/time";
 import { disconnectAppAction } from "./actions";
 import { isDemoAccount } from "@/lib/sample-classes";
 import { SampleClassesButton } from "@/components/demo/SampleClassesButton";
+import { FeaturePicker } from "@/components/account/FeaturePicker";
+import { FEATURE_IDS } from "@/lib/features";
+import { availableFeatures, featuresFor } from "@/lib/features-server";
+import { hasAiConsent } from "@/lib/ai-consent";
 
 export default async function AccountPage({ searchParams }: { searchParams: Promise<{ subscribed?: string }> }) {
   // Reachable after a trial ends, so the account can subscribe or be deleted.
@@ -21,7 +25,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
   const { subscribed } = await searchParams;
   const payments = paymentsEnabled();
   const [access, inApp] = payments ? await Promise.all([getAccess(user.id), isAppRequest()]) : [null, false];
-  const connectedApps = await listConnectedApps(user.id);
+  const [connectedApps, available, features] = await Promise.all([listConnectedApps(user.id), availableFeatures(user), featuresFor(user)]);
   const now = new Date();
 
   return (
@@ -43,6 +47,17 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
             </div>
           </section>
         )}
+
+        <section id="features" className="card card-pad scroll-mt-24">
+          <CardHeader
+            icon={<LayersIcon className="h-[18px] w-[18px]" />}
+            title="Features"
+            description="Turn on what you use and turn off what you don't. Anything you turn off keeps its data, so turning it back on picks up where you left off."
+          />
+          <div className="mt-5">
+            <FeaturePicker initial={[...features]} available={FEATURE_IDS.filter(available)} aiAllowed={hasAiConsent(user)} mode="account" />
+          </div>
+        </section>
 
         <section id="ai" className="card card-pad scroll-mt-24">
           <CardHeader icon={<SparkIcon className="h-[18px] w-[18px]" />} title="AI features" />

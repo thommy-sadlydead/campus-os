@@ -16,6 +16,7 @@
 import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import { syncCanvasForUser } from "../src/lib/canvas-sync";
+import { gradesOn } from "../src/lib/grade-records";
 import type { CanvasConfig } from "../src/lib/canvas";
 import { summarizeReport } from "../src/lib/lms/report";
 
@@ -38,7 +39,7 @@ async function main() {
 
   console.log(`Syncing Canvas (${baseUrl}) for ${user.email}...`);
 
-  const report = await syncCanvasForUser(prisma, user.id, cfg);
+  const report = await syncCanvasForUser(prisma, user.id, cfg, new Date(), { recordGrades: await gradesOn(prisma, user.id) });
 
   console.log(summarizeReport(report));
   for (const c of report.classes) {

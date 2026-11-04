@@ -21,6 +21,7 @@ import { heuristicEstimateMinutes } from "@/lib/priority-engine";
 import { decideAssignmentStatus, type LmsSubmission } from "@/lib/lms/status";
 import type { LmsProvider } from "@/lib/lms/providers";
 import type { ClassSyncResult } from "@/lib/lms/report";
+import { recordGrade } from "@/lib/grade-records";
 
 export interface LmsAssignmentInput {
   /** The LMS's id for it, unique within the course. */
@@ -59,6 +60,8 @@ export interface LmsCourseInput {
   exams: LmsExamInput[];
   /** Why assignments couldn't be loaded, for the sync report. */
   problem: string | null;
+  /** The student's current grade, when the LMS shows it (Canvas only, so far). */
+  grade?: { percent: number; letter: string | null } | null;
 }
 
 export interface ApplyResult {
@@ -100,7 +103,9 @@ export async function applyLmsCourses(
   userId: string,
   provider: LmsProvider,
   courses: LmsCourseInput[],
-  now: Date
+  now: Date,
+  /** recordGrades: keep course grades (only for students with Grades on, see gradesOn). */
+  options: { recordGrades?: boolean } = {}
 ): Promise<ApplyResult> {
   const result: ApplyResult = { classes: [], reopened: [], checkedOff: 0 };
   const nextColor = await colorPicker(prisma, userId);
@@ -122,6 +127,7 @@ export async function applyLmsCourses(
         result.checkedOff += checkedOff;
       }
       classResult.exams = await applyExams(prisma, cls.id, course);
+      if (options.recordGrades && course.grade) await recordGrade(prisma, cls.id, course.grade, "canvas", now);
     } catch (err) {
       console.error(`LMS sync (${provider}) couldn't save course ${course.id} for user ${userId}:`, err);
       classResult.problem = "Campus OS couldn't save this class. Sync again to retry.";

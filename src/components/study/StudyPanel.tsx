@@ -12,6 +12,7 @@ import { FlashcardStudy } from "./FlashcardStudy";
 import { QuizletSheet } from "./QuizletSheet";
 import { ChatGptStudyCard } from "./ChatGptStudyCard";
 import type { ChatGptStudyInfo, StudyDeck, StudySourceOption } from "./study-types";
+import { useFeature } from "@/components/FeaturesProvider";
 
 /**
  * The class page's Study tab: flashcards made from the class's own notes
@@ -36,6 +37,7 @@ export function StudyPanel({
   tz: string;
 }) {
   const router = useRouter();
+  const smartReview = useFeature("smart-review");
   const [studyingId, setStudyingId] = useState<string | null>(null);
   const [quizletId, setQuizletId] = useState<string | null>(null);
   const [making, setMaking] = useState(decks.length === 0);
@@ -125,10 +127,14 @@ export function StudyPanel({
               <ul className={`divide-y divide-border-soft ${making || !aiAllowed || !hasMaterial ? "mt-6 border-t border-border-soft" : "mt-2"}`}>
                 {decks.map((deck) => {
                   const learned = deck.cards.filter((c) => c.known).length;
+                  const due = smartReview ? deck.cards.filter((c) => c.due).length : 0;
                   return (
                     <li key={deck.id} className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-ink">{deck.title}</p>
+                        <p className="flex items-center gap-2 text-sm font-semibold text-ink">
+                          <span className="truncate">{deck.title}</span>
+                          {due > 0 && <span className="badge flex-none bg-accent-soft text-accent-ink">{due} due</span>}
+                        </p>
                         <p className="mt-0.5 text-xs text-ink-faint">
                           {deck.cards.length} cards · {learned} learned · {deck.source} · {formatInTimeZone(new Date(deck.createdAt), tz, "MMM d")}
                         </p>
@@ -151,7 +157,7 @@ export function StudyPanel({
                       ) : (
                         <div className="flex flex-none items-center gap-2">
                           <button type="button" onClick={() => setStudyingId(deck.id)} className="btn btn-primary btn-sm flex-1 sm:flex-none">
-                            {learned > 0 && learned < deck.cards.length ? "Keep studying" : "Study"}
+                            {due > 0 ? "Review" : learned > 0 && learned < deck.cards.length ? "Keep studying" : "Study"}
                           </button>
                           <button type="button" onClick={() => setQuizletId(deck.id)} className="btn btn-secondary btn-sm flex-1 sm:flex-none">
                             Copy to Quizlet

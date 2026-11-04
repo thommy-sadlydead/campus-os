@@ -18,6 +18,9 @@ import { listConnectedApps } from "@/lib/oauth/oauth-server";
 import { chatgptStudyPrompts } from "@/lib/flashcards";
 import type { StudySourceOption } from "@/components/study/study-types";
 import { semesterForNewMeetings } from "@/lib/meetings-server";
+import { isDue } from "@/lib/spaced-review";
+import { gradeSlip, SLIP_WINDOW_DAYS } from "@/lib/grades";
+import { campusHelpLinks } from "@/lib/get-help";
 
 // Server Actions invoked from this page (notably generateNotes, via
 // pollLectureStatusAction/retryLectureAction in lecture-actions.ts) can now
@@ -55,7 +58,7 @@ export default async function ClassPage({
     include: {
       scheduleEvents: true,
       assignments: { include: { tasks: { orderBy: { order: "asc" } } }, orderBy: { dueAt: "asc" } },
-      exams: { orderBy: { examAt: "asc" } },
+      exams: { orderBy: { examAt: "asc" }, include: { studySessions: { orderBy: { startsAt: "asc" } } } },
       resources: { orderBy: { addedAt: "desc" } },
       noteSections: {
         orderBy: { order: "asc" },
@@ -86,6 +89,10 @@ export default async function ClassPage({
         where: { category: { notIn: ["IRRELEVANT", "UNCLASSIFIED"] } },
         orderBy: { receivedAt: "desc" },
         take: 5,
+      },
+      gradeSnapshots: {
+        where: { takenAt: { gte: new Date(Date.now() - SLIP_WINDOW_DAYS * 24 * 60 * 60 * 1000) } },
+        orderBy: { takenAt: "asc" },
       },
     },
   });
@@ -118,6 +125,9 @@ export default async function ClassPage({
     ...readableMaterials.map((m) => ({ value: `material:${m.id}`, label: m.title, group: "Course files" as const })),
   ];
   const latestLecture = cls.lectures.find((l) => l.status === "READY");
+  // Grades: the calculator starts from a final exam's weight when one has it.
+  const finalExam = cls.exams.find((e) => /\bfinal\b/i.test(e.name) && e.weight != null);
+  const slip = cls.gradePercent != null ? gradeSlip(cls.gradePercent, cls.gradeSnapshots, now, cls.gradeTarget) : null;
 
   return (
     <AppShell active="/classes" userName={user.name ?? user.email}>
@@ -157,6 +167,24 @@ export default async function ClassPage({
           lmsProvider: cls.lmsProvider,
           nextAssignment: nextAssignment ? { title: nextAssignment.name, dueAt: nextAssignment.dueAt?.toISOString() ?? null } : null,
           nextExam: nextExam ? { title: nextExam.name, examAt: nextExam.examAt?.toISOString() ?? null } : null,
+          grade: {
+            percent: cls.gradePercent,
+            letter: cls.gradeLetter,
+            source: cls.gradeSource,
+            updatedAt: cls.gradeUpdatedAt?.toISOString() ?? null,
+            target: cls.gradeTarget,
+            finalWeight: finalExam?.weight ?? null,
+            slip: slip?.kind === "dropped" ? { ...slip, since: slip.since.toISOString() } : slip,
+          },
+          help: {
+            professorEmail: cls.professorEmail,
+            officeHours: cls.officeHours,
+            studentName: user.name,
+            campusLinks: campusHelpLinks(user.email),
+            nextExamName: nextExam?.name ?? null,
+            hasSyllabus: cls.materials.some((m) => m.type === "SYLLABUS" && m.content.trim() !== ""),
+            aiAllowed: hasAiConsent(user),
+          },
         }}
         scheduleEvents={cls.scheduleEvents.map((e) => ({
           id: e.id,
@@ -226,6 +254,7 @@ export default async function ClassPage({
           location: e.location,
           weight: e.weight,
           notes: e.notes,
+          sessions: e.studySessions.map((s) => ({ id: s.id, startsAt: s.startsAt.toISOString(), minutes: s.minutes, status: s.status })),
         }))}
         resources={cls.resources.map((r) => ({
           id: r.id,
@@ -248,7 +277,7 @@ export default async function ClassPage({
             title: d.title,
             source: d.source,
             createdAt: d.createdAt.toISOString(),
-            cards: d.cards.map((c) => ({ id: c.id, front: c.front, back: c.back, known: c.known })),
+            cards: d.cards.map((c) => ({ id: c.id, front: c.front, back: c.back, known: c.known, due: isDue(c, now) })),
           })),
           sources: studySources,
           hasMaterial: studySources.length > 0,

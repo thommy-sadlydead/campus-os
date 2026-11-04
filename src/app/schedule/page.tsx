@@ -9,11 +9,13 @@ import { deleteScheduleEventAction } from "@/app/classes/[id]/actions";
 import { lmsLink, type LmsLink } from "@/lib/lms/providers";
 import { dayKey, formatTzTime } from "@/lib/time";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { ChecklistIcon, ExternalIcon, PencilIcon, XIcon } from "@/components/icons";
+import { CardsIcon, ChecklistIcon, ClockIcon, ExternalIcon, PencilIcon, XIcon } from "@/components/icons";
 import { courseStyle } from "@/lib/course-style";
 import { meetingRunsOn } from "@/lib/meetings";
 import { semesterForNewMeetings } from "@/lib/meetings-server";
 import { calendarLinksFor } from "@/lib/calendar-feed-server";
+import { featuresFor } from "@/lib/features-server";
+import { CommitmentsCard } from "@/components/schedule/CommitmentsCard";
 
 function minutesToLabel(min: number): string {
   const h = Math.floor(min / 60);
@@ -53,13 +55,34 @@ type AgendaEntry =
       color: number;
       timeLabel: string;
       lmsLink: LmsLink | null;
+    }
+  | {
+      // Work and other commitments (src/lib/features.ts).
+      type: "commitment";
+      sortMinute: number;
+      id: string;
+      label: string;
+      timeLabel: string;
+    }
+  | {
+      // An exam prep session (src/lib/exam-prep.ts).
+      type: "study";
+      sortMinute: number;
+      id: string;
+      classId: string;
+      examName: string;
+      className: string;
+      color: number;
+      timeLabel: string;
+      done: boolean;
     };
 
 export default async function SchedulePage() {
   const user = await requireUser();
   const now = new Date();
+  const features = await featuresFor(user);
 
-  const [classes, events, assignments, exams, semester, calendarLinks] = await Promise.all([
+  const [classes, events, assignments, exams, semester, calendarLinks, commitments, studySessions] = await Promise.all([
     prisma.class.findMany({ where: { userId: user.id, archived: false }, orderBy: { name: "asc" } }),
     prisma.scheduleEvent.findMany({
       where: { class: { userId: user.id, archived: false } },
@@ -80,6 +103,19 @@ export default async function SchedulePage() {
     }),
     semesterForNewMeetings(user.id, user.timezone),
     calendarLinksFor(user.id),
+    features.has("commitments")
+      ? prisma.commitment.findMany({ where: { userId: user.id }, orderBy: [{ dayOfWeek: "asc" }, { startMinute: "asc" }] })
+      : Promise.resolve([]),
+    features.has("exam-prep")
+      ? prisma.studySession.findMany({
+          where: {
+            userId: user.id,
+            status: { not: "SKIPPED" },
+            startsAt: { gte: new Date(now.getTime() - 24 * 60 * 60 * 1000), lte: new Date(now.getTime() + 8 * 24 * 60 * 60 * 1000) },
+          },
+          include: { class: true, exam: { select: { name: true } } },
+        })
+      : Promise.resolve([]),
   ]);
 
   // Bucket recurring meeting blocks by weekday (0 = Sunday .. 6 = Saturday,
@@ -128,6 +164,22 @@ export default async function SchedulePage() {
     });
     dueByDayKey.set(key, list);
   }
+  for (const s of studySessions) {
+    const key = dayKey(s.startsAt, user.timezone);
+    const list = dueByDayKey.get(key) ?? [];
+    list.push({
+      type: "study",
+      sortMinute: minuteOfDay(s.startsAt, user.timezone),
+      id: s.id,
+      classId: s.classId,
+      examName: s.exam.name,
+      className: s.class.name,
+      color: s.class.color,
+      timeLabel: `${formatTzTime(s.startsAt, user.timezone)}, ${s.minutes} min`,
+      done: s.status === "DONE",
+    });
+    dueByDayKey.set(key, list);
+  }
 
   // Next 7 calendar days starting today, in the student's timezone — every
   // weekday appears exactly once, so this naturally covers the full
@@ -150,8 +202,17 @@ export default async function SchedulePage() {
       location: ev.location,
       label: ev.label,
     }));
+    const commitmentEntries: AgendaEntry[] = commitments
+      .filter((c) => c.dayOfWeek === dow && meetingRunsOn(c, key))
+      .map((c) => ({
+        type: "commitment",
+        sortMinute: c.startMinute,
+        id: c.id,
+        label: c.label,
+        timeLabel: `${minutesToLabel(c.startMinute)}–${minutesToLabel(c.endMinute)}`,
+      }));
     const dueEntries = dueByDayKey.get(key) ?? [];
-    const entries = [...classEntries, ...dueEntries].sort((a, b) => a.sortMinute - b.sortMinute);
+    const entries = [...classEntries, ...commitmentEntries, ...dueEntries].sort((a, b) => a.sortMinute - b.sortMinute);
 
     return {
       key,
@@ -215,6 +276,30 @@ export default async function SchedulePage() {
                             </button>
                           </form>
                         </li>
+                      ) : entry.type === "commitment" ? (
+                        <li key={`commitment-${entry.id}`} className="flex items-center gap-3 px-4 py-3 sm:px-5">
+                          <span aria-hidden className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-surface-2 text-ink-faint">
+                            <ClockIcon className="h-4 w-4" />
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium text-ink">{entry.label}</p>
+                            <p className="mt-0.5 text-[13px] tabular-nums text-ink-soft">{entry.timeLabel}</p>
+                          </div>
+                        </li>
+                      ) : entry.type === "study" ? (
+                        <li key={`study-${entry.id}`} className="flex items-center gap-3 px-4 py-3 sm:px-5">
+                          <span aria-hidden className="course-tint flex h-9 w-9 flex-none items-center justify-center rounded-xl" style={courseStyle(entry.color)}>
+                            <CardsIcon className="h-4 w-4" />
+                          </span>
+                          <Link href={`/classes/${entry.classId}?tab=study`} className="min-w-0 flex-1">
+                            <p className={`text-sm font-medium leading-snug ${entry.done ? "text-ink-faint line-through" : "text-ink"}`}>
+                              Quiz for {entry.examName}
+                            </p>
+                            <p className="mt-0.5 truncate text-[13px] text-ink-soft">
+                              {entry.timeLabel} · {entry.className}
+                            </p>
+                          </Link>
+                        </li>
                       ) : (
                         <li key={`due-${entry.kind}-${entry.id}`} className="flex items-center gap-3 px-4 py-3 sm:px-5">
                           <span
@@ -260,6 +345,12 @@ export default async function SchedulePage() {
 
           <div className="flex flex-col gap-4 lg:sticky lg:top-10 lg:h-fit">
             <ScheduleAddForm classes={classes.map((c) => ({ id: c.id, name: c.name, color: c.color }))} semester={semester} />
+            {features.has("commitments") && (
+              <CommitmentsCard
+                commitments={commitments.map((c) => ({ id: c.id, label: c.label, dayOfWeek: c.dayOfWeek, startMinute: c.startMinute, endMinute: c.endMinute }))}
+                cutoffMinute={user.studyCutoffMinute}
+              />
+            )}
             <CalendarSyncCard links={calendarLinks} />
           </div>
         </div>

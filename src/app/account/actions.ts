@@ -9,6 +9,8 @@ import { changePasswordSchema, DELETE_CONFIRMATION_WORD } from "@/lib/account-fo
 import { deleteUserAndData } from "@/lib/account-deletion";
 import { RATE_LIMITS, clearRateLimit, consumeRateLimit, isRateLimited, recordRateLimitEvent } from "@/lib/rate-limit";
 import { freeAccessCodeMatches, isAppRequest, paymentsEnabled } from "@/lib/billing-server";
+import { normalizeFeatures } from "@/lib/features";
+import { availableFeatures, featuresFor } from "@/lib/features-server";
 
 export type AccountActionState = { error?: string; success?: string } | undefined;
 
@@ -106,4 +108,24 @@ export async function disconnectAppAction(formData: FormData): Promise<void> {
   const user = await requireUser({ allowWithoutAccess: true });
   await revokeApp(user.id, String(formData.get("clientId") ?? ""));
   revalidatePath("/account");
+}
+
+export type FeaturesActionResult = { error?: string } | undefined;
+
+/** Saves the features picked at sign-up (/welcome) or under Account → Features. */
+export async function saveFeaturesAction(features: unknown): Promise<FeaturesActionResult> {
+  const user = await requireUser({ allowWithoutAccess: true });
+  if (!Array.isArray(features) || features.length > 50) return { error: "Pick the features you want and try again." };
+  const list = normalizeFeatures(features, await availableFeatures(user));
+  await prisma.user.update({ where: { id: user.id }, data: { features: list, featuresChosenAt: new Date() } });
+  revalidatePath("/", "layout");
+  return undefined;
+}
+
+/** For an account from before the picker: keeps what it has, and stops asking. */
+export async function keepCurrentFeaturesAction(): Promise<void> {
+  const user = await requireUser({ allowWithoutAccess: true });
+  if (user.featuresChosenAt) return;
+  await prisma.user.update({ where: { id: user.id }, data: { features: [...(await featuresFor(user))], featuresChosenAt: new Date() } });
+  revalidatePath("/", "layout");
 }

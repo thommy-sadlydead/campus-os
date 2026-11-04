@@ -6,6 +6,8 @@ export interface StudyCard {
   front: string;
   back: string;
   known: boolean;
+  /** Up for review now (src/lib/spaced-review.ts): studied before, and its day has come. */
+  due: boolean;
 }
 
 export interface StudyDeck {

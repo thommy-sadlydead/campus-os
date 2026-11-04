@@ -1,4 +1,5 @@
 import { formatDueLabel } from "@/lib/time";
+import { ExamPrepPlan, type StudySessionRow } from "@/components/classes/ExamPrepPlan";
 
 export interface ExamRow {
   id: string;
@@ -7,9 +8,11 @@ export interface ExamRow {
   location: string | null;
   weight: number | null;
   notes: string | null;
+  /** Its exam prep plan's sessions (src/lib/exam-prep.ts), if it has one. */
+  sessions: StudySessionRow[];
 }
 
-export function ExamsPanel({ exams, tz }: { exams: ExamRow[]; tz: string }) {
+export function ExamsPanel({ exams, tz, onStudy }: { exams: ExamRow[]; tz: string; onStudy?: () => void }) {
   const now = new Date();
   if (exams.length === 0) {
     return <div className="empty">No exams on file for this class yet.</div>;
@@ -20,13 +23,31 @@ export function ExamsPanel({ exams, tz }: { exams: ExamRow[]; tz: string }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <ExamGroup title="Upcoming" exams={upcoming} tz={tz} now={now} empty="Nothing upcoming." />
+      <ExamGroup title="Upcoming" exams={upcoming} tz={tz} now={now} empty="Nothing upcoming." upcoming onStudy={onStudy} />
       {past.length > 0 && <ExamGroup title="Past" exams={past} tz={tz} now={now} empty="" />}
     </div>
   );
 }
 
-function ExamGroup({ title, exams, tz, now, empty }: { title: string; exams: ExamRow[]; tz: string; now: Date; empty: string }) {
+function ExamGroup({
+  title,
+  exams,
+  tz,
+  now,
+  empty,
+  upcoming = false,
+  onStudy,
+}: {
+  title: string;
+  exams: ExamRow[];
+  tz: string;
+  now: Date;
+  empty: string;
+  /** Upcoming exams can have a prep plan. */
+  upcoming?: boolean;
+  /** Opens the Study tab, when the student has it. */
+  onStudy?: () => void;
+}) {
   return (
     <section className="card overflow-hidden">
       <header className="flex items-center justify-between border-b border-border-soft px-4 py-3 sm:px-5">
@@ -50,6 +71,9 @@ function ExamGroup({ title, exams, tz, now, empty }: { title: string; exams: Exa
                   </div>
                 )}
                 {e.notes && <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-ink-soft">{e.notes}</p>}
+                {upcoming && e.examAt && new Date(e.examAt) > now && (
+                  <ExamPrepPlan examId={e.id} sessions={e.sessions} tz={tz} onStudy={onStudy} />
+                )}
               </div>
             </li>
           ))}

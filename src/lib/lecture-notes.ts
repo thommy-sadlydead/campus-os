@@ -160,9 +160,18 @@ function formatMaterialsForPrompt(materials: ClassMaterialInput[]): string | nul
   return joined.length > MAX_MATERIALS_CHARS ? joined.slice(0, MAX_MATERIALS_CHARS) : joined;
 }
 
+/**
+ * With Smart review on (src/lib/features.ts), notes end with a few
+ * questions to answer from memory before reading the answers, so reading
+ * the notes is practice, not just rereading.
+ */
+export const TEST_YOURSELF_INSTRUCTIONS =
+  'End the notes with a "## Test yourself" section: 3 to 5 short, numbered questions that check understanding of the most important ideas (not trivia), answerable from this lecture alone. Then a "### Answers" section with a brief answer to each, in the same order.';
+
 export function buildLectureNotesPrompt(
   transcriptText: string,
-  materials: ClassMaterialInput[] = []
+  materials: ClassMaterialInput[] = [],
+  options: { testYourself?: boolean } = {}
 ): { system: string; prompt: string } {
   const truncated = transcriptText.length > MAX_TRANSCRIPT_CHARS;
   const text = truncated ? transcriptText.slice(0, MAX_TRANSCRIPT_CHARS) : transcriptText;
@@ -175,6 +184,7 @@ export function buildLectureNotesPrompt(
     "Transcripts sometimes have misheard words or filler ('um', 'you know') — clean those up, but don't editorialize or add commentary of your own.",
     materialsText &&
       "Reference material for this class (textbook excerpts, slides) is also provided below. Use it only to inform terminology, structure, and depth, and to correct clear transcription errors (e.g. a misheard term the reference material spells correctly) — never to add content, examples, or claims the transcript doesn't actually cover.",
+    options.testYourself && TEST_YOURSELF_INSTRUCTIONS,
     "Respond with ONLY the markdown notes — no preamble like \"Here are your notes\".",
   ]
     .filter(Boolean)

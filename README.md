@@ -22,6 +22,36 @@ as out of scope.
 - **AI permission**: nothing is sent to Anthropic or AssemblyAI until the
   student allows AI features (Account → AI features), as the App Store
   requires.
+- **Features you pick** (`src/lib/features.ts`): right after sign-up
+  (`/welcome`) the student checks the optional features they want, and can
+  change them any time under Account → Features. The core (Today, classes,
+  assignments, exams, schedule, notes, course files) is always on; turning
+  a feature off hides it and keeps its data. Accounts from before the
+  picker keep every feature they had (and get none of the new ones) until
+  they pick, from a card on Today. The new features:
+  - **Smart review** (`src/lib/spaced-review.ts`): flashcards come back on
+    a schedule (1, 3, 7, 14, then 30 days when you get them; the same day
+    when you miss), Today shows how many are due, and lecture notes end with
+    "Test yourself" questions.
+  - **Exam prep plans** (`src/lib/exam-prep.ts`): "Make a prep plan" on an
+    upcoming exam plans up to five 30-minute quiz sessions over the week
+    before it, at free times around class meetings and commitments, and
+    makes a flashcard deck to quiz on. Sessions show on Today and Schedule;
+    a missed one can move to the next free time.
+  - **Grades** (`src/lib/grades.ts`): the current grade from Canvas (when
+    the course shows students its total; refreshed after Today loads, at
+    most every six hours) or typed in, a "what do I need on the final"
+    calculator, and a heads-up on Today when a grade drops 3+ points from
+    its high in the last three weeks or is under the student's goal.
+  - **Tutor mode**: for homework-like questions the class assistant gives
+    hints and questions, not finished answers (`TUTOR_MODE_INSTRUCTIONS`).
+  - **Getting help** (`src/lib/get-help.ts`): office hours and the
+    professor's email on a class's Overview (typed in, or found in the
+    syllabus with AI), a prewritten email to the professor for the
+    student's own mail app, searches of their school's site for tutoring
+    and other help, and 988.
+  - **Work and other commitments**: weekly blocks on Schedule, and the
+    latest time to plan study, both used by exam prep plans.
 - **Data model** for the whole app (`prisma/schema.prisma`): User, Class,
   ScheduleEvent, Assignment, Task, Exam, Email, EmailAccount, CanvasAccount,
   LmsConnection, PendingChange, NoteSection, Note, Resource,

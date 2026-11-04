@@ -66,6 +66,13 @@ describe("buildLectureNotesPrompt", () => {
     expect(system.toLowerCase()).toContain("never invent");
   });
 
+  it("asks for Test yourself questions only with Smart review on", () => {
+    expect(buildLectureNotesPrompt("some transcript text").system).not.toContain("Test yourself");
+    const { system } = buildLectureNotesPrompt("some transcript text", [], { testYourself: true });
+    expect(system).toContain("## Test yourself");
+    expect(system).toContain("### Answers");
+  });
+
   it("says nothing about reference material when there are no materials", () => {
     const { system, prompt } = buildLectureNotesPrompt("some transcript text");
     expect(system.toLowerCase()).not.toContain("reference material");

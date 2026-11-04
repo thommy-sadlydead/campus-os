@@ -32,17 +32,20 @@ export function MobileNav({
   active,
   lms,
   email,
+  record,
 }: {
   active: string;
   lms: { href: string; label: string };
-  /** Whether this account can use Email (src/lib/gmail-access.ts). */
+  /** Whether this account has Email on and can use it (src/lib/gmail-access.ts). */
   email: boolean;
+  /** Whether lecture recording is on (src/lib/features.ts). Without it, Assignments takes Record's place. */
+  record: boolean;
 }) {
   const [moreOpen, setMoreOpen] = useState(false);
   // `match` is the `active` value each link's pages pass: every LMS page
   // passes "/connect".
   const moreLinks = [
-    { href: "/assignments", label: "Assignments", Icon: ChecklistIcon, match: "/assignments" },
+    ...(record ? [{ href: "/assignments", label: "Assignments", Icon: ChecklistIcon, match: "/assignments" }] : []),
     ...(email ? [{ href: "/email", label: "Email", Icon: MailIcon, match: "/email" }] : []),
     { href: lms.href, label: lms.label, Icon: LayersIcon, match: "/connect" },
     { href: "/account", label: "Account", Icon: UserIcon, match: "/account" },
@@ -81,25 +84,34 @@ export function MobileNav({
               </Link>
             </li>
           ))}
-          <li className="flex justify-center">
-            <Link
-              href="/record"
-              aria-label="Record a lecture"
-              aria-current={active === "/record" ? "page" : undefined}
-              className="flex flex-col items-center gap-1 pb-1.5 text-[10.5px] font-medium text-ink"
-            >
-              <span
-                className="-mt-7 flex h-14 w-14 items-center justify-center rounded-full text-white ring-[5px] ring-bg"
-                style={{
-                  backgroundImage: "linear-gradient(135deg, var(--grad-from), var(--grad-to))",
-                  boxShadow: "0 10px 24px -8px rgba(255, 122, 47, 0.6)",
-                }}
+          {record ? (
+            <li className="flex justify-center">
+              <Link
+                href="/record"
+                aria-label="Record a lecture"
+                aria-current={active === "/record" ? "page" : undefined}
+                className="flex flex-col items-center gap-1 pb-1.5 text-[10.5px] font-medium text-ink"
               >
-                <MicIcon className="h-6 w-6" />
-              </span>
-              Record
-            </Link>
-          </li>
+                <span
+                  className="-mt-7 flex h-14 w-14 items-center justify-center rounded-full text-white ring-[5px] ring-bg"
+                  style={{
+                    backgroundImage: "linear-gradient(135deg, var(--grad-from), var(--grad-to))",
+                    boxShadow: "0 10px 24px -8px rgba(255, 122, 47, 0.6)",
+                  }}
+                >
+                  <MicIcon className="h-6 w-6" />
+                </span>
+                Record
+              </Link>
+            </li>
+          ) : (
+            <li>
+              <Link href="/assignments" className={tabClass(active === "/assignments")} aria-current={active === "/assignments" ? "page" : undefined}>
+                <ChecklistIcon className={iconClass(active === "/assignments")} />
+                Assignments
+              </Link>
+            </li>
+          )}
           <li>
             <Link
               href={schedule.href}

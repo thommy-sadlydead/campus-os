@@ -12,6 +12,7 @@ import { StudyPanel } from "@/components/study/StudyPanel";
 import type { ChatGptStudyInfo, StudyDeck, StudySourceOption } from "@/components/study/study-types";
 import { CLASS_TABS, type ClassTab } from "@/components/classes/class-tabs";
 import type { MeetingDates } from "@/lib/meetings";
+import { useFeature } from "@/components/FeaturesProvider";
 
 export function ClassTabs({
   initialTab,
@@ -44,7 +45,12 @@ export function ClassTabs({
   study: { decks: StudyDeck[]; sources: StudySourceOption[]; hasMaterial: boolean; aiAllowed: boolean; chatgpt: ChatGptStudyInfo };
   tz: string;
 }) {
-  const [tab, setTab] = useState<ClassTab>(initialTab);
+  // Tabs for features the student turned off (src/lib/features.ts) are hidden.
+  const lecturesOn = useFeature("lectures");
+  const flashcardsOn = useFeature("flashcards");
+  const assistantOn = useFeature("assistant");
+  const tabs = CLASS_TABS.filter((t) => (t === "Lectures" ? lecturesOn : t === "Study" ? flashcardsOn || assistantOn : true));
+  const [tab, setTab] = useState<ClassTab>(tabs.includes(initialTab) ? initialTab : "Overview");
   const tabRowRef = useRef<HTMLDivElement>(null);
 
   // On a phone the tab row scrolls sideways; keep the selected tab in view
@@ -97,7 +103,7 @@ export function ClassTabs({
         ref={tabRowRef}
         className="-mx-4 mb-6 flex gap-1.5 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden"
       >
-        {CLASS_TABS.map((t) => (
+        {tabs.map((t) => (
           <button
             key={t}
             data-selected={tab === t || undefined}
@@ -121,8 +127,8 @@ export function ClassTabs({
       {/* On the Study tab the assistant comes first, then flashcards and ChatGPT. */}
       {tab === "Study" && (
         <div className="flex flex-col gap-6">
-          <ClassAssistant classId={classInfo.id} className={classInfo.name} chatgpt={study.chatgpt} />
-          <StudyPanel classId={classInfo.id} tz={tz} {...study} />
+          {assistantOn && <ClassAssistant classId={classInfo.id} className={classInfo.name} chatgpt={study.chatgpt} />}
+          {flashcardsOn && <StudyPanel classId={classInfo.id} tz={tz} {...study} />}
         </div>
       )}
       {tab === "Assignments" && <ClassAssignmentsPanel assignments={assignments} tz={tz} />}
@@ -151,12 +157,12 @@ export function ClassTabs({
           onOpenResources={() => go("Resources")}
         />
       )}
-      {tab === "Exams" && <ExamsPanel exams={exams} tz={tz} />}
+      {tab === "Exams" && <ExamsPanel exams={exams} tz={tz} onStudy={tabs.includes("Study") ? () => go("Study") : undefined} />}
       {tab === "Resources" && (
         <ResourcesPanel classId={classInfo.id} lmsProvider={classInfo.lmsProvider} resources={resources} materials={materials} />
       )}
 
-      {tab !== "Study" && (
+      {tab !== "Study" && assistantOn && (
         <div className="mt-10">
           <ClassAssistant classId={classInfo.id} className={classInfo.name} chatgpt={study.chatgpt} />
         </div>

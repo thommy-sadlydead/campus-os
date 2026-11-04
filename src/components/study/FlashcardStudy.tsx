@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { resetDeckProgressAction, setFlashcardKnownAction } from "@/app/classes/[id]/study-actions";
 import { CheckIcon, ChevronLeftIcon, ChevronRightIcon, RefreshIcon, ShuffleIcon } from "@/components/icons";
 import type { StudyDeck } from "./study-types";
+import { useFeature } from "@/components/FeaturesProvider";
 
 function shuffled<T>(items: T[]): T[] {
   const a = [...items];
@@ -25,8 +26,12 @@ export function FlashcardStudy({ deck, onExit, onQuizlet }: { deck: StudyDeck; o
   const [, startTransition] = useTransition();
   const [known, setKnown] = useState<Record<string, boolean>>(() => Object.fromEntries(deck.cards.map((c) => [c.id, c.known])));
   const [isShuffled, setIsShuffled] = useState(false);
-  // The cards in this round. A round is everything, or only what's left to learn.
+  // With Smart review on, a round starts with the cards due for review.
+  const smartReview = useFeature("smart-review");
+  const dueIds = deck.cards.filter((c) => c.due).map((c) => c.id);
+  // The cards in this round. A round is everything, only what's due, or only what's left to learn.
   const [round, setRound] = useState<string[]>(() => {
+    if (smartReview && dueIds.length > 0) return dueIds;
     const left = deck.cards.filter((c) => !c.known);
     return (left.length > 0 && left.length < deck.cards.length ? left : deck.cards).map((c) => c.id);
   });
@@ -129,6 +134,7 @@ export function FlashcardStudy({ deck, onExit, onQuizlet }: { deck: StudyDeck; o
           <h2 className="truncate text-lg font-semibold text-ink">{deck.title}</h2>
           <p className="text-[13px] text-ink-faint">
             {learned} of {deck.cards.length} learned
+            {smartReview && dueIds.length > 0 ? ` · ${dueIds.length} due for review` : ""}
           </p>
         </div>
         {!done && (
@@ -212,6 +218,11 @@ export function FlashcardStudy({ deck, onExit, onQuizlet }: { deck: StudyDeck; o
             {learned} of {deck.cards.length} learned
             {stillLearning.length > 0 ? `, ${stillLearning.length} still to learn.` : "."}
           </p>
+          {smartReview && (
+            <p className="mt-1 text-sm text-ink-soft">
+              Cards you got come back in a few days, and the ones you missed come back today.
+            </p>
+          )}
           <div className="mt-5 flex flex-wrap justify-center gap-2">
             {stillLearning.length > 0 && (
               <button type="button" onClick={() => startRound(stillLearning)} className="btn btn-primary">

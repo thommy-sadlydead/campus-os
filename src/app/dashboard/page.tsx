@@ -25,6 +25,15 @@ import { isDemoAccount } from "@/lib/sample-classes";
 import { gmailOpenTo } from "@/lib/gmail-access";
 import { SampleClassesButton } from "@/components/demo/SampleClassesButton";
 import { ArrowRightIcon, BookIcon, CalendarIcon, ChevronRightIcon, LayersIcon, MailIcon } from "@/components/icons";
+import { featuresFor } from "@/lib/features-server";
+import { FeatureChooserCard } from "@/components/dashboard/FeatureChooserCard";
+import { after } from "next/server";
+import { refreshCanvasGrades } from "@/lib/grades-server";
+import { gradeSlip, SLIP_WINDOW_DAYS } from "@/lib/grades";
+import { weekBounds } from "@/lib/exam-prep";
+import { StudyPlanCard } from "@/components/dashboard/StudyPlanCard";
+import { ReviewDueCard } from "@/components/dashboard/ReviewDueCard";
+import { GradeAlertsCard, type GradeAlert } from "@/components/dashboard/GradeAlertsCard";
 
 const SECTION_TITLES: Record<UrgencyBucket, string> = {
   OVERDUE: "Overdue",
@@ -51,6 +60,60 @@ function todayLabel(now: Date, tz: string): string {
 export default async function DashboardPage() {
   const user = await requireUser();
   const now = new Date();
+  const features = await featuresFor(user);
+  // Canvas grades change between syncs; refresh them after this page is sent (src/lib/grades-server.ts).
+  if (features.has("grades")) after(() => refreshCanvasGrades(user.id));
+  const week = weekBounds(now, user.timezone);
+  const [planSessions, weekSessions, dueDecks, gradedClasses] = await Promise.all([
+    features.has("exam-prep")
+      ? prisma.studySession.findMany({
+          where: {
+            userId: user.id,
+            status: "PLANNED",
+            startsAt: { lte: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000) },
+            exam: { examAt: { gt: now } },
+            class: { archived: false },
+          },
+          include: { class: { select: { name: true } }, exam: { select: { name: true } } },
+          orderBy: { startsAt: "asc" },
+          take: 8,
+        })
+      : Promise.resolve([]),
+    features.has("exam-prep")
+      ? prisma.studySession.findMany({ where: { userId: user.id, startsAt: { gte: week.start, lt: week.end } }, select: { status: true } })
+      : Promise.resolve([]),
+    features.has("smart-review")
+      ? prisma.flashcardDeck.findMany({
+          where: { class: { userId: user.id, archived: false } },
+          select: { classId: true, class: { select: { name: true } }, _count: { select: { cards: { where: { dueAt: { lte: now } } } } } },
+        })
+      : Promise.resolve([]),
+    features.has("grades")
+      ? prisma.class.findMany({
+          where: { userId: user.id, archived: false, gradePercent: { not: null } },
+          select: {
+            id: true,
+            name: true,
+            gradePercent: true,
+            gradeTarget: true,
+            officeHours: true,
+            gradeSnapshots: { where: { takenAt: { gte: new Date(now.getTime() - SLIP_WINDOW_DAYS * 24 * 60 * 60 * 1000) } }, select: { percent: true, takenAt: true } },
+          },
+        })
+      : Promise.resolve([]),
+  ]);
+  const reviewByClass = new Map<string, { classId: string; className: string; due: number }>();
+  for (const d of dueDecks) {
+    if (d._count.cards === 0) continue;
+    const row = reviewByClass.get(d.classId) ?? { classId: d.classId, className: d.class.name, due: 0 };
+    row.due += d._count.cards;
+    reviewByClass.set(d.classId, row);
+  }
+  const gradeAlerts: GradeAlert[] = gradedClasses.flatMap((c) => {
+    const slip = gradeSlip(c.gradePercent as number, c.gradeSnapshots, now, c.gradeTarget);
+    return slip ? [{ classId: c.id, className: c.name, percent: c.gradePercent as number, slip, officeHours: c.officeHours }] : [];
+  });
+  const weekKept = weekSessions.filter((s) => s.status !== "SKIPPED");
 
   // The iPhone app adds this to its user agent (capacitor.config.json); only
   // it can show reminders, so only it gets the deadlines for them.
@@ -173,6 +236,14 @@ export default async function DashboardPage() {
                 Connect your classes
                 <ArrowRightIcon className="h-4 w-4" />
               </Link>
+              {!user.featuresChosenAt && (
+                <p className="mt-4 text-sm text-ink-soft">
+                  <Link href="/welcome?new=1" className="font-medium text-ink underline decoration-border underline-offset-2 hover:decoration-ink">
+                    Pick which features you want
+                  </Link>{" "}
+                  so Campus OS shows only what you&apos;ll use.
+                </p>
+              )}
               {isDemoAccount(user.email) && (
                 <div className="mt-6 border-t border-border-soft pt-5">
                   <p className="mb-3 text-sm text-ink-soft">
@@ -201,9 +272,11 @@ export default async function DashboardPage() {
         }
       />
 
+      {!user.featuresChosenAt && <FeatureChooserCard />}
+
       {!hasAiConsent(user) && !(await cookies()).get(AI_NOT_NOW_COOKIE) && <AiConsentCard />}
 
-      <RiskStatusCard risk={risk} />
+      {features.has("risk") && <RiskStatusCard risk={risk} />}
 
       {checkOffNames && <CheckOffNote names={checkOffNames} />}
 
@@ -218,7 +291,7 @@ export default async function DashboardPage() {
         />
       )}
 
-      {pendingChangeCount > 0 && (
+      {features.has("email") && pendingChangeCount > 0 && (
         <Link
           href="/email"
           className="mb-6 flex items-center gap-3 rounded-xl2 bg-warn-soft px-4 py-3 text-sm text-warn transition-[filter] hover:brightness-[0.98]"
@@ -240,6 +313,24 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:grid-rows-[auto_1fr]">
         <div className="flex flex-col gap-6 lg:col-start-2 lg:row-start-1">
           <WhatNowPanel />
+          {gradeAlerts.length > 0 && <GradeAlertsCard alerts={gradeAlerts} tz={user.timezone} helpOn={features.has("get-help")} />}
+          {planSessions.length > 0 && (
+            <StudyPlanCard
+              sessions={planSessions.map((s) => ({
+                id: s.id,
+                classId: s.classId,
+                className: s.class.name,
+                examName: s.exam.name,
+                startsAt: s.startsAt.toISOString(),
+                minutes: s.minutes,
+                status: s.status,
+              }))}
+              doneThisWeek={weekKept.filter((s) => s.status === "DONE").length}
+              plannedThisWeek={weekKept.length}
+              tz={user.timezone}
+            />
+          )}
+          {reviewByClass.size > 0 && <ReviewDueCard classes={[...reviewByClass.values()]} />}
         </div>
 
         <div className="flex flex-col gap-6 lg:col-start-1 lg:row-span-2 lg:row-start-1">
@@ -280,9 +371,9 @@ export default async function DashboardPage() {
         </div>
 
         <div className="flex flex-col gap-6 lg:col-start-2 lg:row-start-2">
-          <WorkloadSummaryCard summary={summary} now={now} tz={user.timezone} />
-          <AvailabilityCard blocks={availabilityBlocks} />
-          <AskPanel />
+          <WorkloadSummaryCard summary={summary} now={now} tz={user.timezone} freeTime={features.has("free-time")} />
+          {features.has("free-time") && <AvailabilityCard blocks={availabilityBlocks} />}
+          {features.has("assistant") && <AskPanel />}
         </div>
       </div>
     </AppShell>

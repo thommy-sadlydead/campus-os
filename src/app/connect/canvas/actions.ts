@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { encryptSecret, decryptSecret } from "@/lib/crypto";
 import { describeCanvasConnectError, describeCanvasSyncError, fetchActiveCourses, type CanvasConfig } from "@/lib/canvas";
 import { syncCanvasForUser } from "@/lib/canvas-sync";
+import { gradesOn } from "@/lib/grade-records";
 import { canvasMaterialsSource } from "@/lib/canvas-materials-sync";
 import { advanceMaterialSync, queueCourseMaterialSync, type CourseSyncProgress } from "@/lib/materials-sync";
 import { failedReport, summarizeReport, type SyncReport } from "@/lib/lms/report";
@@ -109,7 +110,7 @@ export async function connectCanvasAction(
 async function runCanvasSync(userId: string, cfg: CanvasConfig): Promise<SyncReport> {
   let report: SyncReport;
   try {
-    report = await syncCanvasForUser(prisma, userId, cfg);
+    report = await syncCanvasForUser(prisma, userId, cfg, new Date(), { recordGrades: await gradesOn(prisma, userId) });
   } catch (err) {
     console.error(`Canvas sync failed for user ${userId}:`, err);
     report = failedReport("canvas", new Date(), describeCanvasSyncError(err));

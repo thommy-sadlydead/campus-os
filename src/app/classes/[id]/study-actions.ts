@@ -16,6 +16,7 @@ import {
   sourcesWithinBudget,
   type FlashcardSource,
 } from "@/lib/flashcards";
+import { nextReview } from "@/lib/spaced-review";
 
 // The Study tab's flashcards. Every action checks the class or card belongs
 // to the signed-in student: like every server action, these can be called
@@ -115,16 +116,21 @@ async function ownedDeck(deckId: string, userId: string) {
   return prisma.flashcardDeck.findFirst({ where: { id: deckId, class: { userId } }, select: { id: true, classId: true } });
 }
 
+/** "Got it" or "Still learning" on a card. Also schedules its next review (src/lib/spaced-review.ts), used when Smart review is on. */
 export async function setFlashcardKnownAction(cardId: string, known: boolean): Promise<void> {
   const user = await requireUser();
-  await prisma.flashcard.updateMany({ where: { id: cardId, deck: { class: { userId: user.id } } }, data: { known: Boolean(known) } });
+  const card = await prisma.flashcard.findFirst({ where: { id: cardId, deck: { class: { userId: user.id } } }, select: { id: true, box: true } });
+  if (!card) return;
+  const now = new Date();
+  const review = nextReview(card.box, Boolean(known), now, user.timezone);
+  await prisma.flashcard.update({ where: { id: card.id }, data: { known: Boolean(known), ...review, reviewedAt: now } });
 }
 
 export async function resetDeckProgressAction(deckId: string): Promise<void> {
   const user = await requireUser();
   const deck = await ownedDeck(deckId, user.id);
   if (!deck) return;
-  await prisma.flashcard.updateMany({ where: { deckId: deck.id }, data: { known: false } });
+  await prisma.flashcard.updateMany({ where: { deckId: deck.id }, data: { known: false, box: 0, dueAt: null, reviewedAt: null } });
   revalidatePath(`/classes/${deck.classId}`);
 }
 

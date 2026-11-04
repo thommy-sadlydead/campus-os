@@ -10,6 +10,9 @@ import { PencilIcon, XIcon } from "@/components/icons";
 import { DayPicker, SemesterDates } from "@/components/schedule/RepeatFields";
 import { newMeetingProblem } from "@/components/schedule/ScheduleAddForm";
 import { formatDays, formatMeetingDates, groupMeetings, timeLabel, type MeetingDates } from "@/lib/meetings";
+import { useFeature } from "@/components/FeaturesProvider";
+import { GradeCard, type GradeInfo } from "@/components/classes/GradeCard";
+import { GetHelpCard, type HelpInfo } from "@/components/classes/GetHelpCard";
 
 export interface OverviewClassInfo {
   id: string;
@@ -23,6 +26,10 @@ export interface OverviewClassInfo {
   lmsProvider: string | null;
   nextAssignment: { title: string; dueAt: string | null } | null;
   nextExam: { title: string; examAt: string | null } | null;
+  /** For Grades (src/lib/features.ts). */
+  grade: GradeInfo;
+  /** For Getting help. */
+  help: HelpInfo;
 }
 
 export interface OverviewScheduleEvent {
@@ -63,6 +70,9 @@ export function OverviewPanel({
   const [pending, startTransition] = useTransition();
   const [days, setDays] = useState<number[]>([]);
   const [meetingError, setMeetingError] = useState<string | null>(null);
+  const [detailsError, setDetailsError] = useState<string | null>(null);
+  const gradesOn = useFeature("grades");
+  const helpOn = useFeature("get-help");
   const now = new Date();
 
   return (
@@ -81,9 +91,18 @@ export function OverviewPanel({
 
           {editing ? (
             <form
-              action={(fd) => {
+              // onSubmit, not action: React resets a form after its action,
+              // which would wipe what was typed when the email is rejected.
+              onSubmit={(e) => {
+                e.preventDefault();
+                const fd = new FormData(e.currentTarget);
+                setDetailsError(null);
                 startTransition(async () => {
-                  await updateClassOverviewAction(classInfo.id, fd);
+                  const result = await updateClassOverviewAction(classInfo.id, fd);
+                  if (result?.error) {
+                    setDetailsError(result.error);
+                    return;
+                  }
                   router.refresh();
                   setEditing(false);
                 });
@@ -92,7 +111,23 @@ export function OverviewPanel({
             >
               <Field label="Professor" name="professor" defaultValue={classInfo.professor ?? ""} placeholder="Dr. Jane Smith" />
               <Field label="Room" name="room" defaultValue={classInfo.room ?? ""} placeholder="Engineering Hall 210" />
-              <Field label="Current grade" name="currentGrade" defaultValue={classInfo.currentGrade ?? ""} placeholder="B+ (only if you track it here)" />
+              <Field
+                label="Current grade"
+                name="currentGrade"
+                defaultValue={classInfo.currentGrade ?? ""}
+                placeholder={gradesOn ? "88% or 45/50" : "B+ (only if you track it here)"}
+              />
+              {helpOn && (
+                <>
+                  <Field label="Professor's email" name="professorEmail" defaultValue={classInfo.help.professorEmail ?? ""} placeholder="jsmith@school.edu" />
+                  <Field label="Office hours" name="officeHours" defaultValue={classInfo.help.officeHours ?? ""} placeholder="Tue and Thu 2–3 PM, Science 210" />
+                </>
+              )}
+              {detailsError && (
+                <p role="alert" className="text-[13px] text-danger">
+                  {detailsError}
+                </p>
+              )}
               <button
                 type="submit"
                 disabled={pending}
@@ -118,6 +153,19 @@ export function OverviewPanel({
             <NextCard label="Next exam" title={classInfo.nextExam?.title ?? null} dueLabel={classInfo.nextExam ? formatDueLabel(classInfo.nextExam.examAt ? new Date(classInfo.nextExam.examAt) : null, now, tz) : null} />
           </div>
         </div>
+
+        {/* Keyed by the grade so the calculator starts over from a new one. */}
+        {gradesOn && <GradeCard key={String(classInfo.grade.percent)} classId={classInfo.id} lmsProvider={classInfo.lmsProvider} grade={classInfo.grade} tz={tz} />}
+        {helpOn && (
+          <GetHelpCard
+            classId={classInfo.id}
+            className={classInfo.name}
+            classCode={classInfo.code || null}
+            professor={classInfo.professor}
+            help={classInfo.help}
+            initialReason={classInfo.grade.slip ? "grade" : "question"}
+          />
+        )}
 
         {recentEmails.length > 0 && (
           <div className="card p-5">
