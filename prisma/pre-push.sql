@@ -57,19 +57,3 @@ BEGIN
       ON "Exam"("classId", "canvasAssignmentId");
   END IF;
 END $$;
-
--- 2026-11-04, one-time recovery (safe to delete after it has run once):
--- the Anthropic account ran out of credit from about 10 AM ET on Nov 2
--- until Nov 4, so every lecture recorded then has its transcript but
--- failed at the notes step. Moving those back to GENERATING_NOTES with an
--- old updatedAt makes the Lectures tab's next poll treat the run as stale
--- and write the notes again (advanceLecture in src/lib/lecture-pipeline.ts),
--- the same as tapping Try again. Idempotent: a recovered lecture leaves the
--- window, and one that fails again fails with a later updatedAt.
-UPDATE "Lecture"
-SET "status" = 'GENERATING_NOTES', "errorMessage" = NULL, "updatedAt" = TIMESTAMP '2026-11-01 00:00:00'
-WHERE "status" = 'FAILED'
-  AND "errorMessage" = 'Note generation failed. Please try again.'
-  AND "transcriptText" IS NOT NULL
-  AND "updatedAt" >= TIMESTAMP '2026-11-02 15:00:00'
-  AND "updatedAt" < TIMESTAMP '2026-11-04 15:30:00';
