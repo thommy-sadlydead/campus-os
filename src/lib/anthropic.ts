@@ -1,5 +1,6 @@
 import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
+import { parseJsonLoose } from "@/lib/json-text";
 
 let client: Anthropic | null | undefined;
 
@@ -64,9 +65,8 @@ export async function askClaudeForJson<T>(opts: {
   });
   if (!text) return null;
   try {
-    // Models occasionally wrap JSON in a fenced block despite instructions; strip it defensively.
-    const cleaned = text.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "");
-    return JSON.parse(cleaned) as T;
+    // Models occasionally wrap JSON in a fenced block or add a sentence around it despite instructions.
+    return parseJsonLoose(text) as T;
   } catch (err) {
     console.error("askClaudeForJson: failed to parse model output as JSON:", err);
     return null;

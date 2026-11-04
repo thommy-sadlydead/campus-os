@@ -4,6 +4,8 @@ import {
   formatMeetingDates,
   groupMeetings,
   meetingHasEnded,
+  meetingTimeProblem,
+  minutesFromTimeField,
   meetingRunsOn,
   parseMeetingDays,
   semesterToReuse,
@@ -137,5 +139,27 @@ describe("semesterToReuse", () => {
     expect(semesterToReuse({ startsOn: "2026-08-25", endsOn: "2026-12-12" }, "2026-12-13")).toBeNull();
     expect(semesterToReuse({ startsOn: null, endsOn: null }, "2026-11-03")).toBeNull();
     expect(semesterToReuse(null, "2026-11-03")).toBeNull();
+  });
+});
+
+describe("meetingTimeProblem and minutesFromTimeField", () => {
+  it("reads a time field", () => {
+    expect(minutesFromTimeField("13:50")).toBe(13 * 60 + 50);
+    expect(minutesFromTimeField("")).toBeNull();
+    expect(minutesFromTimeField("1:50")).toBeNull();
+  });
+
+  it("refuses an end before or at the start", () => {
+    expect(meetingTimeProblem({ startMinute: 600, endMinute: 540, startsOn: null, endsOn: null })).toMatch(/end time/);
+    expect(meetingTimeProblem({ startMinute: 600, endMinute: 600, startsOn: null, endsOn: null })).toMatch(/end time/);
+  });
+
+  it("refuses a last day before the first", () => {
+    expect(meetingTimeProblem({ startMinute: 600, endMinute: 650, startsOn: "2026-12-11", endsOn: "2026-08-24" })).toMatch(/last day/);
+  });
+
+  it("accepts a normal meeting", () => {
+    expect(meetingTimeProblem({ startMinute: 600, endMinute: 650, startsOn: "2026-08-24", endsOn: "2026-12-11" })).toBeNull();
+    expect(meetingTimeProblem({ startMinute: 600, endMinute: 650, startsOn: null, endsOn: null })).toBeNull();
   });
 });

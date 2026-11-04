@@ -8,6 +8,7 @@ import { CardHeader } from "@/components/ui/CardHeader";
 import { lmsName } from "@/lib/lms/providers";
 import { PencilIcon, XIcon } from "@/components/icons";
 import { DayPicker, SemesterDates } from "@/components/schedule/RepeatFields";
+import { newMeetingProblem } from "@/components/schedule/ScheduleAddForm";
 import { formatDays, formatMeetingDates, groupMeetings, timeLabel, type MeetingDates } from "@/lib/meetings";
 
 export interface OverviewClassInfo {
@@ -61,6 +62,7 @@ export function OverviewPanel({
   const [editing, setEditing] = useState(false);
   const [pending, startTransition] = useTransition();
   const [days, setDays] = useState<number[]>([]);
+  const [meetingError, setMeetingError] = useState<string | null>(null);
   const now = new Date();
 
   return (
@@ -184,10 +186,23 @@ export function OverviewPanel({
         )}
 
         <form
-          action={(fd) => {
+          // onSubmit, not action: React empties a form after its action runs,
+          // which would wipe what the student typed when there's a problem to fix.
+          onSubmit={(e) => {
+            e.preventDefault();
+            const form = e.currentTarget;
+            const fd = new FormData(form);
             if (days.length === 0) return;
+            const problem = newMeetingProblem(fd);
+            setMeetingError(problem);
+            if (problem) return;
             startTransition(async () => {
-              await addScheduleEventAction(classInfo.id, fd);
+              const result = await addScheduleEventAction(classInfo.id, fd);
+              if (result.error) {
+                setMeetingError(result.error);
+                return;
+              }
+              form.reset();
               setDays([]);
               router.refresh();
             });
@@ -202,6 +217,11 @@ export function OverviewPanel({
           <input type="text" name="location" placeholder="Room (optional)" className="field field-sm w-auto" />
           <input type="text" name="label" placeholder="Lecture / Lab / Discussion (optional)" className="field field-sm w-auto" />
           <SemesterDates initial={semester} compact />
+          {meetingError && (
+            <p role="alert" className="text-xs text-danger">
+              {meetingError}
+            </p>
+          )}
           <button type="submit" disabled={pending || days.length === 0} className="btn btn-secondary btn-sm">
             {days.length > 1 ? `Add on ${days.length} days` : "Add meeting time"}
           </button>

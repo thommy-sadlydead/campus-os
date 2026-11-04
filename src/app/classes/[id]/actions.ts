@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
-import { DATE_PATTERN, parseMeetingDays } from "@/lib/meetings";
+import { DATE_PATTERN, meetingTimeProblem, parseMeetingDays } from "@/lib/meetings";
 
 /**
  * Confirms the class belongs to the current user, or throws. These are all
@@ -268,11 +268,11 @@ function hhmmToMinutes(hhmm: string): number {
  * the semester's first day to its last when they're given. A day that
  * already has this exact meeting isn't added twice.
  */
-export async function addScheduleEventAction(classId: string, formData: FormData) {
+export async function addScheduleEventAction(classId: string, formData: FormData): Promise<{ error?: string }> {
   const user = await requireUser();
   await requireOwnedClass(classId, user.id);
 
-  const parsed = scheduleEventSchema.parse({
+  const result = scheduleEventSchema.safeParse({
     days: parseMeetingDays(formData.getAll("dayOfWeek")),
     start: formData.get("start"),
     end: formData.get("end"),
@@ -281,13 +281,15 @@ export async function addScheduleEventAction(classId: string, formData: FormData
     startsOn: formData.get("startsOn") || undefined,
     endsOn: formData.get("endsOn") || undefined,
   });
+  if (!result.success) {
+    return { error: result.error.issues.some((i) => i.path[0] === "days") ? "Pick at least one day." : "Check the times and dates." };
+  }
+  const parsed = result.data;
 
   const startMinute = hhmmToMinutes(parsed.start);
   const endMinute = hhmmToMinutes(parsed.end);
-  if (endMinute <= startMinute) throw new Error("End time must be after start time.");
-  if (parsed.startsOn && parsed.endsOn && parsed.endsOn < parsed.startsOn) {
-    throw new Error("The last day must be after the first day.");
-  }
+  const problem = meetingTimeProblem({ startMinute, endMinute, startsOn: parsed.startsOn ?? null, endsOn: parsed.endsOn ?? null });
+  if (problem) return { error: problem };
 
   const meeting = {
     classId,
@@ -303,6 +305,7 @@ export async function addScheduleEventAction(classId: string, formData: FormData
   if (days.length) await prisma.scheduleEvent.createMany({ data: days.map((dayOfWeek) => ({ ...meeting, dayOfWeek })) });
   revalidatePath(`/classes/${classId}`);
   revalidatePath("/schedule");
+  return {};
 }
 
 export async function deleteScheduleEventAction(eventId: string) {

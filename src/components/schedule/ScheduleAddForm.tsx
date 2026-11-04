@@ -6,7 +6,7 @@ import { addScheduleEventAction } from "@/app/classes/[id]/actions";
 import { CardHeader } from "@/components/ui/CardHeader";
 import { PlusIcon } from "@/components/icons";
 import { DayPicker, SemesterDates } from "@/components/schedule/RepeatFields";
-import type { MeetingDates } from "@/lib/meetings";
+import { meetingTimeProblem, minutesFromTimeField, type MeetingDates } from "@/lib/meetings";
 
 export function ScheduleAddForm({
   classes,
@@ -19,14 +19,28 @@ export function ScheduleAddForm({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [days, setDays] = useState<number[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   return (
     <form
-      action={(fd) => {
+      // onSubmit, not action: React empties a form after its action runs,
+      // which would wipe what the student typed when there's a problem to fix.
+      onSubmit={(e) => {
+        e.preventDefault();
+        const form = e.currentTarget;
+        const fd = new FormData(form);
         const classId = String(fd.get("classId") || "");
         if (!classId || days.length === 0) return;
+        const problem = newMeetingProblem(fd);
+        setError(problem);
+        if (problem) return;
         startTransition(async () => {
-          await addScheduleEventAction(classId, fd);
+          const result = await addScheduleEventAction(classId, fd);
+          if (result.error) {
+            setError(result.error);
+            return;
+          }
+          form.reset();
           setDays([]);
           router.refresh();
         });
@@ -70,10 +84,28 @@ export function ScheduleAddForm({
           <input type="text" name="label" placeholder="Lecture / Lab / Discussion" className="field" />
         </label>
         <SemesterDates initial={semester} />
+        {error && (
+          <p role="alert" className="text-[13px] text-danger">
+            {error}
+          </p>
+        )}
         <button type="submit" disabled={pending || days.length === 0} className="btn btn-primary mt-1">
           {pending ? "Adding…" : days.length > 1 ? `Add on ${days.length} days` : "Add meeting time"}
         </button>
       </div>
     </form>
   );
+}
+
+/** The problem with the form's times or dates, checked before it's sent (the server checks again). */
+export function newMeetingProblem(fd: FormData): string | null {
+  const startMinute = minutesFromTimeField(String(fd.get("start") ?? ""));
+  const endMinute = minutesFromTimeField(String(fd.get("end") ?? ""));
+  if (startMinute === null || endMinute === null) return "Add a start and end time.";
+  return meetingTimeProblem({
+    startMinute,
+    endMinute,
+    startsOn: String(fd.get("startsOn") ?? "") || null,
+    endsOn: String(fd.get("endsOn") ?? "") || null,
+  });
 }

@@ -121,6 +121,19 @@ export function semesterToReuse(last: MeetingDates | null, today: string): Meeti
   return { startsOn: last.startsOn, endsOn: last.endsOn };
 }
 
+/** What's wrong with a new meeting's times or dates, for the student to fix; null when they're fine. */
+export function meetingTimeProblem(m: { startMinute: number; endMinute: number } & MeetingDates): string | null {
+  if (m.endMinute <= m.startMinute) return "The end time has to be after the start time.";
+  if (m.startsOn && m.endsOn && m.endsOn < m.startsOn) return "The last day has to be after the first day.";
+  return null;
+}
+
+/** "13:50" from a time field to minutes after midnight; null when it's empty or malformed. */
+export function minutesFromTimeField(value: string): number | null {
+  const match = /^(\d{2}):(\d{2})$/.exec(value);
+  return match ? Number(match[1]) * 60 + Number(match[2]) : null;
+}
+
 /** The weekdays picked in a form (any number of "dayOfWeek" values), deduplicated; invalid ones dropped. */
 export function parseMeetingDays(values: unknown[]): number[] {
   const days = values.map((v) => Number(v)).filter((d) => Number.isInteger(d) && d >= 0 && d <= 6);
