@@ -105,6 +105,13 @@ or later, and shows up with regular Mac apps in the Mac App Store, not under
   own release binaries for the rest, checking them against the release's
   checksums. The iPhone and Simulator slices are Capacitor's, byte for byte,
   so the iPhone app is built exactly as before.
+- **It's signed with our certificate, not Ionic's.** Apple lists Capacitor
+  and Cordova as commonly used SDKs, and the App Store refuses a build whose
+  copy is unsigned ("ITMS-91065: Missing signature"), which is what happened
+  to Mac build 1.2 (5). Adding the Mac slice drops Ionic's signature, so the
+  script signs both xcframeworks with the Apple Development certificate in
+  the keychain (`--sign-only` re-signs without rebuilding). The archive's
+  `Signatures` folder shows whether Xcode saw them as signed.
 - **How the app uses it.** The Xcode project references it as a local
   package, and Xcode then uses it in place of the GitHub one everywhere: in
   `CapApp-SPM` and in the Capacitor plugins. Xcode logs a "Conflicting

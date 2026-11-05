@@ -17,7 +17,12 @@ be built for the Mac from them. This script:
      build);
   3. puts each official xcframework back together with the Mac slice added,
      next to a Package.swift with the same name and products as
-     capacitor-swift-pm.
+     capacitor-swift-pm;
+  4. signs both xcframeworks with your own Apple Development or Distribution
+     certificate. Apple lists Capacitor and Cordova as commonly used SDKs,
+     and the App Store refuses a build whose copy of one is unsigned
+     (ITMS-91065: Missing signature). Adding the Mac slice drops Ionic's own
+     signature, so ours has to replace it.
 
 The app's Xcode project references ios/vendor/capacitor-swift-pm as a local
 package, which Xcode uses in place of the GitHub one everywhere (the app and
@@ -27,6 +32,12 @@ byte for byte, so the iPhone app is built exactly as before.
 Run it again after upgrading @capacitor/ios:
 
     python3 ios/scripts/build-capacitor-catalyst.py
+
+It signs with the first Apple Development (or Distribution) identity in your
+keychain; set CAPACITOR_SIGN_IDENTITY to pick another. To sign the vendored
+copies again without rebuilding them:
+
+    python3 ios/scripts/build-capacitor-catalyst.py --sign-only
 """
 
 import hashlib
@@ -347,12 +358,45 @@ let package = Package(
         f.write(ver + "\n")
 
 
+# 4. Sign both xcframeworks.
+# ---------------------------------------------------------------------------
+
+def signing_identity():
+    chosen = os.environ.get("CAPACITOR_SIGN_IDENTITY", "").strip()
+    if chosen:
+        return chosen
+    found = subprocess.run(["security", "find-identity", "-v", "-p", "codesigning"], capture_output=True, text=True).stdout
+    for kind in ("Apple Development", "Apple Distribution"):
+        match = re.search(rf'"({kind}: [^"]+)"', found)
+        if match:
+            return match.group(1)
+    sys.exit(
+        "No Apple Development or Distribution certificate in the keychain. The App Store refuses\n"
+        "unsigned Capacitor and Cordova xcframeworks (ITMS-91065), so sign in to Xcode with the\n"
+        "developer account (Settings > Accounts > Manage Certificates) and run this again."
+    )
+
+
+def sign():
+    identity = signing_identity()
+    for name in ("Capacitor", "Cordova"):
+        xc = os.path.join(VENDOR, f"{name}.xcframework")
+        # A secure timestamp, like the one on Ionic's own release.
+        run("codesign", "--force", "--timestamp", "--sign", identity, xc)
+        run("codesign", "--verify", "--strict", "--verbose=2", xc)
+    print(f"Signed with {identity}")
+
+
 def main():
+    if "--sign-only" in sys.argv[1:]:
+        sign()
+        return
     ver = version()
     with tempfile.TemporaryDirectory() as tmp:
         official = official_xcframeworks(ver, tmp)
         catalyst = build_catalyst_slice()
         assemble(official, catalyst, ver)
+    sign()
     print(f"Capacitor {ver} with Mac Catalyst: {os.path.relpath(VENDOR, ROOT)}")
 
 
