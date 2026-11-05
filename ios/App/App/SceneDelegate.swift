@@ -11,6 +11,14 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         window?.rootViewController = CampusBridgeViewController()
         window?.makeKeyAndVisible()
 
+        #if targetEnvironment(macCatalyst)
+        // The Mac app: a window that opens at a comfortable size and can't be
+        // squeezed smaller than the site's phone layout.
+        windowScene.sizeRestrictions?.minimumSize = CGSize(width: 420, height: 560)
+        windowScene.sizeRestrictions?.maximumSize = CGSize(width: CGFloat.greatestFiniteMagnitude, height: .greatestFiniteMagnitude)
+        windowScene.title = "Campus OS"
+        #endif
+
         SceneDelegateProxy.shared.scene(scene, willConnectTo: session, options: connectionOptions)
     }
 

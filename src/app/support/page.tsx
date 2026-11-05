@@ -79,9 +79,9 @@ export default function SupportPage() {
           <p>New accounts get a {TRIAL_DAYS}-day free trial, then a monthly or yearly subscription.</p>
           <ul className="flex list-disc flex-col gap-2 pl-5">
             <li>
-              <strong className="text-ink">Bought in the iPhone or iPad app:</strong> Apple bills it. Manage or cancel
-              it in your device&apos;s Settings → your name → Subscriptions. After reinstalling, or on a new device, tap
-              Restore purchases on the Subscribe screen.
+              <strong className="text-ink">Bought in the iPhone, iPad or Mac app:</strong> Apple bills it. Manage or
+              cancel it in your device&apos;s Settings → your name → Subscriptions (on a Mac, the App Store → your name →
+              Account Settings). After reinstalling, or on a new device, tap Restore purchases on the Subscribe screen.
             </li>
             <li>
               <strong className="text-ink">Bought on the website:</strong> manage or cancel it under Account → Manage

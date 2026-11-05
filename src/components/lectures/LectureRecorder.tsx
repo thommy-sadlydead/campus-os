@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { PluginListenerHandle } from "@capacitor/core";
-import { hasNativePlugin, NativeRecorder, nativeErrorCode, readInboxFile, SharedInbox } from "@/lib/native-app";
+import { hasNativePlugin, NativeRecorder, nativeDevice, nativeErrorCode, readInboxFile, SharedInbox } from "@/lib/native-app";
 import { saveLectureAudio } from "./save-lecture-audio";
 import { INBOX_CHANGED_EVENT } from "./NativeInbox";
 import { MicIcon } from "@/components/icons";
@@ -55,6 +55,12 @@ export function LectureRecorder({
   onBusyChange?: (busy: boolean) => void;
 }) {
   const [phase, setPhase] = useState<Phase>("idle");
+  // "Click to record" with a mouse or trackpad (a computer, the Mac app);
+  // "Tap" on a touch screen. Read after mounting, so the server's page matches.
+  const [pressWord, setPressWord] = useState("Tap");
+  useEffect(() => {
+    if (window.matchMedia?.("(hover: hover) and (pointer: fine)").matches) setPressWord("Click");
+  }, []);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -293,7 +299,7 @@ export function LectureRecorder({
     const item = (await SharedInbox.list()).items.find((i) => i.id === id);
     if (!item) {
       setPhase("idle");
-      setError("That recording is no longer on this iPhone.");
+      setError(`That recording is no longer on this ${nativeDevice()}.`);
       return;
     }
     if (!classIdRef.current) {
@@ -303,7 +309,7 @@ export function LectureRecorder({
       setElapsedMs(0);
       setRecovered(false);
       setError(null);
-      setNotice("Saved on this iPhone. Pick its class under Waiting to be added, above, to add it.");
+      setNotice(`Saved on this ${nativeDevice()}. Pick its class under Waiting to be added, above, to add it.`);
       window.dispatchEvent(new Event(INBOX_CHANGED_EVENT));
       return;
     }
@@ -457,7 +463,7 @@ export function LectureRecorder({
     setDownloadUrl(native ? null : URL.createObjectURL(file));
     setError(
       native && failedInboxIdRef.current
-        ? `${message} It's saved on this iPhone: try again now, or add it later from the top of the Record page.`
+        ? `${message} It's saved on this ${nativeDevice()}: try again now, or add it later from the top of the Record page.`
         : message
     );
     setPhase("failed");
@@ -599,7 +605,7 @@ export function LectureRecorder({
         <MicIcon className="h-9 w-9" />
       </button>
       <p className="text-sm font-semibold text-ink">
-        {!classId ? "Choose a class to start recording" : phase === "starting" ? "Starting…" : "Tap to record"}
+        {!classId ? "Choose a class to start recording" : phase === "starting" ? "Starting…" : `${pressWord} to record`}
       </p>
       <p className="max-w-xs text-xs text-ink-faint">
         When you stop, the recording uploads and Campus OS writes the transcript and notes for you.

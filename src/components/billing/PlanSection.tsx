@@ -67,7 +67,10 @@ export function PlanSection({
           Manage in the App Store
         </a>
       ) : (
-        <p className="text-sm text-ink-soft">Manage it on your iPhone: Settings → your name → Subscriptions.</p>
+        <p className="text-sm text-ink-soft">
+          Manage it where you bought it: on an iPhone or iPad, Settings → your name → Subscriptions; on a Mac, the App
+          Store → your name → Account Settings → Subscriptions.
+        </p>
       );
     }
   } else {

@@ -152,7 +152,7 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong className="text-ink">Stripe</strong> processes payments on the website, and{" "}
-              <strong className="text-ink">Apple</strong> processes payments in the iPhone and iPad app. Your payment
+              <strong className="text-ink">Apple</strong> processes payments in the iPhone, iPad and Mac app. Your payment
               details go straight to them.
             </li>
             <li>

@@ -1,12 +1,25 @@
 import { Capacitor, registerPlugin, type PluginListenerHandle } from "@capacitor/core";
 
-// The website also runs inside the Campus OS iPhone and iPad app (ios/, a
-// Capacitor shell around this same site; see ios/README.md). These are the
-// native features it can use there. On the web isNativeApp() is false and
-// none of the plugins below are called. Client-side only.
+// The website also runs inside the Campus OS app for iPhone, iPad and Mac
+// (ios/, a Capacitor shell around this same site; the Mac app is the same
+// app built with Mac Catalyst; see ios/README.md). These are the native
+// features it can use there. On the web isNativeApp() is false and none of
+// the plugins below are called. Client-side only.
 
 export function isNativeApp(): boolean {
   return typeof window !== "undefined" && Capacitor.isNativePlatform();
+}
+
+/**
+ * Which device the app is on, for wording ("Saved on this Mac"). Capacitor
+ * says "ios" on all three. The iPad's web view also says "Macintosh" in
+ * its user agent, so a Mac is told apart by having no touch screen.
+ */
+export function nativeDevice(): "iPhone" | "iPad" | "Mac" {
+  if (typeof navigator === "undefined") return "iPhone";
+  if (/iPhone|iPod/.test(navigator.userAgent)) return "iPhone";
+  if (/Macintosh/.test(navigator.userAgent)) return navigator.maxTouchPoints > 0 ? "iPad" : "Mac";
+  return /iPad/.test(navigator.userAgent) ? "iPad" : "iPhone";
 }
 
 /** A recording waiting in the app to be added to a class (ios/App/App/SharedInbox.swift). */

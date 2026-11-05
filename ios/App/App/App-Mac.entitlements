@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- The Mac app (Mac Catalyst). The Mac App Store requires the App Sandbox,
+     which then needs each thing the app does spelled out: reach the
+     internet (the site), record from the microphone (lectures), open files
+     the student picks (uploads), and share the App Group with the share
+     extension, the same group as on iPhone. -->
+<plist version="1.0">
+<dict>
+	<key>com.apple.security.app-sandbox</key>
+	<true/>
+	<key>com.apple.security.network.client</key>
+	<true/>
+	<key>com.apple.security.device.audio-input</key>
+	<true/>
+	<key>com.apple.security.files.user-selected.read-only</key>
+	<true/>
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>$(CAMPUS_APP_GROUP)</string>
+	</array>
+</dict>
+</plist>

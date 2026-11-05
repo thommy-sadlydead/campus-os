@@ -129,8 +129,9 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
           </p>
           {payments && (
             <p className="mt-2 text-sm leading-relaxed text-ink-soft">
-              A website subscription is canceled along with the account. One bought in the iPhone app is billed by
-              Apple, so cancel it first in your iPhone&apos;s Settings → your name → Subscriptions.
+              A website subscription is canceled along with the account. One bought in the iPhone, iPad or Mac app is
+              billed by Apple, so cancel it first: on an iPhone or iPad, Settings → your name → Subscriptions; on a
+              Mac, the App Store → your name → Account Settings → Subscriptions.
             </p>
           )}
           <p className="mt-2 text-sm leading-relaxed text-ink-soft">

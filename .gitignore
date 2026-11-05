@@ -23,3 +23,6 @@ coverage/
 # Chrome extension builds (scripts/build-extension.mjs)
 chrome-extension/dist-dev/
 chrome-extension/*.zip
+
+# Mac Catalyst Capacitor build scratch (ios/scripts/build-capacitor-catalyst.py)
+ios/build/

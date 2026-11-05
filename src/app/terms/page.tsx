@@ -34,7 +34,7 @@ export default function TermsPage() {
           <h1 className="mt-2 font-display text-3xl font-semibold text-ink sm:text-4xl">Terms of Use</h1>
           <p className="mt-1 text-xs text-ink-faint">Last updated October 5, 2026</p>
           <p className="mt-4">
-            These terms cover your use of Campus OS on the website and in the iPhone and iPad app. By creating an
+            These terms cover your use of Campus OS on the website and in the iPhone, iPad and Mac app. By creating an
             account you agree to them. The{" "}
             <Link href="/privacy" className="font-medium text-ink underline decoration-border underline-offset-2">
               privacy policy
@@ -67,10 +67,10 @@ export default function TermsPage() {
               monthly or yearly subscription. The price is shown before you buy.
             </li>
             <li>
-              <strong className="text-ink">Bought in the iPhone or iPad app:</strong> Apple bills your Apple ID under
-              its own terms. The subscription renews automatically at the same price unless you cancel at least 24 hours
-              before the current period ends, in your device&apos;s Settings → your name → Subscriptions. Refunds are
-              handled by Apple.
+              <strong className="text-ink">Bought in the iPhone, iPad or Mac app:</strong> Apple bills your Apple ID
+              under its own terms. The subscription renews automatically at the same price unless you cancel at least
+              24 hours before the current period ends, in your device&apos;s Settings → your name → Subscriptions (on a
+              Mac, the App Store → your name → Account Settings). Refunds are handled by Apple.
             </li>
             <li>
               <strong className="text-ink">Bought on the website:</strong> Stripe bills your card at the start of each

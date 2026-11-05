@@ -322,11 +322,16 @@ session cookies, no third-party auth.
   Gmail sign-in sheet). Read `ios/README.md` first. The website side is
   `src/lib/native-app.ts` and the components it's used in; all of it does
   nothing in a browser. Website changes reach the app without a new build.
+  The same target builds as the Mac app with Mac Catalyst, on a Capacitor
+  rebuilt with a Mac slice (`ios/vendor/capacitor-swift-pm`, made by
+  `ios/scripts/build-capacitor-catalyst.py`; rerun it after upgrading
+  `@capacitor/ios`). Capacitor reports "ios" on all three, so copy that
+  names the device uses `nativeDevice()`.
 
 ## Verifying a change before calling it done
 
 1. `npx tsc --noEmit` (after `npx prisma generate` if the schema changed)
-2. `npx vitest run` — 534 tests as of this writing across 48 files
+2. `npx vitest run` — 536 tests as of this writing across 49 files
 3. Clean build: `rm -rf .next && npx next build` (use `next build` directly
    to skip the `db push` the `npm run build` script triggers, if you're not
    ready to push schema changes yet)

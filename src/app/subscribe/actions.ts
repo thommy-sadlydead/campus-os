@@ -29,7 +29,7 @@ export async function startCheckoutAction(plan: Plan): Promise<BillingActionResu
   const subscriptions = await prisma.subscription.findMany({ where: { userId: user.id } });
   const current = subscriptions.find((sub) => subscriptionUnlocks(sub, new Date()));
   if (current?.source === "apple") {
-    return { error: "You already subscribe through the App Store. Manage it in your iPhone's Settings." };
+    return { error: "You already subscribe through the App Store. Manage it in the App Store's subscription settings on your iPhone, iPad or Mac." };
   }
   if (current?.source === "stripe") return openBillingPortalAction();
 

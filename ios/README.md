@@ -89,6 +89,69 @@ Website changes reach the app immediately without a new build. A new build is
 only needed for native changes (anything under `ios/` or a new Capacitor
 plugin).
 
+## The Mac app (Mac Catalyst)
+
+The same app also builds as a native Mac app with Mac Catalyst. It's the
+same target, bundle ID and App Store record, so subscriptions are shared
+(universal purchase). It runs on Apple silicon and Intel Macs with macOS 12
+or later, and shows up with regular Mac apps in the Mac App Store, not under
+"iPhone & iPad Apps".
+
+- **Capacitor had to be rebuilt for it.** Capacitor ships its iOS frameworks
+  as binaries (`capacitor-swift-pm`), with iPhone and Simulator slices only.
+  `ios/vendor/capacitor-swift-pm` is the same package, with a Mac Catalyst
+  slice added. `ios/scripts/build-capacitor-catalyst.py` builds that slice
+  from the source in `node_modules/@capacitor/ios`, and downloads Capacitor's
+  own release binaries for the rest, checking them against the release's
+  checksums. The iPhone and Simulator slices are Capacitor's, byte for byte,
+  so the iPhone app is built exactly as before.
+- **How the app uses it.** The Xcode project references it as a local
+  package, and Xcode then uses it in place of the GitHub one everywhere: in
+  `CapApp-SPM` and in the Capacitor plugins. Xcode logs a "Conflicting
+  identity for capacitor-swift-pm" warning about that. It's expected, but a
+  future Xcode may make it an error. If it does, point `CapApp-SPM` and the
+  plugins at the local package instead.
+- **Upgrading `@capacitor/ios`.** Run
+  `python3 ios/scripts/build-capacitor-catalyst.py` again after
+  `npm install` and `npx cap sync ios`, so the vendored version matches.
+- **Mac-only settings** (only for `sdk=macosx`, so iOS is untouched):
+  - "Optimize Interface for Mac" (`TARGETED_DEVICE_FAMILY` includes 6), so
+    the web view renders at full desktop size.
+  - The product name "Campus OS" (on iPhone it's still `App`, with the
+    display name "Campus OS").
+  - Entitlements: `App/App-Mac.entitlements` and
+    `ShareExtension/ShareExtension-Mac.entitlements`. That's the App Sandbox
+    (required by the Mac App Store), the network, the microphone, files the
+    student picks, and the same App Group as on iPhone.
+  - A minimum window size, in `SceneDelegate.swift`.
+- **Running it:** in Xcode, pick **My Mac (Mac Catalyst)** and Run, or
+  `xcodebuild -project ios/App/App.xcodeproj -scheme App -destination
+  'platform=macOS,variant=Mac Catalyst' -allowProvisioningUpdates build`.
+- **Releasing it:**
+  1. Product → Archive with **Any Mac (Mac Catalyst)** selected.
+  2. Distribute App → App Store Connect. The build goes to the app's macOS
+     platform.
+  3. The first time, add the macOS platform to the app in App Store
+     Connect, with Mac screenshots (2560×1600 or another 16:10 size) and the
+     same description.
+
+  Once a Mac version is live, it replaces the iPad app on Apple silicon
+  Macs.
+- **Checked on a Mac** (an M2, macOS 26):
+  - It launches and loads the site, and the bridge and all six plugins
+    answer.
+  - App Store products load.
+  - The App Group inbox works in the sandbox.
+  - A signed-in student's pages render at desktop size.
+  - An App Store export signs (Apple Distribution plus Mac Installer
+    Distribution).
+- **Not yet tried on a Mac:**
+  - An actual recording (it needs the student to allow the microphone).
+  - The Voice Memos share extension (macOS only registers it once the app
+    is installed from the App Store).
+  - The Gmail sign-in sheet.
+  - A real purchase.
+
 ## Subscriptions (in-app purchase)
 
 Apple requires its own in-app purchase for subscriptions bought inside the
@@ -143,5 +206,6 @@ a code redeemed in the App Store itself arrives through `Transaction.updates`
   (`/privacy`) (3.1.2).
 - **More than a website (4.2).** Point reviewers to the Voice Memos share,
   background recording and reminders.
-- **Mac.** Leave "iPhone and iPad Apps on Apple Silicon Macs" on in App
-  Store Connect to offer the iPad app on Macs.
+- **Mac.** The Mac app is its own version under the app's macOS platform
+  (see "The Mac app" above). Until it's released, the iPad app is offered on
+  Apple silicon Macs, labeled "Not verified for macOS".
