@@ -19,7 +19,15 @@ changes go out via `npx prisma db push`, and **`npm run build` runs
 `next build`, then `prisma/pre-push.sql`, then `prisma db push
 --skip-generate`**, so a normal build applies pending schema changes to
 production automatically (compiling first means a build that fails to
-compile never touches the database). Real users exist in
+compile never touches the database). Those two schema steps run from
+`scripts/db-push.sh` on Prisma Postgres's direct host (`db.prisma.io`, which
+`DATABASE_URL` names), while the app itself runs on the pooled host
+(`pooled.db.prisma.io`, same user and password), which can't run schema
+changes: `src/lib/db-url.ts` switches it at runtime, caps each serverless
+instance's pool and turns on pgbouncer mode (`DATABASE_POOLING=off` undoes
+the switch). On Nov 5, 2026, five students signing in at once took the site
+down with "too many connections" on the direct host, which allows only a
+handful; the shell's nav links also stopped prefetching then. Real users exist in
 this database today (`reecebroderick@cedarville.edu` is the primary one,
 plus a few others) with real Canvas-synced data. Treat any schema change or
 data-touching script accordingly — verify against a throwaway class/record
@@ -331,7 +339,7 @@ session cookies, no third-party auth.
 ## Verifying a change before calling it done
 
 1. `npx tsc --noEmit` (after `npx prisma generate` if the schema changed)
-2. `npx vitest run` — 536 tests as of this writing across 49 files
+2. `npx vitest run` — 541 tests as of this writing across 50 files
 3. Clean build: `rm -rf .next && npx next build` (use `next build` directly
    to skip the `db push` the `npm run build` script triggers, if you're not
    ready to push schema changes yet)

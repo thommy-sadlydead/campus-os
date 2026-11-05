@@ -40,6 +40,11 @@ function initials(name: string): string {
   return (parts.length > 1 ? parts[0][0] + parts[1][0] : name.slice(0, 2)).toUpperCase();
 }
 
+// The shell's links (here and in MobileNav) don't prefetch. Every page is
+// dynamic with no loading boundary, so a prefetch rendered the whole page on
+// the server without making the tap any faster, and each page view fired
+// about six of them at once. That's part of what ran the database out of
+// connections on Nov 5, 2026 (see src/lib/db-url.ts).
 function NavLink({
   href,
   label,
@@ -52,7 +57,7 @@ function NavLink({
   active: boolean;
 }) {
   return (
-    <Link
+    <Link prefetch={false}
       href={href}
       aria-current={active ? "page" : undefined}
       className={`group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
@@ -71,7 +76,7 @@ async function BillingBanner() {
   const access = user ? await getAccess(user.id) : null;
   if (access?.kind === "trial") {
     return (
-      <Link
+      <Link prefetch={false}
         href="/subscribe"
         className="mb-5 flex items-center gap-3 rounded-xl2 bg-accent-soft px-4 py-3 text-sm text-accent-ink"
       >
@@ -88,7 +93,7 @@ async function BillingBanner() {
   }
   if (access?.kind === "subscribed" && access.subscription.status === "past_due") {
     return (
-      <Link href="/account#plan" className="mb-5 flex items-center gap-3 rounded-xl2 bg-danger-soft px-4 py-3 text-sm text-danger">
+      <Link prefetch={false} href="/account#plan" className="mb-5 flex items-center gap-3 rounded-xl2 bg-danger-soft px-4 py-3 text-sm text-danger">
         <AlertIcon className="h-[18px] w-[18px] flex-none" />
         <span className="flex-1 font-medium">Your last payment didn&apos;t go through. Update it to keep Campus OS.</span>
         <ChevronRightIcon className="h-4 w-4 flex-none" />
@@ -138,13 +143,13 @@ export async function AppShell({
           the status bar and the account row clear of the home indicator. */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border-soft bg-surface pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)] lg:flex">
         <div className="flex h-16 flex-none items-center px-5">
-          <Link href="/dashboard" aria-label="Campus OS home">
+          <Link prefetch={false} href="/dashboard" aria-label="Campus OS home">
             <Logo />
           </Link>
         </div>
         {record && (
           <div className="px-3 pt-1">
-            <Link href="/record" aria-current={active === "/record" ? "page" : undefined} className="btn btn-brand w-full">
+            <Link prefetch={false} href="/record" aria-current={active === "/record" ? "page" : undefined} className="btn btn-brand w-full">
               <MicIcon className="h-[18px] w-[18px]" />
               Record a lecture
             </Link>
@@ -170,7 +175,7 @@ export async function AppShell({
         </nav>
         <div className="flex-none border-t border-border-soft p-3">
           <div className="flex items-center gap-1">
-            <Link
+            <Link prefetch={false}
               href="/account"
               aria-current={active === "/account" ? "page" : undefined}
               className={`flex min-w-0 flex-1 items-center gap-3 rounded-lg px-2 py-2 transition-colors ${
@@ -198,11 +203,11 @@ export async function AppShell({
           bar clear of the status bar and notch. */}
       <header className="glass sticky top-0 z-30 border-b border-border-soft pt-[env(safe-area-inset-top)] lg:hidden">
         <div className="flex h-14 items-center justify-between px-4">
-          <Link href="/dashboard" aria-label="Campus OS home" className="flex items-center gap-2.5">
+          <Link prefetch={false} href="/dashboard" aria-label="Campus OS home" className="flex items-center gap-2.5">
             <LogoMark size={26} />
             <span className="text-[15px] font-semibold tracking-tight">Campus OS</span>
           </Link>
-          <Link
+          <Link prefetch={false}
             href="/account"
             aria-label="Account"
             className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-2 text-xs font-semibold text-ink-soft ring-1 ring-border"

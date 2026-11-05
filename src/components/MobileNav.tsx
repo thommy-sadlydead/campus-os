@@ -78,7 +78,7 @@ export function MobileNav({
         <ul className="glass pointer-events-auto mx-auto grid max-w-md grid-cols-5 items-end rounded-[24px] border border-border-soft px-1.5 pb-1 pt-1.5 shadow-pop">
           {[today, classes].map(({ href, label, Icon }) => (
             <li key={href}>
-              <Link href={href} className={tabClass(active === href)} aria-current={active === href ? "page" : undefined}>
+              <Link prefetch={false} href={href} className={tabClass(active === href)} aria-current={active === href ? "page" : undefined}>
                 <Icon className={iconClass(active === href)} />
                 {label}
               </Link>
@@ -86,7 +86,7 @@ export function MobileNav({
           ))}
           {record ? (
             <li className="flex justify-center">
-              <Link
+              <Link prefetch={false}
                 href="/record"
                 aria-label="Record a lecture"
                 aria-current={active === "/record" ? "page" : undefined}
@@ -106,14 +106,14 @@ export function MobileNav({
             </li>
           ) : (
             <li>
-              <Link href="/assignments" className={tabClass(active === "/assignments")} aria-current={active === "/assignments" ? "page" : undefined}>
+              <Link prefetch={false} href="/assignments" className={tabClass(active === "/assignments")} aria-current={active === "/assignments" ? "page" : undefined}>
                 <ChecklistIcon className={iconClass(active === "/assignments")} />
                 Assignments
               </Link>
             </li>
           )}
           <li>
-            <Link
+            <Link prefetch={false}
               href={schedule.href}
               className={tabClass(active === schedule.href)}
               aria-current={active === schedule.href ? "page" : undefined}
@@ -150,7 +150,7 @@ export function MobileNav({
             <ul className="mx-auto flex max-w-lg flex-col gap-0.5">
               {moreLinks.map(({ href, label, Icon, match }) => (
                 <li key={href}>
-                  <Link
+                  <Link prefetch={false}
                     href={href}
                     onClick={() => setMoreOpen(false)}
                     aria-current={active === match ? "page" : undefined}

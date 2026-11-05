@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build && prisma db execute --file prisma/pre-push.sql --schema prisma/schema.prisma && prisma db push --skip-generate",
+    "build": "next build && sh scripts/db-push.sh",
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",
