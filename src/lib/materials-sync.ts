@@ -24,7 +24,10 @@ import { extractDocumentText } from "./office-text";
 import { ocrPdf } from "./pdf-ocr";
 import { MAX_MATERIAL_TITLE_LENGTH, MAX_MATERIAL_CONTENT_LENGTH } from "./lecture-notes";
 
-export type MaterialsProvider = "canvas" | "schoology";
+// Brightspace and Blackboard materials come from the Chrome extension
+// (src/lib/lms/extension-import.ts), which reuses upsertMaterial and
+// readDocumentText but not the server-side discovery below.
+export type MaterialsProvider = "canvas" | "schoology" | "brightspace" | "blackboard";
 
 /** Whether a scanned PDF may be sent to Claude to read (the student allowed AI features). */
 export interface MaterialSyncOptions {

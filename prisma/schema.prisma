@@ -78,6 +78,8 @@ model User {
   calendarFeed        CalendarFeed?
   commitments         Commitment[]
   studySessions       StudySession[]
+  extensionPairings   ExtensionPairing[]
+  extensionTokens     ExtensionToken[]
   schoolRequests      SchoolAccessRequest[]
 
   @@index([appleAccountToken])
@@ -415,6 +417,10 @@ model MaterialSyncState {
   resourcesFound  Int       @default(0)
   resourcesDone   Int       @default(0)
   resourcesFailed Int       @default(0)
+  // Files the Chrome extension still has to send this run (Brightspace,
+  // Blackboard; src/lib/lms/extension-import.ts). Null for Canvas and
+  // Schoology, whose server-side sync tracks its own progress.
+  resourcesPending Int?
   errorMessage    String?
   startedAt       DateTime?
   finishedAt      DateTime?
@@ -506,21 +512,22 @@ model LmsConnection {
   connectedAt    DateTime  @default(now())
   lastSyncedAt   DateTime?
   lastSyncReport String?
+  // How it connects: null for the API key (Schoology) or calendar link
+  // (Brightspace, Blackboard) in credentialsEnc; "extension" for the Campus
+  // OS Chrome extension (src/lib/lms/extension-import.ts), which syncs from
+  // the student's own browser. baseUrl is then the LMS site's origin, and
+  // credentialsEnc holds nothing secret.
+  method         String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, provider])
 }
 
-// A student asking their school to turn on Campus OS in Brightspace or
-// Blackboard (Connect → that LMS → Ask your school), whose APIs only open
-// to apps a school's admin has enabled. The student sends the email from
-// their own mail app; this row counts who asked at each school and keeps
-// the address they sent it to (see src/lib/lms/school-request.ts).
-//   provider: "brightspace" | "blackboard"
-//   schoolHost: the host of their LMS address (LmsConnection.baseUrl),
-//     like "learn.school.edu"
-//   contactEmail: where they sent it, usually the school's IT help desk
+// No longer written (November 2026): the "Ask your school" email it counted
+// was replaced by the Chrome extension (src/lib/lms/extension-import.ts).
+// Kept so the requests students already made aren't dropped; they go with
+// the account when it's deleted.
 model SchoolAccessRequest {
   id           String   @id @default(cuid())
   userId       String
@@ -839,4 +846,54 @@ model StudySession {
 
   @@index([userId, startsAt])
   @@index([examId])
+}
+
+// ---------------------------------------------------------------------------
+// The Campus OS Chrome extension for Brightspace and Blackboard
+// (chrome-extension/, src/lib/lms/extension-*.ts)
+// ---------------------------------------------------------------------------
+
+// A one-time code a Connect page hands the extension to pair it with the
+// signed-in account. Stored as an HMAC (hashToken), good for 10 minutes.
+model ExtensionPairing {
+  id        String    @id @default(cuid())
+  userId    String
+  codeHash  String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// What the paired extension signs its requests with. Stored as an HMAC;
+// deleting the row (disconnecting) is what revokes it.
+model ExtensionToken {
+  id         String    @id @default(cuid())
+  userId     String
+  tokenHash  String    @unique
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// A piece of a course file the extension is uploading, when the file is
+// bigger than one request (Vercel caps requests at 4.5 MB). Deleted once
+// the file is put together and read; leftovers from an upload that never
+// finished are cleared after an hour.
+model ExtensionUploadPart {
+  id        String   @id @default(cuid())
+  userId    String
+  uploadId  String
+  part      Int
+  data      Bytes
+  createdAt DateTime @default(now())
+
+  @@unique([uploadId, part])
+  @@index([createdAt])
 }

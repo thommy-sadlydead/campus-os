@@ -21,7 +21,7 @@ export default async function AssignmentsPage() {
     }),
     getConnections(user.id),
   ]);
-  const checkOffNames = namesWithoutSubmissionStatus(connections.map((c) => c.provider));
+  const checkOffNames = namesWithoutSubmissionStatus(connections);
 
   return (
     <AppShell active="/assignments" userName={user.name ?? user.email}>

@@ -19,3 +19,7 @@ prisma/dev.db-journal
 *.log
 coverage/
 *.tsbuildinfo
+
+# Chrome extension builds (scripts/build-extension.mjs)
+chrome-extension/dist-dev/
+chrome-extension/*.zip

@@ -68,7 +68,9 @@ export async function deleteUserAndData(userId: string): Promise<void> {
 
   // RateLimitEvent rows are keyed by string, not by a relation, so the
   // cascade doesn't reach them (see src/lib/rate-limit.ts for the keys).
+  // Neither does a half-uploaded course file from the Chrome extension.
   await prisma.$transaction([
+    prisma.extensionUploadPart.deleteMany({ where: { userId } }),
     prisma.rateLimitEvent.deleteMany({
       where: {
         key: {
@@ -78,6 +80,9 @@ export async function deleteUserAndData(userId: string): Promise<void> {
             `upload:${userId}`,
             `free-code:${userId}`,
             `mcp:${userId}`,
+            `extension-upload:${userId}`,
+            `extension-pair-user:${userId}`,
+            `grades-refresh:${userId}`,
             `login-email:${user.email.toLowerCase()}`,
           ],
         },

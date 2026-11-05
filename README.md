@@ -96,11 +96,27 @@ as out of scope.
     for current work, exams (midterm/final flags, names, the calendar), and
     course materials (documents, pages, attachments).
   - **Brightspace and Blackboard** (`/connect/brightspace`,
-    `/connect/blackboard`): their APIs only open to apps a school's IT
-    department registers, so a student connects their calendar feed link
-    instead. Classes, due dates and exams come in; the student previews
-    the classes found (renaming or leaving any out) before connecting.
-    Directions, submissions and files aren't in a feed, so the page says so.
+    `/connect/blackboard`): students can't make their own API keys for
+    these, so they connect with the **Campus OS Connector** Chrome extension
+    (`chrome-extension/`, read its README). They pair it from the Connect
+    page, allow their school's site, and choose courses in its popup. It
+    then reads Brightspace's Valence API or Blackboard's Learn REST API with
+    the student's own browser session: courses, assignments with directions
+    and due dates, turned-in and graded status, exams, and course files and
+    pages. It sends these to `/api/lms-extension/*`
+    (`src/lib/lms/extension-import.ts`), which saves them through the same
+    `applyLmsCourses`, `planSync`, `readDocumentText` and `upsertMaterial`
+    as Canvas and Schoology. Unchanged files are never downloaded again,
+    big files go up in 3.5 MB parts, and a course is marked done only once
+    every file it asked for is saved. It syncs again on its own when the
+    student opens the site, if it's been 6 hours. The Connect page shows
+    each course's progress (`ExtensionProgressPanel`).
+    Without Chrome on a computer (the iPhone/iPad app, Safari), the
+    **calendar feed link** is still there as a fallback: classes, due dates
+    and exams, previewed (rename or leave out) before connecting, but no
+    directions, submissions or files. Connecting the extension replaces a
+    calendar connection and folds its copies of deadlines into the full ones
+    (`matchCalendarDuplicates`), carrying over status and steps.
   Every credential (token, key, feed link) is encrypted at rest the same
   way Gmail's is.
 - **Command Center dashboard**: a ranked "what should I do" list, a
@@ -131,16 +147,10 @@ as out of scope.
   (`/calendar/<token>.ics`, `CalendarFeed`) for Apple, Google or Outlook
   Calendar: weekly repeating events in their time zone that update as
   meetings change (`src/lib/calendar-feed.ts`, tested).
-- **Ask your school** (Connect → Brightspace/Blackboard, once connected):
-  those two only open their APIs to apps a school's admin has turned on,
-  so the card writes the request email (with `BLACKBOARD_APP_ID` for
-  Blackboard admins, copying `CONTACT_EMAIL`) for the student to send from
-  their own mail app, Gmail or Outlook. Opening it counts the request per
-  school (`SchoolAccessRequest`), and the address most students at a school
-  used is suggested to the next one, only when it's at the school's own
-  domain (`src/lib/lms/school-request.ts`, tested). To see which schools
-  asked: `SELECT provider, "schoolHost", count(*) FROM "SchoolAccessRequest"
-  GROUP BY 1, 2 ORDER BY 3 DESC`.
+- **Ask your school** (removed November 2026): a card that wrote an email
+  asking a school's IT to turn on Campus OS. The Chrome extension replaced
+  it. `SchoolAccessRequest` keeps the requests already made and is no
+  longer written.
 - **Gmail email intelligence** (`/email`): connect your school Gmail via
   OAuth (read-only, no password ever touches this app), get a summarized
   **Inbox Academic Feed** of only the relevant emails (grouped by class and

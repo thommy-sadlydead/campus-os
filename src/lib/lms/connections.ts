@@ -22,6 +22,8 @@ export interface SchoologyCredentials {
 
 export interface ConnectionSummary {
   provider: LmsProvider;
+  /** "extension" for Brightspace or Blackboard through the Chrome extension; null otherwise. */
+  method: string | null;
   connectedAt: Date;
   lastSyncedAt: Date | null;
 }
@@ -30,13 +32,13 @@ export interface ConnectionSummary {
 export const getConnections = cache(async (userId: string): Promise<ConnectionSummary[]> => {
   const [canvas, others] = await Promise.all([
     prisma.canvasAccount.findUnique({ where: { userId }, select: { connectedAt: true, lastSyncedAt: true } }),
-    prisma.lmsConnection.findMany({ where: { userId }, select: { provider: true, connectedAt: true, lastSyncedAt: true } }),
+    prisma.lmsConnection.findMany({ where: { userId }, select: { provider: true, method: true, connectedAt: true, lastSyncedAt: true } }),
   ]);
   const list: ConnectionSummary[] = [];
-  if (canvas) list.push({ provider: "canvas", connectedAt: canvas.connectedAt, lastSyncedAt: canvas.lastSyncedAt });
+  if (canvas) list.push({ provider: "canvas", method: null, connectedAt: canvas.connectedAt, lastSyncedAt: canvas.lastSyncedAt });
   for (const c of others) {
     if (c.provider in LMS_PROVIDER_INFO) {
-      list.push({ provider: c.provider as LmsProvider, connectedAt: c.connectedAt, lastSyncedAt: c.lastSyncedAt });
+      list.push({ provider: c.provider as LmsProvider, method: c.method, connectedAt: c.connectedAt, lastSyncedAt: c.lastSyncedAt });
     }
   }
   return list;
@@ -108,6 +110,10 @@ function describeSyncError(provider: NonCanvasProvider, baseUrl: string, err: un
 export async function runLmsSync(userId: string, provider: NonCanvasProvider, timeZone: string): Promise<SyncReport> {
   const connection = await getLmsConnection(userId, provider);
   if (!connection) return failedReport(provider, new Date(), `${LMS_PROVIDER_INFO[provider].name} isn't connected.`);
+  // The extension syncs from the student's browser; there's nothing for the server to fetch.
+  if (connection.method === "extension") {
+    return failedReport(provider, new Date(), `${LMS_PROVIDER_INFO[provider].name} syncs through the Campus OS extension. Use Sync now on its Connect page.`);
+  }
 
   let report: SyncReport;
   try {

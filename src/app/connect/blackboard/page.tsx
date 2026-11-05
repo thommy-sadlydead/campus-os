@@ -1,8 +1,8 @@
-import { FeedProviderPage } from "@/components/connect/FeedProviderPage";
+import { SchoolLmsPage } from "@/components/connect/SchoolLmsPage";
 
 // Reading the calendar feed and writing a term's due dates can take a bit.
 export const maxDuration = 60;
 
 export default function BlackboardPage() {
-  return <FeedProviderPage provider="blackboard" />;
+  return <SchoolLmsPage provider="blackboard" />;
 }

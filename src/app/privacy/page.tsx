@@ -61,7 +61,17 @@ export default function PrivacyPage() {
               imports.
             </li>
             <li>
-              <strong className="text-ink">Brightspace or Blackboard, if you connect one:</strong> your calendar link
+              <strong className="text-ink">Brightspace or Blackboard, through the Campus OS extension for Chrome:</strong>{" "}
+              the address of your school&apos;s site, and, for the courses you choose in the extension, their names,
+              assignments with their directions, due dates and whether you&apos;ve turned them in or been graded, and
+              the text of the course files and pages your account can open there. The extension reads these in your
+              own browser with the sign-in you already have; it never sees your school password and never reads or
+              stores your cookies, and Campus OS never receives either. Files you can&apos;t open, and anything in a
+              course you didn&apos;t choose, aren&apos;t read. The extension keeps only a token that connects it to your
+              Campus OS account (stored as a one-way hash on our side) and which courses you chose.
+            </li>
+            <li>
+              <strong className="text-ink">Brightspace or Blackboard, by calendar link:</strong> your calendar link
               (encrypted, since it works like a password for your calendar), and the classes, due dates and exams on
               that calendar, with any class names you change.
             </li>
@@ -89,10 +99,9 @@ export default function PrivacyPage() {
               connected it and last used it, and its access tokens as one-way hashes (never the tokens themselves).
             </li>
             <li>
-              <strong className="text-ink">If you ask your school to turn on Campus OS</strong> (Connect → Brightspace
-              or Blackboard): which school, when, and the address you sent the email to. Other students at the same
-              school see how many students have asked (never who), and the address most of them used, only when
-              it&apos;s at the school&apos;s own domain. The email itself goes from your own email account.
+              <strong className="text-ink">If you asked your school to turn on Campus OS</strong> before November 2026
+              (the old &ldquo;Ask your school&rdquo; email): which school, when, and the address you sent it to. Campus OS
+              no longer asks for this, and what was saved is deleted with your account.
             </li>
             <li>
               <strong className="text-ink">Your calendar link, if you make one:</strong> the private link your calendar
@@ -219,6 +228,13 @@ export default function PrivacyPage() {
               Disconnect deletes the stored key or calendar link. To stop the key or link working entirely, reset your
               API key on Schoology&apos;s /api page, or turn off or reset calendar sharing in Brightspace or Blackboard.
               Classes and assignments already brought in stay in Campus OS until you delete them or your account.
+            </li>
+            <li>
+              <strong className="text-ink">The Campus OS extension:</strong> Connect → Brightspace or Blackboard →
+              Disconnect stops syncing and, once no school site uses it, cuts the extension off from your account. In
+              the extension, &ldquo;Stop syncing this site&rdquo; removes its access to your school&apos;s site, and removing
+              the extension from Chrome deletes everything it kept. What already came in stays in Campus OS until you
+              delete it or your account.
             </li>
           </ul>
         </Section>

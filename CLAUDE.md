@@ -193,12 +193,29 @@ session cookies, no third-party auth.
   gradebook, turned-in from the dropbox for current work only; exams from
   `is_final`, names and the calendar), `schoology-materials.ts` (documents,
   pages and attachments on the shared materials engine).
-- **Brightspace and Blackboard, by calendar feed** (`src/lib/lms/`):
-  `ics.ts` (iCalendar reader), `feed-courses.ts` (which course each item
-  belongs to, and whether it's a deadline, an exam or noise; pure, tested),
-  `feed-sync.ts` (fetch, preview, apply the student's choices). Their APIs
-  need the school to register an app, so don't "upgrade" these to API
-  connectors without that — and never collect a student's LMS password.
+- **Brightspace and Blackboard through the Chrome extension**
+  (`chrome-extension/`, read its README first): the extension reads each
+  LMS's own REST API in the student's browser session and posts what it
+  found to `src/app/api/lms-extension/[action]` (token auth in
+  `src/lib/lms/extension-auth.ts`; payloads checked by
+  `extension-protocol.ts`; saved by `extension-import.ts` through the
+  shared LMS and materials code). `LmsConnection.method` is "extension"
+  for these, and `runLmsSync` refuses to sync them server-side. Keep
+  `chrome-extension/src/api.js` and `extension-protocol.ts` in step
+  (`tests/extension-sync.test.ts` runs the extension's payloads through the
+  app's schemas). The extension has no build step, so what's reviewed is
+  what runs; `scripts/build-extension.mjs` makes the Web Store ZIP and a
+  `--dev` build for local testing against `scripts/lms-standin/server.mjs`.
+  Never collect a student's LMS password or cookies, and never read an LMS
+  server-side with anything of theirs.
+  - Chrome 137+ ignores `--load-extension`. To drive it in a real Chrome,
+    use `--remote-debugging-pipe --enable-unsafe-extension-debugging` and
+    the DevTools `Extensions.loadUnpacked` command.
+- **Brightspace and Blackboard by calendar feed** (the fallback, for
+  students without Chrome on a computer; `src/lib/lms/`): `ics.ts`
+  (iCalendar reader), `feed-courses.ts` (which course each item belongs to,
+  and whether it's a deadline, an exam or noise; pure, tested),
+  `feed-sync.ts` (fetch, preview, apply the student's choices).
 - **Connections** (`src/lib/lms/connections.ts`): reading/saving
   `LmsConnection`, `runLmsSync` (never throws; stores the report), and the
   nav label. Pages and actions are in `src/app/connect/`.
@@ -309,7 +326,7 @@ session cookies, no third-party auth.
 ## Verifying a change before calling it done
 
 1. `npx tsc --noEmit` (after `npx prisma generate` if the schema changed)
-2. `npx vitest run` — 514 tests as of this writing across 44 files
+2. `npx vitest run` — 534 tests as of this writing across 48 files
 3. Clean build: `rm -rf .next && npx next build` (use `next build` directly
    to skip the `db push` the `npm run build` script triggers, if you're not
    ready to push schema changes yet)
@@ -348,6 +365,12 @@ Two known-good workarounds, both used this session:
 
 ## Known limitations (not bugs — don't "fix" without new information)
 
+- **The Chrome extension hasn't been tried against a real school's
+  Brightspace or Blackboard yet** (no account to test with). It was built
+  from D2L's and Blackboard's API references and tested against the local
+  stand-in. When a real site behaves differently, add what it sent
+  (anonymized) to `tests/extension-*.test.ts` and adjust the reader. Don't
+  guess. Its other known gaps are in `chrome-extension/README.md`.
 - **Brightspace and Blackboard calendar feeds** carry due dates and exams,
   not directions, submission status or files, and they aren't laid out the
   same at every school. The course-detection rules in `feed-courses.ts`
@@ -385,5 +408,8 @@ Two known-good workarounds, both used this session:
   directly (already an existing feature).
 - Legacy binary `.ppt`/`.doc` (pre-2007 OLE format) are recorded but not
   imported — no parser for that format in this codebase.
-- No scheduled/background sync — materials sync is triggered by connecting
-  Canvas or clicking "Go fetch materials," never on a timer.
+- No scheduled/background sync on the server — Canvas and Schoology
+  materials sync is triggered by connecting or clicking "Go fetch
+  materials," never on a timer. (The Chrome extension syncs Brightspace and
+  Blackboard on its own, but from the student's browser, when they open
+  their school's site.)

@@ -36,6 +36,11 @@ export const RATE_LIMITS = {
   // Refreshing Canvas grades after Today loads (src/lib/grades-server.ts):
   // once every six hours at most, per account.
   gradesRefresh: { limit: 1, windowMs: 6 * 60 * MINUTE },
+  // The Chrome extension (src/app/api/lms-extension): pairing attempts per
+  // client IP, and file parts uploaded per account (a big first import of
+  // every course's files fits comfortably).
+  extensionPair: { limit: 20, windowMs: 15 * MINUTE },
+  extensionUpload: { limit: 4000, windowMs: DAY },
   // New lectures (each one means an AssemblyAI transcription and a long
   // note-generation call), plus audio upload tokens as a backstop for
   // uploads that never become a lecture.

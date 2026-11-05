@@ -147,7 +147,7 @@ export default async function DashboardPage() {
   // (Brightspace, Blackboard), a reminder that work here stays open until
   // it's checked off. The Assignments page always says so.
   const checkOffNames = namesWithoutSubmissionStatus(
-    connections.filter((c) => now.getTime() - c.connectedAt.getTime() < 14 * 24 * 60 * 60 * 1000).map((c) => c.provider)
+    connections.filter((c) => now.getTime() - c.connectedAt.getTime() < 14 * 24 * 60 * 60 * 1000)
   );
 
   const ranked = rankWorkItems(items, now, user.timezone);

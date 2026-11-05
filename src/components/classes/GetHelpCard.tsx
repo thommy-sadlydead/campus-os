@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { findHelpInSyllabusAction } from "@/app/classes/[id]/ai-actions";
 import { CardHeader } from "@/components/ui/CardHeader";
 import { HELP_REASONS, professorEmailDraft, type HelpReason } from "@/lib/get-help";
-import { gmailLink, mailtoLink, outlookLink } from "@/lib/lms/school-request";
+import { gmailLink, mailtoLink, outlookLink } from "@/lib/compose-links";
 import { ExternalIcon, MailIcon, SparkIcon } from "@/components/icons";
 
 export interface HelpInfo {

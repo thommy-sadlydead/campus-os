@@ -1,9 +1,11 @@
 // The learning management systems Campus OS syncs from, and what a
 // student's own connection to each one can read. Canvas and Schoology let a
 // student make their own API key or token. D2L Brightspace and Blackboard
-// only open their APIs to apps a school's IT department has registered, so
-// for those a student connects their calendar feed, which carries due
-// dates but not directions, submissions or files.
+// don't, so a student connects them with the Campus OS Chrome extension,
+// which reads them with the sign-in already in their browser (see
+// chrome-extension/README.md), or, without Chrome on a computer, with
+// their calendar feed, which carries due dates but not directions,
+// submissions or files.
 //
 // Pure (no Prisma or Next.js), so client components can use it too.
 
@@ -67,6 +69,14 @@ export const LMS_PROVIDER_INFO: Record<LmsProvider, LmsProviderInfo> = {
   },
 };
 
+/** What Brightspace and Blackboard bring in through the Chrome extension. */
+export const EXTENSION_CAPABILITIES: LmsCapabilities = { directions: true, submissionStatus: true, materials: true };
+
+/** What a connection reads: by calendar link, LMS_PROVIDER_INFO's; through the extension, all of it. */
+export function capabilitiesFor(provider: LmsProvider, method: string | null | undefined): LmsCapabilities {
+  return method === "extension" ? EXTENSION_CAPABILITIES : LMS_PROVIDER_INFO[provider].capabilities;
+}
+
 /** "Canvas", or null for a class that wasn't synced from an LMS. */
 export function lmsName(provider: string | null | undefined): string | null {
   return isLmsProvider(provider) ? LMS_PROVIDER_INFO[provider].name : null;
@@ -99,9 +109,8 @@ export function lmsLink(url: string | null | undefined, provider: string | null 
  * "Brightspace", or "Brightspace and Blackboard": the given LMSs that don't
  * tell Campus OS what the student has turned in. Null when they all do.
  */
-export function namesWithoutSubmissionStatus(providers: LmsProvider[]): string | null {
-  const names = [...new Set(providers)]
-    .filter((p) => !LMS_PROVIDER_INFO[p].capabilities.submissionStatus)
+export function namesWithoutSubmissionStatus(connections: { provider: LmsProvider; method?: string | null }[]): string | null {
+  const names = [...new Set(connections.filter((c) => !capabilitiesFor(c.provider, c.method).submissionStatus).map((c) => c.provider))]
     .map((p) => LMS_PROVIDER_INFO[p].name);
   if (names.length === 0) return null;
   return names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;

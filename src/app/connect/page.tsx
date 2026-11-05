@@ -5,13 +5,13 @@ import { AppShell } from "@/components/AppShell";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { ArrowRightIcon, CheckIcon, XIcon } from "@/components/icons";
 import { getConnections } from "@/lib/lms/connections";
-import { LMS_PROVIDERS, LMS_PROVIDER_INFO, type LmsProvider } from "@/lib/lms/providers";
+import { EXTENSION_CAPABILITIES, LMS_PROVIDERS, LMS_PROVIDER_INFO, capabilitiesFor, isFeedProvider, type LmsProvider } from "@/lib/lms/providers";
 
 const HOW: Record<LmsProvider, string> = {
   canvas: "With an access token you make in Canvas's settings.",
   schoology: "With the API key on your school's Schoology /api page.",
-  brightspace: "With your Brightspace calendar's subscribe link.",
-  blackboard: "With your Blackboard calendar's share link.",
+  brightspace: "With the Campus OS extension for Chrome, or your calendar link.",
+  blackboard: "With the Campus OS extension for Chrome, or your calendar link.",
 };
 
 function Feature({ yes, children }: { yes: boolean; children: React.ReactNode }) {
@@ -43,6 +43,8 @@ export default async function ConnectPage() {
         {LMS_PROVIDERS.map((provider) => {
           const info = LMS_PROVIDER_INFO[provider];
           const connection = connected.get(provider);
+          // Brightspace and Blackboard: what the extension brings in, unless this account uses the calendar link.
+          const capabilities = connection ? capabilitiesFor(provider, connection.method) : isFeedProvider(provider) ? EXTENSION_CAPABILITIES : info.capabilities;
           return (
             <Link
               key={provider}
@@ -64,9 +66,9 @@ export default async function ConnectPage() {
 
               <ul className="flex flex-col gap-1.5 text-[13px]">
                 <Feature yes>Classes, due dates and exams</Feature>
-                <Feature yes={info.capabilities.directions}>Assignment directions</Feature>
-                <Feature yes={info.capabilities.submissionStatus}>What you&apos;ve turned in</Feature>
-                <Feature yes={info.capabilities.materials}>Course files, for notes and the class assistant</Feature>
+                <Feature yes={capabilities.directions}>Assignment directions</Feature>
+                <Feature yes={capabilities.submissionStatus}>What you&apos;ve turned in</Feature>
+                <Feature yes={capabilities.materials}>Course files, for notes and the class assistant</Feature>
               </ul>
 
               <div className="mt-auto flex items-center justify-between gap-3 border-t border-border-soft pt-3 text-[13px]">
@@ -88,9 +90,10 @@ export default async function ConnectPage() {
       </div>
 
       <p className="mt-6 max-w-2xl text-xs leading-relaxed text-ink-faint">
-        Brightspace and Blackboard only let apps a school&apos;s IT department has approved read courses, so Campus OS
-        connects to them through your calendar: classes, due dates and exams come in, and you check work off here as you
-        finish it. Not sure which one your school uses? It&apos;s the site where your professors post assignments.
+        Brightspace and Blackboard don&apos;t give students their own API keys, so the Campus OS extension for Chrome reads
+        them with the sign-in you already have there, only after you choose your courses. No Chrome on a computer? Your
+        calendar link brings in classes, due dates and exams instead. Not sure which one your school uses? It&apos;s the
+        site where your professors post assignments.
       </p>
     </AppShell>
   );

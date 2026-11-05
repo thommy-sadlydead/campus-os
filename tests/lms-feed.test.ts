@@ -241,9 +241,15 @@ describe("analyzeFeeds with item types in CATEGORIES", () => {
 });
 
 describe("namesWithoutSubmissionStatus", () => {
+  const c = (...providers: ("canvas" | "schoology" | "brightspace" | "blackboard")[]) => providers.map((provider) => ({ provider }));
+
   it("names the connected LMSs that don't say what's turned in", () => {
-    expect(namesWithoutSubmissionStatus(["canvas", "schoology"])).toBeNull();
-    expect(namesWithoutSubmissionStatus(["canvas", "brightspace"])).toBe("Brightspace");
-    expect(namesWithoutSubmissionStatus(["blackboard", "brightspace", "brightspace"])).toBe("Blackboard and Brightspace");
+    expect(namesWithoutSubmissionStatus(c("canvas", "schoology"))).toBeNull();
+    expect(namesWithoutSubmissionStatus(c("canvas", "brightspace"))).toBe("Brightspace");
+    expect(namesWithoutSubmissionStatus(c("blackboard", "brightspace", "brightspace"))).toBe("Blackboard and Brightspace");
+  });
+
+  it("leaves out Brightspace and Blackboard connected through the extension, which do say", () => {
+    expect(namesWithoutSubmissionStatus([{ provider: "brightspace", method: "extension" }, { provider: "blackboard", method: null }])).toBe("Blackboard");
   });
 });
