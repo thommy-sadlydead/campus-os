@@ -27,7 +27,10 @@ changes: `src/lib/db-url.ts` switches it at runtime, caps each serverless
 instance's pool and turns on pgbouncer mode (`DATABASE_POOLING=off` undoes
 the switch). On Nov 5, 2026, five students signing in at once took the site
 down with "too many connections" on the direct host, which allows only a
-handful; the shell's nav links also stopped prefetching then. Real users exist in
+handful; the shell's nav links also stopped prefetching then. On Nov 6 the
+pooled host didn't answer for a few seconds and two page loads failed, so every
+query now retries when it couldn't connect at all (`src/lib/db-retry.ts`) and
+`src/app/error.tsx` replaces Next.js's bare "Application error". Real users exist in
 this database today (`reecebroderick@cedarville.edu` is the primary one,
 plus a few others) with real Canvas-synced data. Treat any schema change or
 data-touching script accordingly — verify against a throwaway class/record
@@ -375,7 +378,7 @@ no third-party auth.
 ## Verifying a change before calling it done
 
 1. `npx tsc --noEmit` (after `npx prisma generate` if the schema changed)
-2. `npx vitest run` — 561 tests as of this writing across 52 files
+2. `npx vitest run` — 564 tests as of this writing across 53 files
 3. Clean build: `rm -rf .next && npx next build` (use `next build` directly
    to skip the `db push` the `npm run build` script triggers, if you're not
    ready to push schema changes yet)

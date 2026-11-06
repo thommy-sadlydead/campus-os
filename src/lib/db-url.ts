@@ -17,6 +17,9 @@
 
 export const POOL_SIZE = "3";
 export const POOL_TIMEOUT_SECONDS = "20";
+// Prisma's default is 5 s to open a connection; a slow moment on the
+// database shouldn't fail a page load (Nov 6, 2026).
+export const CONNECT_TIMEOUT_SECONDS = "10";
 const DIRECT_HOST = "db.prisma.io";
 const POOLED_HOST = "pooled.db.prisma.io";
 
@@ -36,6 +39,7 @@ export function runtimeDatabaseUrl(
   const params = url.searchParams;
   if (!params.has("connection_limit")) params.set("connection_limit", POOL_SIZE);
   if (!params.has("pool_timeout")) params.set("pool_timeout", POOL_TIMEOUT_SECONDS);
+  if (!params.has("connect_timeout")) params.set("connect_timeout", CONNECT_TIMEOUT_SECONDS);
   if (url.hostname === POOLED_HOST && !params.has("pgbouncer")) params.set("pgbouncer", "true");
   return url.toString();
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { POOL_SIZE, POOL_TIMEOUT_SECONDS, runtimeDatabaseUrl } from "../src/lib/db-url";
+import { CONNECT_TIMEOUT_SECONDS, POOL_SIZE, POOL_TIMEOUT_SECONDS, runtimeDatabaseUrl } from "../src/lib/db-url";
 
 const params = (url: string | undefined) => Object.fromEntries(new URL(url!).searchParams);
 
@@ -9,26 +9,26 @@ describe("runtimeDatabaseUrl", () => {
     expect(new URL(url!).host).toBe("pooled.db.prisma.io:5432");
     expect(new URL(url!).username).toBe("u");
     expect(new URL(url!).password).toBe("p");
-    expect(params(url)).toEqual({ sslmode: "require", connection_limit: POOL_SIZE, pool_timeout: POOL_TIMEOUT_SECONDS, pgbouncer: "true" });
+    expect(params(url)).toEqual({ sslmode: "require", connection_limit: POOL_SIZE, pool_timeout: POOL_TIMEOUT_SECONDS, connect_timeout: CONNECT_TIMEOUT_SECONDS, pgbouncer: "true" });
   });
 
   it("stays on the direct host, without pgbouncer, when pooling is off", () => {
     const url = runtimeDatabaseUrl("postgres://u:p@db.prisma.io:5432/postgres?sslmode=require", { pooling: false });
     expect(new URL(url!).host).toBe("db.prisma.io:5432");
-    expect(params(url)).toEqual({ sslmode: "require", connection_limit: POOL_SIZE, pool_timeout: POOL_TIMEOUT_SECONDS });
+    expect(params(url)).toEqual({ sslmode: "require", connection_limit: POOL_SIZE, pool_timeout: POOL_TIMEOUT_SECONDS, connect_timeout: CONNECT_TIMEOUT_SECONDS });
   });
 
   it("keeps settings already in the URL, and the password as written", () => {
-    const raw = "postgresql://user:pa%2Fss@pooled.db.prisma.io:5432/postgres?connection_limit=10&pool_timeout=5&pgbouncer=false";
+    const raw = "postgresql://user:pa%2Fss@pooled.db.prisma.io:5432/postgres?connection_limit=10&pool_timeout=5&connect_timeout=3&pgbouncer=false";
     const url = runtimeDatabaseUrl(raw, { pooling: true });
-    expect(params(url)).toEqual({ connection_limit: "10", pool_timeout: "5", pgbouncer: "false" });
+    expect(params(url)).toEqual({ connection_limit: "10", pool_timeout: "5", connect_timeout: "3", pgbouncer: "false" });
     expect(new URL(url!).password).toBe("pa%2Fss");
   });
 
   it("only caps the pool on any other Postgres", () => {
     const url = runtimeDatabaseUrl("postgresql://campus:x@127.0.0.1:55432/campusos", { pooling: true });
     expect(new URL(url!).host).toBe("127.0.0.1:55432");
-    expect(params(url)).toEqual({ connection_limit: POOL_SIZE, pool_timeout: POOL_TIMEOUT_SECONDS });
+    expect(params(url)).toEqual({ connection_limit: POOL_SIZE, pool_timeout: POOL_TIMEOUT_SECONDS, connect_timeout: CONNECT_TIMEOUT_SECONDS });
   });
 
   it("leaves other URLs alone", () => {
