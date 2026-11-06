@@ -35,6 +35,12 @@ import { StudyPlanCard } from "@/components/dashboard/StudyPlanCard";
 import { ReviewDueCard } from "@/components/dashboard/ReviewDueCard";
 import { GradeAlertsCard, type GradeAlert } from "@/components/dashboard/GradeAlertsCard";
 
+// "Ask about everything" (askCrossAppAction) runs here: the study assistant
+// can take a few rounds of lookups before writing a study guide, and stops
+// gathering after 150 s (src/lib/study-agent/agent.ts), so it needs more
+// than Vercel's default function duration.
+export const maxDuration = 300;
+
 const SECTION_TITLES: Record<UrgencyBucket, string> = {
   OVERDUE: "Overdue",
   TODAY: "Today",

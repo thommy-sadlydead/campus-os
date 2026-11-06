@@ -2,8 +2,9 @@
 
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { MATERIALS_WITH_TEXT, loadClassContext, classSystemPrompt } from "@/lib/class-context";
-import { askClaude, askClaudeForJson, getAnthropicClient } from "@/lib/anthropic";
+import { MATERIALS_WITH_TEXT, loadClassContext } from "@/lib/class-context";
+import { runStudyAgent } from "@/lib/study-agent/agent";
+import { askClaudeForJson, getAnthropicClient } from "@/lib/anthropic";
 import { AI_LIMIT_MESSAGE, allowAiRequest } from "@/lib/rate-limit";
 import { AI_CONSENT_MESSAGE, hasAiConsent } from "@/lib/ai-consent";
 import { formatDueLabel } from "@/lib/time";
@@ -14,6 +15,8 @@ import { SYLLABUS_HELP_SYSTEM, parseSyllabusHelp } from "@/lib/get-help";
 export interface ClassAssistantResult {
   answer: string;
   usedAi: boolean;
+  /** What the assistant opened to answer (see src/lib/study-agent). */
+  sources?: string[];
 }
 
 const QUICK_PROMPTS: Record<string, string> = {
@@ -58,12 +61,17 @@ async function whatsDueNextDeterministic(classId: string, tz: string): Promise<s
   return parts.join(" ");
 }
 
+/**
+ * The class's assistant. The study assistant (src/lib/study-agent), pinned
+ * to this one class, looks up what the question needs (the quiz or exam,
+ * what it covers, the matching lecture notes and files) before answering.
+ */
 export async function askClassAssistantAction(
   classId: string,
   input: { quickAction?: string; question?: string }
 ): Promise<ClassAssistantResult> {
   const user = await requireUser();
-  await requireOwnedClass(classId, user.id);
+  const cls = await requireOwnedClass(classId, user.id);
 
   const question = input.quickAction ? QUICK_PROMPTS[input.quickAction] : input.question?.trim();
   if (!question) {
@@ -85,20 +93,18 @@ export async function askClassAssistantAction(
     return { answer: AI_LIMIT_MESSAGE, usedAi: false };
   }
 
-  const [ctx, features] = await Promise.all([loadClassContext(classId, user.id, user.timezone), featuresFor(user)]);
-  const aiAnswer = await askClaude({
-    system: classSystemPrompt(ctx, { tutorMode: features.has("tutor-mode") }),
-    prompt: question,
-    // A real study guide or quiz over a data-rich class can easily need
-    // several thousand words — 700 was cutting those off mid-sentence, and
-    // even 4096 still did for a two-book-plus-seven-lectures request
-    // (verified live: stopped at exactly 4096/4096 tokens, mid-heading).
-    // This is a ceiling, not a target, so short answers aren't padded out.
-    maxTokens: 8192,
+  const features = await featuresFor(user);
+  const result = await runStudyAgent(question, {
+    userId: user.id,
+    tz: user.timezone,
+    now: new Date(),
+    classId,
+    className: cls.name,
+    tutorMode: features.has("tutor-mode"),
   });
 
-  if (aiAnswer) {
-    return { answer: aiAnswer, usedAi: true };
+  if (result) {
+    return { answer: result.answer, usedAi: true, sources: result.sources };
   }
 
   // With a key configured, a null answer means the call failed (timeout,
@@ -108,6 +114,7 @@ export async function askClassAssistantAction(
   if (getAnthropicClient()) {
     return { answer: "The assistant didn't answer just now. Try again in a moment.", usedAi: false };
   }
+  const ctx = await loadClassContext(classId, user.id, user.timezone);
   if (!ctx.hasAnyContent) {
     return {
       answer:

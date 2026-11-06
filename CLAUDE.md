@@ -56,11 +56,10 @@ it reads, say) — make it additive, or tolerate a short window.
 Next.js 15.5.27 (App Router, Server Actions), React 19, Prisma 5.22 +
 PostgreSQL, Zod, Tailwind (no typography plugin — manual `[&_x]:`
 child-selector utilities in `src/lib/markdown.ts`'s `MARKDOWN_CLASSNAME`),
-Vitest (`environment: "node"`). `@anthropic-ai/sdk@0.32.1` — notably old
-(latest is 0.128.x); works fine for everything currently used, but its
-types predate some newer API features (see `src/lib/pdf-ocr.ts`'s
-`PdfDocumentBlockParam` workaround). Auth is homegrown email/password +
-session cookies, no third-party auth.
+Vitest (`environment: "node"`). `@anthropic-ai/sdk@1.6.0` (upgraded from
+0.32.1 on Nov 5, 2026 for the study assistant; the older call sites
+compiled unchanged). Auth is homegrown email/password + session cookies,
+no third-party auth.
 
 ## Conventions worth matching
 
@@ -322,6 +321,17 @@ session cookies, no third-party auth.
   a deck is an AI request: it checks consent and the daily AI limit like
   the class assistant. Dialogs on the class page render into `<body>` with
   a portal, or the phone tab bar covers them.
+- **Study assistant** (Today's "Ask about everything" and each class's
+  assistant): `src/lib/study-agent/`. A tool-use loop on Claude Opus 5.5
+  (`STUDY_AGENT_MODEL` overrides it) that looks things up before answering:
+  upcoming work, an item's directions, a class's contents, a keyword search
+  over lecture notes, notes and course files (raw SQL in `tools.ts`), and
+  reading them in pieces. Read-only, always scoped to the student; in a
+  class's assistant every tool is pinned to that class. Capped at 8 rounds
+  and 150 s, then it answers with what it has. `text.ts` holds the pure
+  helpers; `tests/study-agent.test.ts` drives the loop with a scripted
+  client. Other AI features (What now, breakdowns, flashcards, risk) still
+  use one-shot `askClaude` on `ANTHROPIC_MODEL`.
 - **AI permission**: `ai-consent.ts`. Every feature that sends a student's
   data to Anthropic or AssemblyAI checks `hasAiConsent(user)` on the server
   first (App Store guideline 5.1.2(i)). A new AI feature must too.
@@ -339,7 +349,7 @@ session cookies, no third-party auth.
 ## Verifying a change before calling it done
 
 1. `npx tsc --noEmit` (after `npx prisma generate` if the schema changed)
-2. `npx vitest run` — 541 tests as of this writing across 50 files
+2. `npx vitest run` — 553 tests as of this writing across 51 files
 3. Clean build: `rm -rf .next && npx next build` (use `next build` directly
    to skip the `db push` the `npm run build` script triggers, if you're not
    ready to push schema changes yet)

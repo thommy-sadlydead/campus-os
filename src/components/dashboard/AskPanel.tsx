@@ -1,11 +1,15 @@
 "use client";
 
 import { useState, useTransition, type FormEvent } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { askCrossAppAction, type AskResult } from "@/app/dashboard/actions";
 import { CardHeader } from "@/components/ui/CardHeader";
 import { SparkIcon } from "@/components/icons";
+import { MARKDOWN_CLASSNAME } from "@/lib/markdown";
+import { AnswerSources } from "@/components/AnswerSources";
 
-const SUGGESTIONS = ["What should I do tonight?", "Am I going to be screwed next week?", "What's due this week?"];
+const SUGGESTIONS = ["What should I do tonight?", "Help me study for my next quiz", "What's due this week?"];
 
 export function AskPanel() {
   const [question, setQuestion] = useState("");
@@ -27,7 +31,7 @@ export function AskPanel() {
       <CardHeader
         icon={<SparkIcon className="h-[18px] w-[18px]" />}
         title="Ask about everything"
-        description="Considers all your classes at once — real data only, nothing invented."
+        description="Looks through all your classes, notes and course files first — real data only, nothing invented."
       />
 
       <div className="mt-4 flex flex-wrap gap-1.5">
@@ -50,7 +54,7 @@ export function AskPanel() {
         <input
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
-          placeholder="Ask anything about your workload…"
+          placeholder="Ask anything, like “help me study for my quiz tomorrow”…"
           aria-label="Your question"
           className="field"
         />
@@ -59,8 +63,20 @@ export function AskPanel() {
         </button>
       </form>
 
-      {result && (
-        <div className="mt-4 whitespace-pre-wrap rounded-lg bg-surface-2 p-3.5 text-sm leading-relaxed text-ink">{result.answer}</div>
+      {pending ? (
+        <div className="mt-4 flex items-center gap-2.5 rounded-lg bg-surface-2 p-3.5 text-sm text-ink-soft" role="status">
+          <SparkIcon className="h-4 w-4 flex-none animate-pulse text-accent motion-reduce:animate-none" />
+          Looking through your classes, notes and files… a study guide can take a minute or two.
+        </div>
+      ) : (
+        result && (
+          <div className="mt-4 rounded-lg bg-surface-2 p-3.5">
+            <div className={MARKDOWN_CLASSNAME}>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{result.answer}</ReactMarkdown>
+            </div>
+            <AnswerSources sources={result.sources} />
+          </div>
+        )
       )}
     </section>
   );

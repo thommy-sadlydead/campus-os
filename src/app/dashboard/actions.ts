@@ -12,6 +12,8 @@ import { AI_LIMIT_MESSAGE, allowAiRequest } from "@/lib/rate-limit";
 import { AI_CONSENT_MESSAGE, hasAiConsent } from "@/lib/ai-consent";
 import { startOfTzDay } from "@/lib/time";
 import { buildCrossAppPrompt } from "@/lib/cross-app-context";
+import { runStudyAgent } from "@/lib/study-agent/agent";
+import { featuresFor } from "@/lib/features-server";
 import { addSampleClasses, isDemoAccount } from "@/lib/sample-classes";
 import { trialEndFrom } from "@/lib/billing";
 
@@ -147,32 +149,40 @@ export async function addAvailabilityBlockAction(formData: FormData) {
 export interface AskResult {
   answer: string;
   usedAi: boolean;
+  /** What the assistant opened to answer (see src/lib/study-agent). */
+  sources?: string[];
 }
 
 /**
- * Free-form cross-class Q&A ("What should I do tonight?", "Am I going to
- * be screwed next week?"). Unlike the deterministic panels elsewhere on
- * this dashboard, open-ended natural-language answers genuinely need the
- * model — there's no reasonable rule-based parser for arbitrary
- * questions. Without an API key the honest fallback is the same real,
- * computed workload summary already on this page, in sentence form,
- * rather than a fabricated conversational answer.
+ * Free-form cross-class Q&A ("What should I do tonight?", "Help me study
+ * for my quiz tomorrow"). The study assistant (src/lib/study-agent) looks
+ * up what the question needs across every class (the quiz, what it
+ * covers, the lecture notes and files for those topics) before answering.
+ * Without an API key the honest fallback is the same real, computed
+ * workload summary already on this page, in sentence form, rather than a
+ * fabricated conversational answer.
  */
 export async function askCrossAppAction(question: string): Promise<AskResult> {
   const user = await requireUser();
   const trimmed = question.trim().slice(0, 500);
   if (!trimmed) return { answer: "Ask a question first.", usedAi: false };
 
-  const { system, deterministicSummary } = await buildCrossAppPrompt(user.id, user.timezone);
+  const { deterministicSummary } = await buildCrossAppPrompt(user.id, user.timezone);
   if (!hasAiConsent(user)) {
     return { answer: `${AI_CONSENT_MESSAGE} Here's what's on your plate: ${deterministicSummary}`, usedAi: false };
   }
   if (!(await allowAiRequest(user.id))) {
     return { answer: `${AI_LIMIT_MESSAGE} Here's what's on your plate: ${deterministicSummary}`, usedAi: false };
   }
-  const aiAnswer = await askClaude({ system, prompt: trimmed, maxTokens: 700 });
+  const features = await featuresFor(user);
+  const result = await runStudyAgent(trimmed, {
+    userId: user.id,
+    tz: user.timezone,
+    now: new Date(),
+    tutorMode: features.has("tutor-mode"),
+  });
 
-  if (aiAnswer) return { answer: aiAnswer, usedAi: true };
+  if (result) return { answer: result.answer, usedAi: true, sources: result.sources };
   return {
     answer: getAnthropicClient()
       ? `The assistant didn't answer just now. Try again in a moment. Here's what's on your plate meanwhile: ${deterministicSummary}`

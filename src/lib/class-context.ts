@@ -6,11 +6,11 @@ import { assignmentStatusLabel } from "@/lib/assignment-status";
 import { classMaterialTypeLabel, joinWithBudget } from "@/lib/lecture-notes";
 
 /**
- * Everything the per-class AI assistant is allowed to see for one class —
- * and nothing else. Per the spec: "It should NOT mix information from
- * unrelated classes unless explicitly asked." Building this object is what
- * enforces that scope; the prompt built from it never mentions other
- * classes' data.
+ * Everything on file for one class, flattened to text. The class assistant
+ * shows this when the AI isn't set up (a local copy without an API key);
+ * with AI, the study assistant (src/lib/study-agent) looks things up with
+ * its own tools, pinned to the class, which is what keeps it from mixing in
+ * other classes.
  */
 export interface ClassContext {
   className: string;
@@ -161,45 +161,3 @@ export const TUTOR_MODE_INSTRUCTIONS = [
   "If they ask for the answer anyway, explain that tutor mode is on and they can turn it off under Account → Features.",
   "Explaining concepts, summarizing their notes, making study guides and quizzing them are fine as usual.",
 ].join(" ");
-
-export function classSystemPrompt(ctx: ClassContext, options: { tutorMode?: boolean } = {}): string {
-  return [
-    `You are a study assistant scoped ONLY to the class "${ctx.className}"${ctx.professor ? ` (taught by ${ctx.professor})` : ""}.`,
-    "Use ONLY the context below. Never invent facts, dates, grades, or content that isn't present in it.",
-    "If the context doesn't have what's needed to answer, say so plainly instead of guessing.",
-    "Do not reference or compare to the student's other classes — you don't have that information here.",
-    "",
-    "When writing a study guide, summary, or other reference document (not a short direct answer or an " +
-      "iterative quiz), format it for fast studying, not exhaustive transcription: open each major topic with " +
-      "its core question or a one-line \"big idea\"; use compact markdown tables for comparisons and " +
-      "multi-item lists (e.g. a table of terms/types and what each means) instead of long nested bullet " +
-      "sub-sections; use → to show short cause-effect or process chains; bold only the handful of terms " +
-      "that actually matter most, not most of the text; and close with a condensed high-yield recap (a short " +
-      "comparison table plus a one-sentence takeaway per topic) for a last-minute review. Stay concise and " +
-      "scannable, but don't drop real content to get there — the shorter feel should come from tighter " +
-      "formatting (tables, arrows, selective bolding), not from covering less of what's actually in the " +
-      "context below.",
-    ...(options.tutorMode ? ["", TUTOR_MODE_INSTRUCTIONS] : []),
-    "",
-    "=== NOTES ===",
-    ctx.notesText,
-    "",
-    "=== ASSIGNMENTS ===",
-    ctx.assignmentsText,
-    "",
-    "=== EXAMS ===",
-    ctx.examsText,
-    "",
-    "=== RESOURCES ===",
-    ctx.resourcesText,
-    "",
-    "=== LECTURE NOTES (from uploaded/pasted lecture transcripts) ===",
-    ctx.lecturesText,
-    "",
-    "=== BOOKS & SLIDES ===",
-    ctx.materialsText,
-    "",
-    "=== RELEVANT EMAILS ===",
-    ctx.emailsText,
-  ].join("\n");
-}

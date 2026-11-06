@@ -10,6 +10,7 @@ import { chatgptFollowUpPrompt, chatgptUrl } from "@/lib/flashcards";
 import { ChatIcon, CheckIcon, CopyIcon, ExternalIcon, SparkIcon } from "@/components/icons";
 import type { ChatGptStudyInfo } from "@/components/study/study-types";
 import { useFeature } from "@/components/FeaturesProvider";
+import { AnswerSources } from "@/components/AnswerSources";
 
 const QUICK_ACTIONS: Array<{ key: string; label: string }> = [
   { key: "whats-due-next", label: "What is due next?" },
@@ -139,7 +140,7 @@ export function ClassAssistant({
       {pending ? (
         <div className="relative mt-4 flex items-center gap-2.5 rounded-lg bg-surface-2 p-4 text-sm text-ink-soft" role="status">
           <SparkIcon className="h-4 w-4 flex-none animate-pulse text-accent motion-reduce:animate-none" />
-          Working on it… a study guide or quiz can take up to a minute.
+          Looking through this class's notes and files… a study guide or quiz can take a minute or two.
         </div>
       ) : (
         result && (
@@ -147,6 +148,7 @@ export function ClassAssistant({
             <div ref={answerRef} className={MARKDOWN_CLASSNAME}>
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{result.answer}</ReactMarkdown>
             </div>
+            <AnswerSources sources={result.sources} />
             <div className="mt-3 flex flex-wrap items-center justify-end gap-2 border-t border-border-soft pt-3">
               {followUp && (
                 <a href={followUp.href} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm mr-auto">
