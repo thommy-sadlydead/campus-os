@@ -45,6 +45,13 @@ export async function createSession(userId: string): Promise<void> {
   await prisma.session.create({
     data: { userId, tokenHash: hashToken(token), expiresAt },
   });
+  // Expired sessions can never sign anyone in again. Like rate-limit rows,
+  // about one sign-in in fifty prunes them instead of a cron job.
+  if (Math.random() < 0.02) {
+    await prisma.session
+      .deleteMany({ where: { expiresAt: { lt: new Date() } } })
+      .catch((err) => console.error("Session pruning failed:", err));
+  }
 
   (await cookies()).set(SESSION_COOKIE, token, {
     httpOnly: true,

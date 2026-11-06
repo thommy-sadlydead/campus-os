@@ -96,6 +96,7 @@ model Session {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([expiresAt]) // pruning expired sessions (src/lib/auth.ts)
 }
 
 // "Forgot password?" links (src/app/forgot-password). Only an HMAC of the
@@ -462,6 +463,7 @@ model Lecture {
   notes Note[]
 
   @@index([classId])
+  @@index([assemblyaiId]) // AssemblyAI's webhook finds the lecture by transcript id
 }
 
 // ---------------------------------------------------------------------------
@@ -657,6 +659,7 @@ model RateLimitEvent {
   createdAt DateTime @default(now())
 
   @@index([key, createdAt])
+  @@index([createdAt]) // pruning old rows (src/lib/rate-limit.ts)
 }
 
 // A paid subscription, bought on the website (Stripe) or in the iPhone app
@@ -896,4 +899,5 @@ model ExtensionUploadPart {
 
   @@unique([uploadId, part])
   @@index([createdAt])
+  @@index([userId])
 }

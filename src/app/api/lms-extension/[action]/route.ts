@@ -72,7 +72,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ act
   const { action } = await params;
 
   if (action === "pair") {
-    if (!(await consumeRateLimit(`extension-pair-ip:${await clientIp()}`, RATE_LIMITS.extensionPair))) {
+    if (!(await consumeRateLimit(`extension-pair-ip:${await clientIp()}`, RATE_LIMITS.extensionPairIp))) {
       return json(429, { error: "Too many tries. Wait a few minutes and connect again." });
     }
     let body: unknown;

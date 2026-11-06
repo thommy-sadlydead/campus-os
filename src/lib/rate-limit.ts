@@ -21,15 +21,17 @@ const DAY = 24 * 60 * MINUTE;
 export const RATE_LIMITS = {
   // Failed logins (and failed current-password checks on the Account page),
   // per attempted email and per client IP. A successful login clears its
-  // email's count.
+  // email's count. The per-IP limits below are backstops sized for a campus
+  // network, where hundreds of students can share one public address; the
+  // per-email and per-account limits do the real work.
   loginEmail: { limit: 10, windowMs: 15 * MINUTE },
-  loginIp: { limit: 30, windowMs: 15 * MINUTE },
+  loginIp: { limit: 200, windowMs: 15 * MINUTE },
   // Sign-up attempts per client IP, wrong invite codes included.
-  register: { limit: 10, windowMs: 60 * MINUTE },
+  register: { limit: 60, windowMs: 60 * MINUTE },
   // "Forgot password?" requests, per address (so nobody's inbox gets
   // flooded) and per client IP. Each one can send an email.
   passwordResetEmail: { limit: 3, windowMs: 60 * MINUTE },
-  passwordResetIp: { limit: 10, windowMs: 60 * MINUTE },
+  passwordResetIp: { limit: 60, windowMs: 60 * MINUTE },
   // Interactive AI features: dashboard, class assistant, assignment
   // breakdowns. Generous for one student's real use.
   ai: { limit: 200, windowMs: DAY },
@@ -37,9 +39,11 @@ export const RATE_LIMITS = {
   // once every six hours at most, per account.
   gradesRefresh: { limit: 1, windowMs: 6 * 60 * MINUTE },
   // The Chrome extension (src/app/api/lms-extension): pairing attempts per
-  // client IP, and file parts uploaded per account (a big first import of
-  // every course's files fits comfortably).
+  // account and, as a campus-sized backstop, per client IP, and file parts
+  // uploaded per account (a big first import of every course's files fits
+  // comfortably).
   extensionPair: { limit: 20, windowMs: 15 * MINUTE },
+  extensionPairIp: { limit: 100, windowMs: 15 * MINUTE },
   extensionUpload: { limit: 4000, windowMs: DAY },
   // New lectures (each one means an AssemblyAI transcription and a long
   // note-generation call), plus audio upload tokens as a backstop for
