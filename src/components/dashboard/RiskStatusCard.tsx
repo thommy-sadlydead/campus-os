@@ -52,7 +52,7 @@ export function RiskStatusCard({ risk }: { risk: RiskAssessment }) {
               )}
               {risk.recommendations.length > 0 && (
                 <div className="mt-4 flex gap-2.5 rounded-lg bg-surface-2 px-3.5 py-3 text-sm font-medium text-ink">
-                  <ArrowRightIcon className="mt-0.5 h-4 w-4 flex-none text-accent" />
+                  <ArrowRightIcon className="mt-0.5 h-4 w-4 flex-none text-ink" />
                   <p>{risk.recommendations[0]}</p>
                 </div>
               )}
@@ -63,7 +63,7 @@ export function RiskStatusCard({ risk }: { risk: RiskAssessment }) {
             <button
               onClick={() => startTransition(async () => setNarrative((await explainRiskAction()).narrative))}
               disabled={pending}
-              className="btn btn-ghost btn-sm -ml-3 mt-2 text-accent-ink hover:text-accent-ink"
+              className="btn btn-ghost btn-sm -ml-3 mt-2 font-semibold text-ink"
             >
               <SparkIcon className="h-4 w-4" />
               {pending ? "Thinking…" : narrative ? "Refresh explanation" : "Explain in plain language"}

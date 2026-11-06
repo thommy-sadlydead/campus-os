@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { PluginListenerHandle } from "@capacitor/core";
-import { hasNativePlugin, NativeRecorder, nativeDevice, nativeErrorCode, readInboxFile, SharedInbox } from "@/lib/native-app";
+import { haptic, hasNativePlugin, NativeRecorder, nativeDevice, nativeErrorCode, readInboxFile, SharedInbox } from "@/lib/native-app";
 import { saveLectureAudio } from "./save-lecture-audio";
 import { INBOX_CHANGED_EVENT } from "./NativeInbox";
 import { MicIcon } from "@/components/icons";
@@ -77,7 +77,22 @@ export function LectureRecorder({
   const audioContextRef = useRef<AudioContext | null>(null);
   const frameRef = useRef<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const meterRef = useRef<HTMLDivElement>(null);
+  // The live waveform: the last few seconds of input level as bars, drawn
+  // straight to the DOM (no re-render per audio frame).
+  const waveRef = useRef<HTMLDivElement>(null);
+  const levelsRef = useRef<number[]>(Array(WAVE_BARS).fill(0));
+  const lastLevelAtRef = useRef(0);
+  function pushLevel(level: number) {
+    const at = performance.now();
+    if (at - lastLevelAtRef.current < 70) return;
+    lastLevelAtRef.current = at;
+    const levels = levelsRef.current;
+    levels.shift();
+    levels.push(Math.min(1, Math.max(0, level)));
+    const bars = waveRef.current?.children;
+    if (!bars) return;
+    for (let i = 0; i < bars.length; i++) (bars[i] as HTMLElement).style.transform = `scaleY(${Math.max(0.08, levels[i])})`;
+  }
   const segmentStartRef = useRef(0);
   const recordedMsRef = useRef(0);
   const [native, setNative] = useState(false);
@@ -193,7 +208,7 @@ export function LectureRecorder({
         analyser.getByteTimeDomainData(samples);
         let peak = 0;
         for (const sample of samples) peak = Math.max(peak, Math.abs(sample - 128));
-        if (meterRef.current) meterRef.current.style.transform = `scaleX(${Math.min(1, peak / 48)})`;
+        pushLevel(peak / 48);
         frameRef.current = requestAnimationFrame(draw);
       };
       draw();
@@ -239,9 +254,7 @@ export function LectureRecorder({
 
   async function followNativeRecording() {
     nativeListenersRef.current = [
-      await NativeRecorder.addListener("level", ({ level }) => {
-        if (meterRef.current) meterRef.current.style.transform = `scaleX(${Math.min(1, level * 4)})`;
-      }),
+      await NativeRecorder.addListener("level", ({ level }) => pushLevel(level * 4)),
       await NativeRecorder.addListener("stateChange", () => void syncNativeStatus()),
     ];
     // The recorder keeps time; ask it rather than counting here, since this
@@ -483,42 +496,52 @@ export function LectureRecorder({
   }
 
   if (phase === "recording" || phase === "paused") {
+    const recording = phase === "recording";
     return (
-      <div className="flex flex-col items-center gap-4 py-3 text-center">
-        <div className={`badge ${phase === "recording" ? "bg-danger-soft text-danger" : "bg-surface-2 text-ink-soft"}`}>
-          <span aria-hidden className={`dot ${phase === "recording" ? "animate-pulse bg-danger" : "bg-ink-faint"}`} />
-          {phase === "recording" ? "Recording" : "Paused"}
+      <div className="flex flex-col items-center gap-5 py-2 text-center">
+        <span className={recording ? "badge-urgent" : "badge-later"}>{recording ? "Recording" : "Paused"}</span>
+        <Dial elapsedMs={elapsedMs} live={recording}>
+          <span className="display-num text-[52px] text-ink" aria-live="off">
+            {formatElapsed(elapsedMs)}
+          </span>
+        </Dial>
+        <div ref={waveRef} aria-hidden className="flex h-12 w-full max-w-[280px] items-center justify-between">
+          {Array.from({ length: WAVE_BARS }, (_, i) => (
+            <span
+              key={i}
+              className={`h-full w-[3px] origin-center rounded-full transition-transform duration-100 ${recording ? "bg-ink" : "bg-ink-faint"}`}
+              style={{ transform: "scaleY(0.08)" }}
+            />
+          ))}
         </div>
-        <div className="font-mono text-5xl font-medium tabular-nums tracking-tight text-ink" aria-live="off">
-          {formatElapsed(elapsedMs)}
-        </div>
-        <div className="h-2 w-56 max-w-full overflow-hidden rounded-full bg-surface-2" aria-hidden>
-          <div
-            ref={meterRef}
-            className="h-full origin-left rounded-full"
-            style={{ transform: "scaleX(0)", backgroundImage: "linear-gradient(90deg, var(--grad-from), var(--grad-to))" }}
-          />
-        </div>
-        <div className="flex flex-wrap justify-center gap-3">
-          <button
-            onClick={phase === "paused" ? resume : pause}
-            className="btn btn-secondary"
-          >
+        <div className="flex items-center justify-center gap-4">
+          <button onClick={phase === "paused" ? resume : pause} className="btn btn-secondary min-w-[6.5rem]">
             {phase === "paused" ? "Resume" : "Pause"}
           </button>
-          <button onClick={stop} className="btn btn-primary">
-            Stop and save
+          {/* Red and pulsing while recording; black when paused. */}
+          <button
+            onClick={() => {
+              haptic("medium");
+              stop();
+            }}
+            aria-label="Stop and save"
+            title="Stop and save"
+            className={`flex h-16 w-16 items-center justify-center rounded-full text-white transition-transform active:scale-95 ${
+              recording ? "animate-[record-pulse_1.8s_ease-out_infinite] bg-accent" : "bg-ink text-surface"
+            }`}
+          >
+            <span aria-hidden className="h-5 w-5 rounded-[4px] bg-current" />
           </button>
         </div>
         {phase === "paused" && recovered ? (
-          <p className="max-w-xs text-sm text-warn">
+          <p className="max-w-xs text-sm text-ink-soft">
             Campus OS closed during this recording. Everything up to then is saved: tap Resume to keep recording, or Stop
             and save.
           </p>
         ) : (
           interrupted &&
           phase === "paused" && (
-            <p className="max-w-xs text-sm text-warn">
+            <p className="max-w-xs text-sm text-ink-soft">
               Paused by a call or another app. What&apos;s recorded so far is safe: tap Resume to keep recording.
             </p>
           )
@@ -546,8 +569,8 @@ export function LectureRecorder({
         </p>
         <div className="h-2 w-56 max-w-full overflow-hidden rounded-full bg-surface-2">
           <div
-            className="h-full rounded-full transition-all"
-            style={{ width: `${Math.max(progress, 4)}%`, backgroundImage: "linear-gradient(90deg, var(--grad-from), var(--grad-to))" }}
+            className="h-full rounded-full bg-ink transition-all"
+            style={{ width: `${Math.max(progress, 4)}%` }}
           />
         </div>
         <p className="text-xs text-ink-faint">Keep this page open until the upload finishes.</p>
@@ -584,26 +607,28 @@ export function LectureRecorder({
   }
 
   return (
-    <div className="flex flex-col items-center gap-3 py-3 text-center">
+    <div className="flex flex-col items-center gap-3 py-2 text-center">
       <input
         type="text"
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         aria-label="Lecture title"
-        className="field w-full max-w-sm text-center"
+        className="field w-full max-w-sm text-center font-medium"
       />
-      <button
-        onClick={() => void start()}
-        disabled={!classId || phase === "starting"}
-        aria-label="Start recording"
-        className="my-3 flex h-24 w-24 items-center justify-center rounded-full text-white ring-8 ring-accent-soft transition-transform hover:scale-105 active:scale-95 disabled:opacity-40 disabled:hover:scale-100"
-        style={{
-          backgroundImage: "linear-gradient(135deg, var(--grad-from), var(--grad-to))",
-          boxShadow: "0 14px 30px -10px rgba(255, 122, 47, 0.55)",
-        }}
-      >
-        <MicIcon className="h-9 w-9" />
-      </button>
+      <Dial elapsedMs={0} live={false}>
+        {/* Solid black with a white mic; it turns red once recording. */}
+        <button
+          onClick={() => {
+            haptic("medium");
+            void start();
+          }}
+          disabled={!classId || phase === "starting"}
+          aria-label="Start recording"
+          className="flex h-24 w-24 items-center justify-center rounded-full bg-ink text-surface transition-transform hover:scale-105 active:scale-95 disabled:opacity-40 disabled:hover:scale-100"
+        >
+          <MicIcon className="h-9 w-9" />
+        </button>
+      </Dial>
       <p className="text-sm font-semibold text-ink">
         {!classId ? "Choose a class to start recording" : phase === "starting" ? "Starting…" : `${pressWord} to record`}
       </p>
@@ -612,6 +637,45 @@ export function LectureRecorder({
       </p>
       {error && <p className="max-w-sm text-sm text-danger">{error}</p>}
       {notice && <p className="max-w-sm text-sm text-ok">{notice}</p>}
+    </div>
+  );
+}
+
+const WAVE_BARS = 32;
+const TICKS = 60;
+
+/**
+ * The record dial: 60 ticks around the edge that fill through each minute
+ * of recording (the current one in red while it's live), with whatever's
+ * passed as children in the middle.
+ */
+function Dial({ elapsedMs, live, children }: { elapsedMs: number; live: boolean; children: React.ReactNode }) {
+  const second = Math.floor(elapsedMs / 1000) % TICKS;
+  const filled = elapsedMs > 0 ? second + 1 : 0;
+  return (
+    <div className="relative my-1 flex h-[248px] w-[248px] items-center justify-center">
+      <svg viewBox="0 0 200 200" className="absolute inset-0 h-full w-full" aria-hidden>
+        {Array.from({ length: TICKS }, (_, i) => {
+          const major = i % 5 === 0;
+          const angle = (i / TICKS) * 2 * Math.PI - Math.PI / 2;
+          const outer = 96;
+          const inner = major ? 86 : 90;
+          const isNow = live && i === second;
+          return (
+            <line
+              key={i}
+              x1={100 + Math.cos(angle) * inner}
+              y1={100 + Math.sin(angle) * inner}
+              x2={100 + Math.cos(angle) * outer}
+              y2={100 + Math.sin(angle) * outer}
+              stroke={isNow ? "var(--accent)" : i < filled ? "var(--ink)" : "var(--border)"}
+              strokeWidth={isNow ? 2.4 : major ? 1.8 : 1.2}
+              strokeLinecap="round"
+            />
+          );
+        })}
+      </svg>
+      <div className="relative flex items-center justify-center">{children}</div>
     </div>
   );
 }

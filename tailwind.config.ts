@@ -8,9 +8,11 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        display: ["var(--font-geist)", "system-ui", "sans-serif"],
-        sans: ["var(--font-geist)", "system-ui", "sans-serif"],
-        mono: ["var(--font-geist-mono)", "ui-monospace", "monospace"],
+        // One geometric sans everywhere (Inter; optical sizing gives large
+        // type the Display cut). Timers use its tabular digits, not a mono.
+        display: ["var(--font-inter)", "-apple-system", "system-ui", "sans-serif"],
+        sans: ["var(--font-inter)", "-apple-system", "system-ui", "sans-serif"],
+        mono: ["var(--font-inter)", "-apple-system", "system-ui", "sans-serif"],
       },
       colors: {
         bg: "var(--bg)",
@@ -41,16 +43,19 @@ const config: Config = {
           8: "var(--c-8)",
         },
       },
+      // Hairlines instead of shadows; only things that float over the page
+      // (the tab bar, sheets, menus) keep a soft shadow.
       boxShadow: {
-        sm: "0 1px 2px rgba(var(--shadow-color), 0.05)",
-        card: "0 1px 2px rgba(var(--shadow-color), 0.04), 0 4px 16px -6px rgba(var(--shadow-color), 0.08)",
-        pop: "0 16px 40px -12px rgba(var(--shadow-color), 0.22), 0 2px 6px rgba(var(--shadow-color), 0.06)",
+        sm: "none",
+        card: "none",
+        pop: "0 18px 40px -16px rgba(var(--shadow-color), 0.28)",
       },
+      // One card radius (20px); chips and buttons are full pills.
       borderRadius: {
-        lg: "10px",
+        lg: "12px",
         xl: "14px",
-        xl2: "18px",
-        "2xl": "18px",
+        xl2: "20px",
+        "2xl": "20px",
       },
     },
   },

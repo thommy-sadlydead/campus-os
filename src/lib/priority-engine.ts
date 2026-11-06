@@ -22,6 +22,8 @@ export interface WorkItem {
   kind: "assignment" | "task";
   title: string;
   className: string;
+  /** The class's course code ("BIO 1010"), for the short chip on Today. */
+  classCode?: string | null;
   classColor: number;
   dueAt: Date | null;
   estimatedMinutes: number | null;

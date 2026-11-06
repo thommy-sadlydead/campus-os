@@ -2,7 +2,7 @@ import { cookies, headers } from "next/headers";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { AppShell } from "@/components/AppShell";
-import { TaskRow } from "@/components/dashboard/TaskRow";
+import { TodayBoard, type TodaySection } from "@/components/dashboard/TodayBoard";
 import { WhatNowPanel } from "@/components/dashboard/WhatNowPanel";
 import { WorkloadSummaryCard } from "@/components/dashboard/WorkloadSummaryCard";
 import { AvailabilityCard } from "@/components/dashboard/AvailabilityCard";
@@ -12,12 +12,13 @@ import { NativeReminders } from "@/components/dashboard/NativeReminders";
 import { AiConsentCard } from "@/components/account/AiConsent";
 import { AI_NOT_NOW_COOKIE, hasAiConsent } from "@/lib/ai-consent";
 import Link from "next/link";
-import { ShowMore } from "@/components/ShowMore";
 import { loadWorkItemsForUser, getAvailableMinutesToday } from "@/lib/workload";
 import { rankWorkItems, computeWorkloadSummary, type UrgencyBucket } from "@/lib/priority-engine";
 import { assessRisk } from "@/lib/risk-engine";
-import { formatDueLabel, startOfTzDay } from "@/lib/time";
-import { PageHeader } from "@/components/ui/PageHeader";
+import { dayKey, startOfTzDay } from "@/lib/time";
+import { dayTimeline, dueBadge, dueShort, dueThisWeek, heroDate, weekDays } from "@/lib/today";
+import { meetingRunsOn } from "@/lib/meetings";
+import { stripHtml } from "@/lib/text";
 import { CheckOffNote } from "@/components/connect/CheckOffNote";
 import { getConnections } from "@/lib/lms/connections";
 import { namesWithoutSubmissionStatus } from "@/lib/lms/providers";
@@ -51,17 +52,6 @@ const SECTION_TITLES: Record<UrgencyBucket, string> = {
 };
 
 const SECTION_ORDER: UrgencyBucket[] = ["OVERDUE", "TODAY", "TOMORROW", "THIS_WEEK", "LATER", "NO_DATE"];
-
-function greeting(now: Date, tz: string): string {
-  const hour = Number(new Intl.DateTimeFormat("en-US", { hour: "numeric", hourCycle: "h23", timeZone: tz }).format(now));
-  if (hour >= 5 && hour < 12) return "Good morning";
-  if (hour >= 12 && hour < 18) return "Good afternoon";
-  return "Good evening";
-}
-
-function todayLabel(now: Date, tz: string): string {
-  return new Intl.DateTimeFormat("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: tz }).format(now);
-}
 
 export default async function DashboardPage() {
   const user = await requireUser();
@@ -148,6 +138,14 @@ export default async function DashboardPage() {
       : Promise.resolve([]),
     getConnections(user.id),
   ]);
+  // Today's class meetings, for the strip at the top.
+  const todayKey = dayKey(now, user.timezone);
+  const todayMeetings = (
+    await prisma.scheduleEvent.findMany({
+      where: { class: { userId: user.id, archived: false }, dayOfWeek: new Date(`${todayKey}T12:00:00Z`).getUTCDay() },
+      select: { startMinute: true, endMinute: true, startsOn: true, endsOn: true, class: { select: { code: true, name: true } } },
+    })
+  ).filter((m) => meetingRunsOn(m, todayKey));
 
   // For two weeks after connecting an LMS that doesn't say what's turned in
   // (Brightspace, Blackboard), a reminder that work here stays open until
@@ -163,8 +161,6 @@ export default async function DashboardPage() {
   // Counts are of assignments: one broken into steps lists each step, but
   // it's still one thing due (see computeWorkloadSummary).
   const assignmentCount = (list: typeof ranked) => new Set(list.map((r) => r.item.assignmentId)).size;
-  const openCount = assignmentCount(ranked);
-  const firstName = user.name?.trim().split(/\s+/)[0] ?? "";
 
   const grouped = new Map<UrgencyBucket, typeof ranked>();
   for (const r of ranked) {
@@ -211,8 +207,7 @@ export default async function DashboardPage() {
             />
             <div className="relative">
               <span
-                className="flex h-11 w-11 items-center justify-center rounded-xl text-white"
-                style={{ backgroundImage: "linear-gradient(135deg, var(--grad-from), var(--grad-to))" }}
+                className="flex h-11 w-11 items-center justify-center rounded-full bg-ink text-surface"
               >
                 <BookIcon className="h-[22px] w-[22px]" />
               </span>
@@ -266,59 +261,76 @@ export default async function DashboardPage() {
     );
   }
 
+  const sections: TodaySection[] = SECTION_ORDER.filter((b) => grouped.has(b)).map((bucket) => ({
+    key: bucket,
+    title: SECTION_TITLES[bucket],
+    cards: grouped.get(bucket)!.map((r) => ({
+      id: r.item.id,
+      kind: r.item.kind,
+      title: r.item.title,
+      classLabel: r.item.classCode?.trim() || r.item.className,
+      className: r.item.className,
+      dueKey: r.item.dueAt ? dayKey(r.item.dueAt, user.timezone) : null,
+      dueShort: dueShort(bucket, r.item.dueAt, user.timezone),
+      estimatedMinutes: r.item.estimatedMinutes,
+      reason: r.reason,
+      description: r.item.description ? stripHtml(r.item.description).trim() || null : null,
+      lmsLink: r.item.lmsLink,
+      badge: dueBadge(bucket),
+    })),
+  }));
+
   return (
     <AppShell active="/dashboard" userName={user.name ?? user.email}>
-      <PageHeader
-        eyebrow={todayLabel(now, user.timezone)}
-        title={firstName ? `${greeting(now, user.timezone)}, ${firstName}` : greeting(now, user.timezone)}
-        description={
-          ranked.length === 0
-            ? "Nothing on your plate right now — you're fully caught up."
-            : `${openCount} open item${openCount === 1 ? "" : "s"} across your classes.`
-        }
-      />
-
-      {!user.featuresChosenAt && <FeatureChooserCard />}
-
-      {!hasAiConsent(user) && !(await cookies()).get(AI_NOT_NOW_COOKIE) && <AiConsentCard />}
-
-      {features.has("risk") && <RiskStatusCard risk={risk} />}
-
-      {checkOffNames && <CheckOffNote names={checkOffNames} />}
-
-      {inApp && (
-        <NativeReminders
-          timezone={user.timezone}
-          deadlines={reminderDeadlines.map((a) => ({
-            title: a.name,
-            className: a.class.name,
-            dueAt: (a.dueAt as Date).toISOString(),
-          }))}
-        />
-      )}
-
-      {features.has("email") && pendingChangeCount > 0 && (
-        <Link
-          href="/email"
-          className="mb-6 flex items-center gap-3 rounded-xl2 bg-warn-soft px-4 py-3 text-sm text-warn transition-[filter] hover:brightness-[0.98]"
+      {/* One column on phones; on wide screens the list on the left and the
+          rest on the right. */}
+      <div className="grid grid-cols-1 gap-x-10 gap-y-8 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <TodayBoard
+          dateLabel={heroDate(now, user.timezone)}
+          dueThisWeek={dueThisWeek(ranked, now, user.timezone)}
+          overdue={assignmentCount(grouped.get("OVERDUE") ?? [])}
+          week={weekDays(ranked, now, user.timezone)}
+          timeline={dayTimeline(
+            todayMeetings.map((m) => ({ startMinute: m.startMinute, endMinute: m.endMinute, label: m.class.code || m.class.name })),
+            availabilityBlocks
+          )}
+          tz={user.timezone}
+          sections={sections}
+          emptyText="Nothing on file right now. New assignments show up here after a sync."
         >
-          <MailIcon className="h-[18px] w-[18px] flex-none" />
-          <span className="flex-1 text-ink">
-            <strong className="font-semibold">{pendingChangeCount}</strong> email-derived change{pendingChangeCount === 1 ? "" : "s"} waiting on your decision
-          </span>
-          <span className="flex flex-none items-center gap-0.5 font-medium">
-            Review
-            <ChevronRightIcon className="h-4 w-4" />
-          </span>
-        </Link>
-      )}
-
-      {/* One column on phones, in the order that matters there: the "what
-          now" answer first, then the list, then the rest. Two columns on
-          wide screens, with the list on the left. */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:grid-rows-[auto_1fr]">
-        <div className="flex flex-col gap-6 lg:col-start-2 lg:row-start-1">
+          {!user.featuresChosenAt && <FeatureChooserCard />}
+          {!hasAiConsent(user) && !(await cookies()).get(AI_NOT_NOW_COOKIE) && <AiConsentCard />}
+          {features.has("risk") && <RiskStatusCard risk={risk} />}
+          {checkOffNames && <CheckOffNote names={checkOffNames} />}
+          {inApp && (
+            <NativeReminders
+              timezone={user.timezone}
+              deadlines={reminderDeadlines.map((a) => ({
+                title: a.name,
+                className: a.class.name,
+                dueAt: (a.dueAt as Date).toISOString(),
+              }))}
+            />
+          )}
+          {features.has("email") && pendingChangeCount > 0 && (
+            <Link
+              href="/email"
+              className="card flex items-center gap-3 px-4 py-3.5 text-sm transition-colors hover:bg-surface-2"
+            >
+              <MailIcon className="h-[18px] w-[18px] flex-none text-ink-soft" />
+              <span className="flex-1 text-ink">
+                <strong className="font-semibold">{pendingChangeCount}</strong> email-derived change{pendingChangeCount === 1 ? "" : "s"} waiting on your decision
+              </span>
+              <span className="flex flex-none items-center gap-0.5 font-semibold">
+                Review
+                <ChevronRightIcon className="h-4 w-4" />
+              </span>
+            </Link>
+          )}
           <WhatNowPanel />
+        </TodayBoard>
+
+        <div className="flex flex-col gap-3 lg:pt-1">
           {gradeAlerts.length > 0 && <GradeAlertsCard alerts={gradeAlerts} tz={user.timezone} helpOn={features.has("get-help")} />}
           {planSessions.length > 0 && (
             <StudyPlanCard
@@ -337,49 +349,9 @@ export default async function DashboardPage() {
             />
           )}
           {reviewByClass.size > 0 && <ReviewDueCard classes={[...reviewByClass.values()]} />}
-        </div>
-
-        <div className="flex flex-col gap-6 lg:col-start-1 lg:row-span-2 lg:row-start-1">
-          {ranked.length === 0 ? (
-            <div className="empty">Nothing open right now. New assignments show up here after a sync.</div>
-          ) : (
-            SECTION_ORDER.filter((b) => grouped.has(b)).map((bucket) => (
-              <section key={bucket} className="card overflow-hidden">
-                <header className="flex items-center justify-between border-b border-border-soft px-4 py-3 sm:px-5">
-                  <h2 className="flex items-center gap-2 text-sm font-semibold text-ink">
-                    {bucket === "OVERDUE" && <span aria-hidden className="dot bg-danger" />}
-                    {SECTION_TITLES[bucket]}
-                  </h2>
-                  <span className="badge bg-surface-2 tabular-nums text-ink-soft">{assignmentCount(grouped.get(bucket)!)}</span>
-                </header>
-                <ul className="divide-y divide-border-soft">
-                  <ShowMore initial={5}>
-                    {grouped.get(bucket)!.map((r) => (
-                      <TaskRow
-                        key={r.item.id}
-                        id={r.item.id}
-                        kind={r.item.kind}
-                        title={r.item.title}
-                        className={r.item.className}
-                        color={r.color}
-                        dueLabel={formatDueLabel(r.item.dueAt, now, user.timezone)}
-                        estimatedMinutes={r.item.estimatedMinutes}
-                        reason={r.reason}
-                        description={r.item.description}
-                        lmsLink={r.item.lmsLink}
-                      />
-                    ))}
-                  </ShowMore>
-                </ul>
-              </section>
-            ))
-          )}
-        </div>
-
-        <div className="flex flex-col gap-6 lg:col-start-2 lg:row-start-2">
+          {features.has("assistant") && <AskPanel />}
           <WorkloadSummaryCard summary={summary} now={now} tz={user.timezone} freeTime={features.has("free-time")} />
           {features.has("free-time") && <AvailabilityCard blocks={availabilityBlocks} />}
-          {features.has("assistant") && <AskPanel />}
         </div>
       </div>
     </AppShell>

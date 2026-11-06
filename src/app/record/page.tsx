@@ -46,10 +46,10 @@ export default async function RecordPage() {
 
   return (
     <AppShell active="/record" userName={user.name ?? user.email}>
-      <PageHeader
-        title="Record a lecture"
-        description="Campus OS writes the transcript and notes for you, and files them under the class."
-      />
+      <header className="mb-6">
+        <p className="eyebrow">Transcript and notes, filed under the class</p>
+        <h1 className="mt-1.5 font-display text-[40px] font-bold leading-[1.02] text-ink">Record</h1>
+      </header>
       {!hasAiConsent(user) && (
         <AiConsentCard
           dismissible={false}

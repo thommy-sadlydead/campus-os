@@ -60,7 +60,7 @@ export function FlashcardMaker({
     const stage = [...STAGES].reverse().find((s) => elapsed >= s.after) ?? STAGES[0];
     return (
       <div className="rounded-xl2 bg-surface-2 px-5 py-6 text-center" role="status" aria-live="polite">
-        <SparkIcon className="mx-auto h-6 w-6 animate-pulse text-accent" />
+        <SparkIcon className="mx-auto h-6 w-6 animate-pulse text-ink" />
         <p className="mt-3 text-sm font-medium text-ink">{stage.text}</p>
         <p className="mt-1 text-xs text-ink-faint">This usually takes under a minute. You can keep this tab open.</p>
         <div className="mx-auto mt-4 h-1 w-40 overflow-hidden rounded-full bg-border">

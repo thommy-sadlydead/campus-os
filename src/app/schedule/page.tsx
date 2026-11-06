@@ -8,10 +8,9 @@ import { CalendarSyncCard } from "@/components/schedule/CalendarSyncCard";
 import { deleteScheduleEventAction } from "@/app/classes/[id]/actions";
 import { lmsLink, type LmsLink } from "@/lib/lms/providers";
 import { dayKey, formatTzTime } from "@/lib/time";
-import { PageHeader } from "@/components/ui/PageHeader";
-import { CardsIcon, ChecklistIcon, ClockIcon, ExternalIcon, PencilIcon, XIcon } from "@/components/icons";
-import { courseStyle } from "@/lib/course-style";
+import { CardsIcon, ClockIcon, ExternalIcon, XIcon } from "@/components/icons";
 import { meetingRunsOn } from "@/lib/meetings";
+import { freeGaps, shortRange } from "@/lib/today";
 import { semesterForNewMeetings } from "@/lib/meetings-server";
 import { calendarLinksFor } from "@/lib/calendar-feed-server";
 import { featuresFor } from "@/lib/features-server";
@@ -75,6 +74,12 @@ type AgendaEntry =
       color: number;
       timeLabel: string;
       done: boolean;
+    }
+  | {
+      // An open stretch between the day's blocks (src/lib/today.ts freeGaps).
+      type: "free";
+      sortMinute: number;
+      label: string;
     };
 
 export default async function SchedulePage() {
@@ -212,139 +217,75 @@ export default async function SchedulePage() {
         timeLabel: `${minutesToLabel(c.startMinute)}–${minutesToLabel(c.endMinute)}`,
       }));
     const dueEntries = dueByDayKey.get(key) ?? [];
-    const entries = [...classEntries, ...commitmentEntries, ...dueEntries].sort((a, b) => a.sortMinute - b.sortMinute);
+    // Free time between what's on the day, as dashed "plan something" rows.
+    const blocks = [
+      ...(eventsByDow.get(dow) ?? []).filter((ev) => meetingRunsOn(ev, key)).map((ev) => ({ start: ev.startMinute, end: ev.endMinute })),
+      ...commitments.filter((c) => c.dayOfWeek === dow && meetingRunsOn(c, key)).map((c) => ({ start: c.startMinute, end: c.endMinute })),
+      ...studySessions
+        .filter((st) => dayKey(st.startsAt, user.timezone) === key)
+        .map((st) => ({ start: minuteOfDay(st.startsAt, user.timezone), end: minuteOfDay(st.startsAt, user.timezone) + st.minutes })),
+    ];
+    const freeEntries: AgendaEntry[] = freeGaps(blocks, { notBefore: i === 0 ? minuteOfDay(now, user.timezone) : 0 }).map((g) => ({
+      type: "free",
+      sortMinute: g.start,
+      label: `Free ${shortRange(g.start, g.end)}, plan something`,
+    }));
+    const entries = [...classEntries, ...commitmentEntries, ...dueEntries, ...freeEntries].sort((a, b) => a.sortMinute - b.sortMinute);
 
     return {
       key,
       label: i === 0 ? "Today" : i === 1 ? "Tomorrow" : formatInTimeZone(instant, user.timezone, "EEEE"),
-      dateLabel: formatInTimeZone(instant, user.timezone, "MMM d"),
+      dateLabel: formatInTimeZone(instant, user.timezone, "EEE, MMM d"),
       entries,
     };
   });
 
   return (
     <AppShell active="/schedule" userName={user.name ?? user.email}>
-      <PageHeader
-        title="Schedule"
-        description="The next 7 days: your recurring class meetings alongside real assignment and exam due dates. School systems don't share meeting times, so add those yourself, here or on a class's Overview tab."
-      />
+      <header className="mb-8 flex items-end justify-between gap-4">
+        <div>
+          <p className="eyebrow">Next 7 days</p>
+          <h1 className="mt-1.5 font-display text-[40px] font-bold leading-[1.02] text-ink">Schedule</h1>
+        </div>
+        {classes.length > 0 && (
+          <ScheduleAddForm classes={classes.map((c) => ({ id: c.id, name: c.name, color: c.color }))} semester={semester} />
+        )}
+      </header>
 
       {classes.length === 0 ? (
         <div className="empty">
-          No classes yet.{" "}
-          <Link href="/connect" className="font-medium text-accent-ink underline">
+          No classes on file.{" "}
+          <Link href="/connect" className="font-semibold text-ink underline decoration-border underline-offset-4">
             Connect your classes
           </Link>{" "}
           to bring in your courses, then add their meeting times here.
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-          <div className="flex flex-col gap-4">
+        <div className="grid grid-cols-1 gap-x-10 gap-y-8 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="flex flex-col gap-9">
             {days.map((day) => (
-              <section key={day.key} className="card overflow-hidden">
-                <header className="flex items-baseline justify-between gap-3 border-b border-border-soft px-4 py-3 sm:px-5">
-                  <h2 className="text-sm font-semibold text-ink">{day.label}</h2>
-                  <span className="text-[13px] text-ink-faint">{day.dateLabel}</span>
-                </header>
+              <section key={day.key}>
+                <div className="mb-3 flex items-baseline justify-between gap-3">
+                  <h2 className="font-display text-[22px] font-bold text-ink">{day.label}</h2>
+                  <span className="eyebrow">{day.dateLabel}</span>
+                </div>
                 {day.entries.length === 0 ? (
-                  <p className="px-4 py-3.5 text-[13px] text-ink-faint sm:px-5">Nothing on the calendar.</p>
+                  <p className="text-[13px] text-ink-faint">Nothing on file.</p>
                 ) : (
-                  <ul className="divide-y divide-border-soft">
-                    {day.entries.map((entry) =>
-                      entry.type === "class" ? (
-                        <li key={`class-${entry.scheduleEventId}`} className="flex items-center gap-3 px-4 py-3 sm:px-5">
-                          <span
-                            aria-hidden
-                            className="h-9 w-1 flex-none rounded-full"
-                            style={{ background: `var(--c-${entry.color})` }}
-                          />
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium text-ink">{entry.className}</p>
-                            <p className="mt-0.5 text-[13px] tabular-nums text-ink-soft">
-                              {entry.timeLabel}
-                              {entry.location ? ` · ${entry.location}` : ""}
-                              {entry.label ? ` · ${entry.label}` : ""}
-                            </p>
-                          </div>
-                          <form action={deleteScheduleEventAction.bind(null, entry.scheduleEventId)}>
-                            <button
-                              title="Remove"
-                              aria-label="Remove"
-                              className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-faint transition-colors hover:bg-danger-soft hover:text-danger"
-                            >
-                              <XIcon className="h-4 w-4" />
-                            </button>
-                          </form>
-                        </li>
-                      ) : entry.type === "commitment" ? (
-                        <li key={`commitment-${entry.id}`} className="flex items-center gap-3 px-4 py-3 sm:px-5">
-                          <span aria-hidden className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-surface-2 text-ink-faint">
-                            <ClockIcon className="h-4 w-4" />
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium text-ink">{entry.label}</p>
-                            <p className="mt-0.5 text-[13px] tabular-nums text-ink-soft">{entry.timeLabel}</p>
-                          </div>
-                        </li>
-                      ) : entry.type === "study" ? (
-                        <li key={`study-${entry.id}`} className="flex items-center gap-3 px-4 py-3 sm:px-5">
-                          <span aria-hidden className="course-tint flex h-9 w-9 flex-none items-center justify-center rounded-xl" style={courseStyle(entry.color)}>
-                            <CardsIcon className="h-4 w-4" />
-                          </span>
-                          <Link href={`/classes/${entry.classId}?tab=study`} className="min-w-0 flex-1">
-                            <p className={`text-sm font-medium leading-snug ${entry.done ? "text-ink-faint line-through" : "text-ink"}`}>
-                              Quiz for {entry.examName}
-                            </p>
-                            <p className="mt-0.5 truncate text-[13px] text-ink-soft">
-                              {entry.timeLabel} · {entry.className}
-                            </p>
-                          </Link>
-                        </li>
-                      ) : (
-                        <li key={`due-${entry.kind}-${entry.id}`} className="flex items-center gap-3 px-4 py-3 sm:px-5">
-                          <span
-                            aria-hidden
-                            className="course-tint flex h-9 w-9 flex-none items-center justify-center rounded-xl"
-                            style={courseStyle(entry.color)}
-                          >
-                            {entry.kind === "exam" ? <PencilIcon className="h-4 w-4" /> : <ChecklistIcon className="h-4 w-4" />}
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium leading-snug text-ink">
-                              <span className="line-clamp-2">{entry.title}</span>
-                            </p>
-                            <p className="mt-0.5 flex items-center gap-1.5 text-[13px] text-ink-soft">
-                              {entry.kind === "exam" && (
-                                <span className="badge flex-none bg-danger-soft px-2 py-0 text-[11px] text-danger">Exam</span>
-                              )}
-                              <span className="truncate">
-                                Due {entry.timeLabel} · {entry.className}
-                              </span>
-                            </p>
-                          </div>
-                          {entry.lmsLink && (
-                            <a
-                              href={entry.lmsLink.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              aria-label={`Open ${entry.title} in ${entry.lmsLink.name}`}
-                              className="btn btn-ghost btn-sm flex-none px-2 sm:px-3"
-                            >
-                              <span className="hidden sm:inline">{entry.lmsLink.name}</span>
-                              <ExternalIcon className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
-                            </a>
-                          )}
-                        </li>
-                      )
-                    )}
-                  </ul>
+                  <ol className="flex flex-col gap-2.5">
+                    {day.entries.map((entry, i) => (
+                      <li key={i} className="grid grid-cols-[3.5rem_minmax(0,1fr)] items-start gap-3">
+                        <TimeLabel minute={entry.sortMinute} />
+                        <EntryCard entry={entry} />
+                      </li>
+                    ))}
+                  </ol>
                 )}
               </section>
             ))}
           </div>
 
-          <div className="flex flex-col gap-4 lg:sticky lg:top-10 lg:h-fit">
-            <ScheduleAddForm classes={classes.map((c) => ({ id: c.id, name: c.name, color: c.color }))} semester={semester} />
+          <div className="flex flex-col gap-3 lg:sticky lg:top-10 lg:h-fit">
             {features.has("commitments") && (
               <CommitmentsCard
                 commitments={commitments.map((c) => ({ id: c.id, label: c.label, dayOfWeek: c.dayOfWeek, startMinute: c.startMinute, endMinute: c.endMinute }))}
@@ -356,5 +297,100 @@ export default async function SchedulePage() {
         </div>
       )}
     </AppShell>
+  );
+}
+
+/** The time column: "9:00" over "AM". */
+function TimeLabel({ minute }: { minute: number }) {
+  const h = Math.floor(minute / 60);
+  return (
+    <div className="pt-3.5 text-right">
+      <p className="text-[15px] font-semibold leading-none tabular-nums tracking-[-0.02em] text-ink">
+        {(h % 12) || 12}:{String(minute % 60).padStart(2, "0")}
+      </p>
+      <p className="mt-1 text-[11px] font-medium text-ink-faint">{h >= 12 ? "PM" : "AM"}</p>
+    </div>
+  );
+}
+
+function EntryCard({ entry }: { entry: AgendaEntry }) {
+  if (entry.type === "free") {
+    return (
+      <div className="flex items-center gap-2.5 rounded-xl2 border border-dashed border-border px-4 py-3.5 text-[14px] text-ink-faint">
+        <span aria-hidden className="text-lg leading-none">+</span>
+        {entry.label}
+      </div>
+    );
+  }
+  if (entry.type === "class") {
+    return (
+      <div className="card flex items-center gap-3 px-4 py-3">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[15px] font-semibold text-ink">{entry.className}</p>
+          <p className="mt-0.5 truncate text-[13px] tabular-nums text-ink-soft">
+            {entry.timeLabel}
+            {entry.location ? ` · ${entry.location}` : ""}
+            {entry.label ? ` · ${entry.label}` : ""}
+          </p>
+        </div>
+        <form action={deleteScheduleEventAction.bind(null, entry.scheduleEventId)}>
+          <button
+            title="Remove"
+            aria-label={`Remove this ${entry.className} meeting`}
+            className="flex h-8 w-8 items-center justify-center rounded-full text-ink-faint transition-colors hover:bg-surface-2 hover:text-ink"
+          >
+            <XIcon className="h-4 w-4" />
+          </button>
+        </form>
+      </div>
+    );
+  }
+  if (entry.type === "commitment") {
+    return (
+      <div className="flex items-center gap-3 rounded-xl2 bg-surface-2 px-4 py-3">
+        <ClockIcon className="h-4 w-4 flex-none text-ink-faint" />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[15px] font-semibold text-ink">{entry.label}</p>
+          <p className="mt-0.5 text-[13px] tabular-nums text-ink-soft">{entry.timeLabel}</p>
+        </div>
+      </div>
+    );
+  }
+  if (entry.type === "study") {
+    return (
+      <Link href={`/classes/${entry.classId}?tab=study`} className="card flex items-center gap-3 px-4 py-3 transition-colors hover:border-border">
+        <CardsIcon className="h-4 w-4 flex-none text-ink-faint" />
+        <div className="min-w-0 flex-1">
+          <p className={`text-[15px] font-semibold leading-snug ${entry.done ? "text-ink-faint line-through" : "text-ink"}`}>Quiz for {entry.examName}</p>
+          <p className="mt-0.5 truncate text-[13px] text-ink-soft">
+            {entry.timeLabel} · {entry.className}
+          </p>
+        </div>
+      </Link>
+    );
+  }
+  return (
+    <div className="card flex items-center gap-3 px-4 py-3">
+      <div className="min-w-0 flex-1">
+        <p className="line-clamp-2 text-[15px] font-semibold leading-snug text-ink">{entry.title}</p>
+        <p className="mt-1 flex items-center gap-1.5 text-[13px] text-ink-soft">
+          <span className={`flex-none ${entry.kind === "exam" ? "badge-urgent" : "badge-soon"} px-2 py-0 text-[11px]`}>
+            {entry.kind === "exam" ? "Exam" : "Due"}
+          </span>
+          <span className="truncate">{entry.className}</span>
+        </p>
+      </div>
+      {entry.lmsLink && (
+        <a
+          href={entry.lmsLink.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={`Open ${entry.title} in ${entry.lmsLink.name}`}
+          className="flex h-8 w-8 flex-none items-center justify-center rounded-full text-ink-faint transition-colors hover:bg-surface-2 hover:text-ink"
+        >
+          <ExternalIcon className="h-4 w-4" />
+        </a>
+      )}
+    </div>
   );
 }

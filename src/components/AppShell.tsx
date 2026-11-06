@@ -60,11 +60,11 @@ function NavLink({
     <Link prefetch={false}
       href={href}
       aria-current={active ? "page" : undefined}
-      className={`group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-        active ? "bg-surface-2 text-ink" : "text-ink-soft hover:bg-surface-2 hover:text-ink"
+      className={`group flex items-center gap-3 rounded-full px-3.5 py-2 text-sm font-medium transition-colors ${
+        active ? "bg-ink text-surface" : "text-ink-soft hover:bg-surface-2 hover:text-ink"
       }`}
     >
-      <Icon className={`h-[18px] w-[18px] ${active ? "text-accent" : "text-ink-faint group-hover:text-ink-soft"}`} />
+      <Icon className={`h-[18px] w-[18px] ${active ? "" : "text-ink-faint group-hover:text-ink-soft"}`} />
       {label}
     </Link>
   );
@@ -128,20 +128,9 @@ export async function AppShell({
 
   return (
     <div className="min-h-screen bg-bg text-ink">
-      {/* A soft wash of the brand colors at the top of the canvas. */}
-      <div aria-hidden className="pointer-events-none fixed inset-x-0 top-0 z-0 h-[420px] lg:left-64">
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              "radial-gradient(60% 70% at 15% 0%, var(--glow-1), transparent 70%), radial-gradient(50% 60% at 90% 0%, var(--glow-2), transparent 70%)",
-          }}
-        />
-      </div>
-
       {/* Padded by the safe-area insets so the iPad app keeps the logo clear of
           the status bar and the account row clear of the home indicator. */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border-soft bg-surface pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)] lg:flex">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border-soft bg-bg pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)] lg:flex">
         <div className="flex h-16 flex-none items-center px-5">
           <Link prefetch={false} href="/dashboard" aria-label="Campus OS home">
             <Logo />
@@ -201,16 +190,16 @@ export async function AppShell({
 
       {/* Padded by the safe-area inset so the installed iPhone app keeps the
           bar clear of the status bar and notch. */}
-      <header className="glass sticky top-0 z-30 border-b border-border-soft pt-[env(safe-area-inset-top)] lg:hidden">
-        <div className="flex h-14 items-center justify-between px-4">
+      <header className="glass sticky top-0 z-30 pt-[env(safe-area-inset-top)] lg:hidden">
+        <div className="flex h-14 items-center justify-between px-5">
           <Link prefetch={false} href="/dashboard" aria-label="Campus OS home" className="flex items-center gap-2.5">
             <LogoMark size={26} />
-            <span className="text-[15px] font-semibold tracking-tight">Campus OS</span>
+            <span className="text-[15px] font-semibold tracking-[-0.02em]">Campus OS</span>
           </Link>
           <Link prefetch={false}
             href="/account"
             aria-label="Account"
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-2 text-xs font-semibold text-ink-soft ring-1 ring-border"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-border-soft bg-surface text-xs font-semibold text-ink"
           >
             {initials(userName) || <UserIcon className="h-4 w-4" />}
           </Link>
@@ -219,7 +208,7 @@ export async function AppShell({
 
       <div className="relative z-10 lg:pl-64">
         {/* Bottom padding keeps the last thing on a page above the tab bar. */}
-        <main className="mx-auto max-w-6xl px-4 pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-5 sm:px-6 lg:px-10 lg:pb-16 lg:pt-10">
+        <main className="mx-auto max-w-6xl px-5 pb-[calc(8rem+env(safe-area-inset-bottom))] pt-4 sm:px-6 lg:px-10 lg:pb-16 lg:pt-10">
           <NativeAppBridge />
           <BillingBanner />
           <FeaturesProvider features={[...features]}>{children}</FeaturesProvider>

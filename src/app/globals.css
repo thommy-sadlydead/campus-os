@@ -3,136 +3,191 @@
 @tailwind utilities;
 
 /*
- * Campus OS design system. Every color in the app comes from these tokens
- * (as Tailwind classes like bg-surface, text-ink-soft, border-border-soft),
- * so changing one here changes it everywhere, light and dark alike.
+ * Campus OS design system: monochrome and editorial. Every color in the app
+ * comes from these tokens (as Tailwind classes like bg-surface,
+ * text-ink-soft, border-border-soft), so changing one here changes it
+ * everywhere, light and dark alike.
  *
- *   bg / surface / surface-2   page canvas, cards, quiet fills and hovers
- *   ink / ink-soft / ink-faint  text, from headings down to hints
- *   border / border-soft       control outlines, card and divider lines
- *   accent (+ -ink, -soft)     the brand orange: links, focus, highlights
- *   danger / ok / warn         status colors, each with a soft background
- *   c-1 … c-8                  per-class colors
- *   --grad-from / --grad-to    the blue-to-orange brand gradient, used
- *                              sparingly (logo, Record, a few highlights)
+ *   bg / surface / surface-2   off-white canvas, white cards, quiet fills
+ *   ink / ink-soft / ink-faint  black text and primary surfaces, a readable
+ *                              warm gray for secondary text, and the lighter
+ *                              warm gray (#8A8A85) for labels and metadata
+ *   border / border-soft       control outlines, and the 1px hairlines that
+ *                              stand in for shadows
+ *   accent (+ -ink, -soft)     signal red-orange, used only for urgency, the
+ *                              "now" marker and recording
+ *   danger                     the same red; ok / warn are monochrome
+ *   c-1 … c-8                  per-class colors, all monochrome now
+ *
+ * .theme-inverse (below) flips a block to the opposite palette, for the
+ * black cards: black on the light theme, off-white on the dark one.
  */
 :root {
-  --bg: #f6f7f9;
+  --bg: #f2f2f0;
   --surface: #ffffff;
-  --surface-2: #f1f3f6;
-  --ink: #0f1218;
-  --ink-soft: #596273;
-  --ink-faint: #8a93a3;
-  --border: #e2e5eb;
-  --border-soft: #eceef2;
-  --accent: #ea6a12;
-  --accent-ink: #b8500a;
-  --accent-soft: #fff1e6;
-  --accent-ring: rgba(234, 106, 18, 0.18);
-  --danger: #d92d3a;
-  --danger-soft: #fdeced;
-  --ok: #15803d;
-  --ok-soft: #e9f7ee;
-  --warn: #b45309;
-  --warn-soft: #fef4e6;
+  --surface-2: #eaeae6;
+  --ink: #0a0a0a;
+  --ink-soft: #5c5c58;
+  --ink-faint: #8a8a85;
+  --border: #d6d6d2;
+  --border-soft: #e5e5e2;
+  --accent: #ff4d2e;
+  /* Links and highlights were the old accent; they're ink now, so red
+     stays for urgency (accent, danger). */
+  --accent-ink: #0a0a0a;
+  --accent-soft: #eaeae6;
+  --accent-ring: rgba(10, 10, 10, 0.12);
+  --danger: #ff4d2e;
+  --danger-soft: #ffe8e2;
+  --ok: #0a0a0a;
+  --ok-soft: #eaeae6;
+  --warn: #5c5c58;
+  --warn-soft: #eaeae6;
 
-  --grad-from: #4c7dff;
-  --grad-to: #ff7a2f;
-  --glow-1: rgba(76, 125, 255, 0.1);
-  --glow-2: rgba(255, 122, 47, 0.08);
-  --halo-1: rgba(76, 125, 255, 0.2);
-  --halo-2: rgba(255, 122, 47, 0.16);
-  --shadow-color: 16, 24, 40;
-  --glass: rgba(255, 255, 255, 0.78);
+  /* The old gradient, now solid black, for anything that still reads it. */
+  --grad-from: #0a0a0a;
+  --grad-to: #0a0a0a;
+  --glow-1: transparent;
+  --glow-2: transparent;
+  --halo-1: transparent;
+  --halo-2: transparent;
+  --shadow-color: 10, 10, 10;
+  --glass: rgba(242, 242, 240, 0.86);
 
-  --c-1: #0d9488; /* teal */
-  --c-2: #7c3aed; /* violet */
-  --c-3: #d97706; /* amber */
-  --c-4: #e11d48; /* rose */
-  --c-5: #16a34a; /* green */
-  --c-6: #2563eb; /* blue */
-  --c-7: #c026d3; /* fuchsia */
-  --c-8: #475569; /* slate */
+  --c-1: #0a0a0a;
+  --c-2: #0a0a0a;
+  --c-3: #0a0a0a;
+  --c-4: #0a0a0a;
+  --c-5: #0a0a0a;
+  --c-6: #0a0a0a;
+  --c-7: #0a0a0a;
+  --c-8: #0a0a0a;
 }
 
+/* The dark palette: the same design, inverted. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #0a0b0f;
-    --surface: #121419;
-    --surface-2: #1a1d24;
-    --ink: #f1f2f5;
-    --ink-soft: #a4abb9;
-    --ink-faint: #6c7381;
-    --border: #272b34;
-    --border-soft: #1d2028;
-    --accent: #ff8a3d;
-    --accent-ink: #ffb27a;
-    --accent-soft: #2a1a0f;
-    --accent-ring: rgba(255, 138, 61, 0.28);
-    --danger: #f87171;
-    --danger-soft: #2a1416;
-    --ok: #4ade80;
-    --ok-soft: #10251a;
-    --warn: #fbbf24;
-    --warn-soft: #2a2111;
-
-    --grad-from: #5b8cff;
-    --grad-to: #ff8a3d;
-    --glow-1: rgba(91, 140, 255, 0.12);
-    --glow-2: rgba(255, 138, 61, 0.08);
-    --halo-1: rgba(91, 140, 255, 0.18);
-    --halo-2: rgba(255, 138, 61, 0.12);
+    --bg: #111111;
+    --surface: #1c1c1e;
+    --surface-2: #262628;
+    --ink: #f2f2f0;
+    --ink-soft: #a8a8a3;
+    --ink-faint: #8a8a85;
+    --border: #3a3a3c;
+    --border-soft: #2a2a2c;
+    --accent: #ff5a3d;
+    --accent-ink: #f2f2f0;
+    --accent-soft: #262628;
+    --accent-ring: rgba(242, 242, 240, 0.16);
+    --danger: #ff5a3d;
+    --danger-soft: #3a1b14;
+    --ok: #f2f2f0;
+    --ok-soft: #262628;
+    --warn: #a8a8a3;
+    --warn-soft: #262628;
+    --grad-from: #f2f2f0;
+    --grad-to: #f2f2f0;
     --shadow-color: 0, 0, 0;
-    --glass: rgba(18, 20, 25, 0.74);
-
-    --c-1: #2dd4bf;
-    --c-2: #a78bfa;
-    --c-3: #fbbf24;
-    --c-4: #fb7185;
-    --c-5: #4ade80;
-    --c-6: #60a5fa;
-    --c-7: #e879f9;
-    --c-8: #94a3b8;
+    --glass: rgba(17, 17, 17, 0.86);
+    --c-1: #f2f2f0;
+    --c-2: #f2f2f0;
+    --c-3: #f2f2f0;
+    --c-4: #f2f2f0;
+    --c-5: #f2f2f0;
+    --c-6: #f2f2f0;
+    --c-7: #f2f2f0;
+    --c-8: #f2f2f0;
   }
 }
 
 :root[data-theme="dark"] {
-  --bg: #0a0b0f;
-  --surface: #121419;
-  --surface-2: #1a1d24;
-  --ink: #f1f2f5;
-  --ink-soft: #a4abb9;
-  --ink-faint: #6c7381;
-  --border: #272b34;
-  --border-soft: #1d2028;
-  --accent: #ff8a3d;
-  --accent-ink: #ffb27a;
-  --accent-soft: #2a1a0f;
-  --accent-ring: rgba(255, 138, 61, 0.28);
-  --danger: #f87171;
-  --danger-soft: #2a1416;
-  --ok: #4ade80;
-  --ok-soft: #10251a;
-  --warn: #fbbf24;
-  --warn-soft: #2a2111;
-
-  --grad-from: #5b8cff;
-  --grad-to: #ff8a3d;
-  --glow-1: rgba(91, 140, 255, 0.12);
-  --glow-2: rgba(255, 138, 61, 0.08);
-  --halo-1: rgba(91, 140, 255, 0.18);
-  --halo-2: rgba(255, 138, 61, 0.12);
+  --bg: #111111;
+  --surface: #1c1c1e;
+  --surface-2: #262628;
+  --ink: #f2f2f0;
+  --ink-soft: #a8a8a3;
+  --ink-faint: #8a8a85;
+  --border: #3a3a3c;
+  --border-soft: #2a2a2c;
+  --accent: #ff5a3d;
+  --accent-ink: #f2f2f0;
+  --accent-soft: #262628;
+  --accent-ring: rgba(242, 242, 240, 0.16);
+  --danger: #ff5a3d;
+  --danger-soft: #3a1b14;
+  --ok: #f2f2f0;
+  --ok-soft: #262628;
+  --warn: #a8a8a3;
+  --warn-soft: #262628;
+  --grad-from: #f2f2f0;
+  --grad-to: #f2f2f0;
   --shadow-color: 0, 0, 0;
-  --glass: rgba(18, 20, 25, 0.74);
+  --glass: rgba(17, 17, 17, 0.86);
+  --c-1: #f2f2f0;
+  --c-2: #f2f2f0;
+  --c-3: #f2f2f0;
+  --c-4: #f2f2f0;
+  --c-5: #f2f2f0;
+  --c-6: #f2f2f0;
+  --c-7: #f2f2f0;
+  --c-8: #f2f2f0;
+}
 
-  --c-1: #2dd4bf;
-  --c-2: #a78bfa;
-  --c-3: #fbbf24;
-  --c-4: #fb7185;
-  --c-5: #4ade80;
-  --c-6: #60a5fa;
-  --c-7: #e879f9;
-  --c-8: #94a3b8;
+/*
+ * A black card (or a light one in dark mode): everything inside reads the
+ * opposite palette, so text-ink, border-border-soft and the rest just work.
+ */
+.theme-inverse {
+  --surface: #0a0a0a;
+  --surface-2: #1f1f21;
+  --ink: #f2f2f0;
+  --ink-soft: #b5b5b0;
+  --ink-faint: #8a8a85;
+  --border: #3a3a3c;
+  --border-soft: #2a2a2c;
+  --accent-ring: rgba(242, 242, 240, 0.2);
+  --accent-ink: #f2f2f0;
+  --accent-soft: #1f1f21;
+  --ok: #f2f2f0;
+  --ok-soft: #1f1f21;
+  --warn: #b5b5b0;
+  --warn-soft: #1f1f21;
+  background-color: var(--surface);
+  color: var(--ink);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .theme-inverse {
+    --surface: #f2f2f0;
+    --surface-2: #e5e5e2;
+    --ink: #0a0a0a;
+    --ink-soft: #5c5c58;
+    --ink-faint: #8a8a85;
+    --border: #d6d6d2;
+    --border-soft: #dcdcd8;
+    --accent-ring: rgba(10, 10, 10, 0.12);
+    --accent-ink: #0a0a0a;
+    --accent-soft: #e5e5e2;
+    --ok: #0a0a0a;
+    --ok-soft: #e5e5e2;
+    --warn: #5c5c58;
+    --warn-soft: #e5e5e2;
+  }
+}
+:root[data-theme="dark"] .theme-inverse {
+  --surface: #f2f2f0;
+  --surface-2: #e5e5e2;
+  --ink: #0a0a0a;
+  --ink-soft: #5c5c58;
+  --ink-faint: #8a8a85;
+  --border: #d6d6d2;
+  --border-soft: #dcdcd8;
+  --accent-ring: rgba(10, 10, 10, 0.12);
+  --accent-ink: #0a0a0a;
+  --accent-soft: #e5e5e2;
+  --ok: #0a0a0a;
+  --ok-soft: #e5e5e2;
+  --warn: #5c5c58;
+  --warn-soft: #e5e5e2;
 }
 
 html {
@@ -143,7 +198,10 @@ html {
 body {
   background-color: var(--bg);
   color: var(--ink);
-  font-feature-settings: "ss01", "cv11";
+  /* Inter: single-storey a, open digits; optical sizing picks the Display
+     cut for large type on its own. */
+  font-feature-settings: "cv11", "ss01";
+  font-optical-sizing: auto;
 }
 
 ::selection {
@@ -151,21 +209,34 @@ body {
   color: var(--ink);
 }
 
-/* Headings: tighter tracking reads as a product, not a document. */
+/* Headings: tight negative tracking, the editorial look. */
 .font-display {
-  letter-spacing: -0.022em;
+  letter-spacing: -0.03em;
+}
+/* Big numbers (counts, dates, the timer): the type is the hierarchy. */
+.display-num {
+  font-weight: 700;
+  letter-spacing: -0.05em;
+  line-height: 0.9;
+  font-variant-numeric: tabular-nums;
+}
+/* Timers and figures line up: Inter's tabular digits stand in for a mono. */
+.font-mono,
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
 }
 
-/* One focus style everywhere: a soft ring in the brand color. */
+/* One focus style everywhere: a black ring (white in dark mode). The red
+   accent is kept for urgency, the "now" marker and recording. */
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--ink);
   outline-offset: 2px;
 }
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
   outline: none;
-  border-color: var(--accent);
+  border-color: var(--ink);
   box-shadow: 0 0 0 4px var(--accent-ring);
 }
 
@@ -192,18 +263,20 @@ textarea:focus-visible {
     backdrop-filter: saturate(180%) blur(18px);
   }
 
-  /* Surfaces */
+  /* Surfaces: one radius (20px) and a 1px hairline instead of a shadow. */
   .card {
-    @apply rounded-xl2 border border-border-soft bg-surface shadow-card;
+    @apply rounded-xl2 border border-border-soft bg-surface;
   }
   .card-pad {
     @apply p-5 sm:p-6;
   }
+  /* A black card is "card theme-inverse" (see .theme-inverse above). */
 
-  /* Buttons. Primary is the dark (light in dark mode) button for the main
-     action on a screen; brand is the gradient one, kept for Record. */
+  /* Buttons: full pills. Primary is the black (white in dark mode) button
+     for the main action on a screen; brand is the same black, kept as a
+     name for Record. */
   .btn {
-    @apply inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-lg px-4 text-sm font-medium transition-[background-color,color,box-shadow,opacity,transform] duration-150 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
+    @apply inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-full px-4 text-sm font-medium transition-[background-color,color,box-shadow,opacity,transform] duration-150 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
     min-height: 2.5rem;
   }
   .btn-sm {
@@ -215,33 +288,31 @@ textarea:focus-visible {
     min-height: 2.875rem;
   }
   .btn-primary {
-    @apply bg-ink text-surface shadow-sm hover:opacity-90;
+    @apply bg-ink text-surface hover:opacity-90;
   }
   .btn-secondary {
-    @apply border border-border bg-surface text-ink shadow-sm hover:bg-surface-2;
+    @apply border border-border-soft bg-surface text-ink hover:bg-surface-2;
   }
   .btn-ghost {
     @apply text-ink-soft hover:bg-surface-2 hover:text-ink;
   }
   .btn-accent {
-    @apply bg-accent text-white shadow-sm hover:opacity-90;
+    @apply bg-accent text-white hover:opacity-90;
   }
   .btn-danger {
     @apply border border-border bg-surface text-danger hover:bg-danger-soft;
   }
   .btn-destructive {
-    @apply bg-danger text-surface shadow-sm hover:opacity-90;
+    @apply bg-danger text-white hover:opacity-90;
   }
   .btn-brand {
-    @apply text-white hover:opacity-95;
-    background-image: linear-gradient(135deg, var(--grad-from), var(--grad-to));
-    box-shadow: 0 6px 18px -6px rgba(255, 122, 47, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    @apply bg-ink text-surface hover:opacity-90;
   }
 
   /* Form fields */
   .field {
-    @apply w-full rounded-lg border border-border bg-surface px-3 text-sm text-ink shadow-sm outline-none transition-[border-color,box-shadow] placeholder:text-ink-faint disabled:opacity-60;
-    min-height: 2.5rem;
+    @apply w-full rounded-xl border border-border-soft bg-surface px-3.5 text-sm text-ink outline-none transition-[border-color,box-shadow] placeholder:text-ink-faint disabled:opacity-60;
+    min-height: 2.75rem;
   }
   textarea.field {
     @apply py-2.5;
@@ -265,42 +336,55 @@ textarea:focus-visible {
     @apply text-left;
   }
   .field-label {
-    @apply mb-1.5 block text-[13px] font-medium text-ink-soft;
+    @apply mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-faint;
   }
 
-  /* Small labels and badges */
+  /* Small labels and badges. Labels are 11-13px uppercase warm gray with
+     +6% tracking; the type does the hierarchy, not boxes. */
   .eyebrow {
-    @apply text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-faint;
+    @apply text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-faint;
   }
   .badge {
     @apply inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+  /* Status as text: urgent is the red pill, soon is outlined, later is gray. */
+  .badge-urgent {
+    @apply badge bg-accent text-white;
+  }
+  .badge-soon {
+    @apply badge border border-ink text-ink;
+  }
+  .badge-later {
+    @apply badge bg-surface-2 text-ink-soft;
+  }
+  .badge-solid {
+    @apply badge bg-ink text-surface;
   }
   .dot {
     @apply inline-block h-2 w-2 flex-none rounded-full;
   }
   /* Suggestion chips: quick questions and filters. */
   .chip {
-    @apply inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-surface px-3 py-1 text-xs font-medium text-ink-soft transition-colors hover:border-ink-faint hover:text-ink disabled:opacity-50;
+    @apply inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-transparent px-3.5 py-1.5 text-[13px] font-medium text-ink transition-colors hover:border-ink disabled:opacity-50;
+  }
+  .chip-active {
+    @apply border-ink bg-ink text-surface;
   }
 
-  /* Empty states */
+  /* Empty states: a short line of copy, centered, never an empty form. */
   .empty {
-    @apply rounded-xl2 border border-dashed border-border bg-surface px-6 py-10 text-center text-sm text-ink-soft;
+    @apply rounded-xl2 border border-dashed border-border px-6 py-10 text-center text-sm text-ink-faint;
   }
 
-  /* A class's own color as a soft tile (set --course with courseStyle()). */
+  /* A class's tile: monochrome initials on a quiet fill. */
   .course-tint {
     background-color: var(--surface-2);
-    background-color: color-mix(in srgb, var(--course) 14%, var(--surface));
-    color: var(--course);
+    color: var(--ink);
   }
 
-  /* The brand gradient as text, for a word or two in a headline. */
+  /* Was the brand gradient as text; now just ink. */
   .text-brand {
-    background-image: linear-gradient(120deg, var(--grad-from), var(--grad-to));
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+    color: var(--ink);
   }
 }
 
@@ -311,5 +395,27 @@ textarea:focus-visible {
   }
   100% {
     transform: translateX(320%);
+  }
+}
+
+/* Bottom sheets slide up from the bottom edge. */
+@keyframes sheet-up {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* The record button while recording: a soft red ring that pulses out. */
+@keyframes record-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 77, 46, 0.45);
+  }
+  100% {
+    box-shadow: 0 0 0 18px rgba(255, 77, 46, 0);
   }
 }

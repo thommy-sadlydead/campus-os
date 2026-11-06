@@ -11,6 +11,7 @@ class CampusBridgeViewController: CAPBridgeViewController {
         bridge?.registerPluginInstance(NativeRecorderPlugin())
         bridge?.registerPluginInstance(AuthSessionPlugin())
         bridge?.registerPluginInstance(NativeStorePlugin())
+        bridge?.registerPluginInstance(HapticsPlugin())
     }
 
     override open func webView(with frame: CGRect, configuration: WKWebViewConfiguration) -> WKWebView {

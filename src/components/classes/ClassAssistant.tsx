@@ -87,8 +87,7 @@ export function ClassAssistant({
       />
       <div className="relative flex items-start gap-3">
         <span
-          className="flex h-9 w-9 flex-none items-center justify-center rounded-xl text-white"
-          style={{ backgroundImage: "linear-gradient(135deg, var(--grad-from), var(--grad-to))" }}
+          className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-ink text-surface"
         >
           <SparkIcon className="h-[18px] w-[18px]" />
         </span>
@@ -139,7 +138,7 @@ export function ClassAssistant({
 
       {pending ? (
         <div className="relative mt-4 flex items-center gap-2.5 rounded-lg bg-surface-2 p-4 text-sm text-ink-soft" role="status">
-          <SparkIcon className="h-4 w-4 flex-none animate-pulse text-accent motion-reduce:animate-none" />
+          <SparkIcon className="h-4 w-4 flex-none animate-pulse text-ink motion-reduce:animate-none" />
           Looking through this class's notes and files… a study guide or quiz can take a minute or two.
         </div>
       ) : (

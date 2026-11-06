@@ -61,6 +61,32 @@ Vitest (`environment: "node"`). `@anthropic-ai/sdk@1.6.0` (upgraded from
 compiled unchanged). Auth is homegrown email/password + session cookies,
 no third-party auth.
 
+## Design system (monochrome editorial, Nov 6, 2026)
+
+- **Tokens** live in `src/app/globals.css`: off-white `--bg` #F2F2F0, black
+  `--ink` #0A0A0A, warm gray `--ink-faint` #8A8A85 for labels, `#E5E5E2`
+  hairlines instead of shadows, and one accent, red-orange `--accent`
+  #FF4D2E, used only for urgency, the NOW marker and recording. The old
+  `accent-ink`/`accent-soft` (links, highlights) now map to ink and a
+  neutral fill; the old gradient vars are solid ink. Dark mode inverts it
+  (#111 page, #1C1C1E cards).
+- **`.theme-inverse`** flips a block to the opposite palette (the black
+  cards: Ask, the featured class tile, the tab bar); everything inside keeps
+  using text-ink etc.
+- **Type**: Inter with optical sizing (`--font-inter`), tight negative
+  tracking on headings, `.display-num` for giant numbers, labels as
+  `.eyebrow` (11px uppercase, +6% tracking). One card radius (20px, `xl2`),
+  pills for chips and buttons; `.badge-urgent` / `.badge-soon` /
+  `.badge-later` for status as text.
+- **Today** is `src/components/dashboard/TodayBoard.tsx` (hero, day strip,
+  week pills, two-line cards) on the numbers in `src/lib/today.ts` (tested).
+  `haptic()` in `src/lib/native-app.ts` uses `ios/App/App/HapticsPlugin.swift`
+  from app build 1.3 on.
+- **Local preview**: `next dev` crashes on Today, class pages and Schedule
+  ("reading 'call'", a client module missing from the page chunk; it happens
+  at older commits too), and `next dev --turbopack` serves stale Tailwind
+  CSS. Check pages with `next build && next start` instead.
+
 ## Conventions worth matching
 
 - **String fields, not Prisma enums**, everywhere a fixed set of values is
@@ -349,7 +375,7 @@ no third-party auth.
 ## Verifying a change before calling it done
 
 1. `npx tsc --noEmit` (after `npx prisma generate` if the schema changed)
-2. `npx vitest run` — 553 tests as of this writing across 51 files
+2. `npx vitest run` — 561 tests as of this writing across 52 files
 3. Clean build: `rm -rf .next && npx next build` (use `next build` directly
    to skip the `db push` the `npm run build` script triggers, if you're not
    ready to push schema changes yet)

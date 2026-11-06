@@ -61,80 +61,83 @@ export function MobileNav({
     return () => document.removeEventListener("keydown", onKey);
   }, [moreOpen]);
 
+  // A floating black pill (white in dark mode): the active tab is a filled
+  // pill with its icon and label, the others are icons only. Record sits
+  // raised above the middle as a 64px circle.
   const tabClass = (isActive: boolean) =>
-    `flex w-full flex-col items-center gap-1 rounded-2xl py-1.5 text-[10.5px] font-medium transition-colors ${
-      isActive ? "text-ink" : "text-ink-faint"
+    `flex h-11 items-center justify-center gap-1.5 rounded-full text-[13px] font-semibold transition-[background-color,color,padding] duration-200 ${
+      isActive ? "bg-ink px-4 text-surface" : "w-11 text-ink-soft hover:text-ink"
     }`;
-  const iconClass = (isActive: boolean) => `h-[22px] w-[22px] ${isActive ? "text-accent" : ""}`;
+  const iconClass = "h-[21px] w-[21px] flex-none";
+  const label = (isActive: boolean, text: string) => (isActive ? <span>{text}</span> : <span className="sr-only">{text}</span>);
 
   const [today, classes, schedule] = TABS;
+  const third = record
+    ? null
+    : { href: "/assignments", label: "Assignments", Icon: ChecklistIcon };
 
   return (
     <>
       <nav
         aria-label="Main"
-        className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-3 pb-[calc(0.6rem+env(safe-area-inset-bottom))] lg:hidden"
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-5 pb-[calc(0.75rem+env(safe-area-inset-bottom))] lg:hidden"
       >
-        <ul className="glass pointer-events-auto mx-auto grid max-w-md grid-cols-5 items-end rounded-[24px] border border-border-soft px-1.5 pb-1 pt-1.5 shadow-pop">
-          {[today, classes].map(({ href, label, Icon }) => (
-            <li key={href}>
-              <Link prefetch={false} href={href} className={tabClass(active === href)} aria-current={active === href ? "page" : undefined}>
-                <Icon className={iconClass(active === href)} />
-                {label}
-              </Link>
-            </li>
-          ))}
-          {record ? (
-            <li className="flex justify-center">
-              <Link prefetch={false}
-                href="/record"
-                aria-label="Record a lecture"
-                aria-current={active === "/record" ? "page" : undefined}
-                className="flex flex-col items-center gap-1 pb-1.5 text-[10.5px] font-medium text-ink"
-              >
-                <span
-                  className="-mt-7 flex h-14 w-14 items-center justify-center rounded-full text-white ring-[5px] ring-bg"
-                  style={{
-                    backgroundImage: "linear-gradient(135deg, var(--grad-from), var(--grad-to))",
-                    boxShadow: "0 10px 24px -8px rgba(255, 122, 47, 0.6)",
-                  }}
-                >
-                  <MicIcon className="h-6 w-6" />
-                </span>
-                Record
-              </Link>
-            </li>
-          ) : (
-            <li>
-              <Link prefetch={false} href="/assignments" className={tabClass(active === "/assignments")} aria-current={active === "/assignments" ? "page" : undefined}>
-                <ChecklistIcon className={iconClass(active === "/assignments")} />
-                Assignments
-              </Link>
-            </li>
-          )}
-          <li>
+        <div className="pointer-events-auto relative mx-auto max-w-md">
+          {record && (
             <Link prefetch={false}
-              href={schedule.href}
-              className={tabClass(active === schedule.href)}
-              aria-current={active === schedule.href ? "page" : undefined}
+              href="/record"
+              aria-label="Record a lecture"
+              aria-current={active === "/record" ? "page" : undefined}
+              className="absolute -top-9 left-1/2 z-10 flex h-16 w-16 -translate-x-1/2 items-center justify-center rounded-full bg-ink text-surface ring-[5px] ring-bg transition-transform active:scale-95"
             >
-              <schedule.Icon className={iconClass(active === schedule.href)} />
-              {schedule.label}
+              <MicIcon className="h-[26px] w-[26px]" />
             </Link>
-          </li>
-          <li>
-            <button
-              type="button"
-              onClick={() => setMoreOpen(true)}
-              aria-expanded={moreOpen}
-              aria-haspopup="dialog"
-              className={tabClass(moreActive)}
-            >
-              <MoreIcon className={iconClass(moreActive)} />
-              More
-            </button>
-          </li>
-        </ul>
+          )}
+          <ul className="theme-inverse flex items-center justify-between rounded-full p-1.5 shadow-pop">
+            {[today, classes].map(({ href, label: text, Icon }) => (
+              <li key={href}>
+                <Link prefetch={false} href={href} className={tabClass(active === href)} aria-current={active === href ? "page" : undefined}>
+                  <Icon className={iconClass} />
+                  {label(active === href, text)}
+                </Link>
+              </li>
+            ))}
+            {record ? (
+              <li aria-hidden className="w-16 flex-none" />
+            ) : (
+              third && (
+                <li>
+                  <Link prefetch={false} href={third.href} className={tabClass(active === third.href)} aria-current={active === third.href ? "page" : undefined}>
+                    <third.Icon className={iconClass} />
+                    {label(active === third.href, third.label)}
+                  </Link>
+                </li>
+              )
+            )}
+            <li>
+              <Link prefetch={false}
+                href={schedule.href}
+                className={tabClass(active === schedule.href)}
+                aria-current={active === schedule.href ? "page" : undefined}
+              >
+                <schedule.Icon className={iconClass} />
+                {label(active === schedule.href, schedule.label)}
+              </Link>
+            </li>
+            <li>
+              <button
+                type="button"
+                onClick={() => setMoreOpen(true)}
+                aria-expanded={moreOpen}
+                aria-haspopup="dialog"
+                className={tabClass(moreActive)}
+              >
+                <MoreIcon className={iconClass} />
+                {label(moreActive, "More")}
+              </button>
+            </li>
+          </ul>
+        </div>
       </nav>
 
       {moreOpen && (

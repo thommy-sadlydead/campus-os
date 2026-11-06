@@ -21,8 +21,7 @@ export function WhatNowPanel() {
       <div className="relative">
         <div className="flex items-start gap-3">
           <span
-            className="flex h-9 w-9 flex-none items-center justify-center rounded-xl text-white"
-            style={{ backgroundImage: "linear-gradient(135deg, var(--grad-from), var(--grad-to))" }}
+            className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-ink text-surface"
           >
             <SparkIcon className="h-[18px] w-[18px]" />
           </span>

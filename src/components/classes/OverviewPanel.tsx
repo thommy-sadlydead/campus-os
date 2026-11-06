@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateClassOverviewAction, addScheduleEventAction, deleteScheduleEventsAction } from "@/app/classes/[id]/actions";
+import { formatInTimeZone } from "date-fns-tz";
 import { formatDueLabel } from "@/lib/time";
 import { CardHeader } from "@/components/ui/CardHeader";
 import { lmsName } from "@/lib/lms/providers";
@@ -137,21 +138,25 @@ export function OverviewPanel({
               </button>
             </form>
           ) : (
-            <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-4 text-sm">
-              <Item label="Professor" value={classInfo.professor} />
-              <Item label="Room" value={classInfo.room} />
-              <Item label="Current grade" value={classInfo.currentGrade} />
-              <Item label="Course code" value={classInfo.code} />
-            </dl>
+            <DetailsList classInfo={classInfo} onAdd={() => setEditing(true)} />
           )}
         </div>
 
-        <div className="card p-5">
-          <CardHeader title="Next up" />
-          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <NextCard label="Next assignment" title={classInfo.nextAssignment?.title ?? null} dueLabel={classInfo.nextAssignment ? formatDueLabel(classInfo.nextAssignment.dueAt ? new Date(classInfo.nextAssignment.dueAt) : null, now, tz) : null} />
-            <NextCard label="Next exam" title={classInfo.nextExam?.title ?? null} dueLabel={classInfo.nextExam ? formatDueLabel(classInfo.nextExam.examAt ? new Date(classInfo.nextExam.examAt) : null, now, tz) : null} />
-          </div>
+        <div className="grid grid-cols-2 gap-3">
+          <NextTile
+            label="Next assignment"
+            title={classInfo.nextAssignment?.title ?? null}
+            at={classInfo.nextAssignment?.dueAt ? new Date(classInfo.nextAssignment.dueAt) : null}
+            dueLabel={classInfo.nextAssignment ? formatDueLabel(classInfo.nextAssignment.dueAt ? new Date(classInfo.nextAssignment.dueAt) : null, now, tz) : null}
+            tz={tz}
+          />
+          <NextTile
+            label="Next exam"
+            title={classInfo.nextExam?.title ?? null}
+            at={classInfo.nextExam?.examAt ? new Date(classInfo.nextExam.examAt) : null}
+            dueLabel={classInfo.nextExam ? formatDueLabel(classInfo.nextExam.examAt ? new Date(classInfo.nextExam.examAt) : null, now, tz) : null}
+            tz={tz}
+          />
         </div>
 
         {/* Keyed by the grade so the calculator starts over from a new one. */}
@@ -293,26 +298,74 @@ function Field({ label, name, defaultValue, placeholder }: { label: string; name
   );
 }
 
-function Item({ label, value }: { label: string; value: string | null }) {
+/**
+ * The class's details that are filled in, and one soft row for the rest
+ * ("Add professor, room and grade") instead of a field that says "Not set".
+ */
+function DetailsList({ classInfo, onAdd }: { classInfo: OverviewClassInfo; onAdd: () => void }) {
+  const fields = [
+    { label: "Professor", value: classInfo.professor, missing: "professor" },
+    { label: "Room", value: classInfo.room, missing: "room" },
+    { label: "Current grade", value: classInfo.currentGrade, missing: "grade" },
+  ];
+  const filled = fields.filter((f) => f.value?.trim());
+  const missing = fields.filter((f) => !f.value?.trim()).map((f) => f.missing);
   return (
-    <div>
-      <dt className="text-xs text-ink-faint">{label}</dt>
-      <dd className="mt-1 font-medium text-ink">{value || <span className="font-normal text-ink-faint">Not set</span>}</dd>
+    <div className="mt-4">
+      {filled.length > 0 && (
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-4 text-sm">
+          {filled.map((f) => (
+            <div key={f.label}>
+              <dt className="eyebrow">{f.label}</dt>
+              <dd className="mt-1 text-[15px] font-semibold text-ink">{f.value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {missing.length > 0 && (
+        <button
+          type="button"
+          onClick={onAdd}
+          className={`flex w-full items-center justify-between rounded-xl border border-dashed border-border px-4 py-3 text-left text-sm text-ink-soft transition-colors hover:border-ink hover:text-ink ${filled.length ? "mt-4" : ""}`}
+        >
+          Add {listWords(missing)}
+          <span aria-hidden className="text-lg leading-none">+</span>
+        </button>
+      )}
     </div>
   );
 }
 
-function NextCard({ label, title, dueLabel }: { label: string; title: string | null; dueLabel: string | null }) {
+/** "professor, room and grade". */
+function listWords(words: string[]): string {
+  return words.length <= 1 ? words.join("") : `${words.slice(0, -1).join(", ")} and ${words.at(-1)}`;
+}
+
+/** A stat tile: the date as a big number, then what's due. */
+function NextTile({ label, title, at, dueLabel, tz }: { label: string; title: string | null; at: Date | null; dueLabel: string | null; tz: string }) {
   return (
-    <div className="rounded-xl bg-surface-2 p-3.5">
+    <div className="card flex flex-col p-4">
       <div className="eyebrow">{label}</div>
       {title ? (
         <>
-          <div className="mt-1.5 truncate text-sm font-semibold text-ink">{title}</div>
+          {at && (
+            <div className="mt-3 flex items-end gap-2">
+              <span className="display-num text-[44px] text-ink">{formatInTimeZone(at, tz, "d")}</span>
+              <span className="pb-1 text-[11px] font-semibold uppercase leading-tight tracking-[0.06em] text-ink-faint">
+                {formatInTimeZone(at, tz, "MMM")}
+                <br />
+                {formatInTimeZone(at, tz, "EEE")}
+              </span>
+            </div>
+          )}
+          <div className="mt-3 line-clamp-2 text-sm font-semibold leading-snug text-ink">{title}</div>
           <div className="mt-0.5 text-xs text-ink-soft">{dueLabel}</div>
         </>
       ) : (
-        <div className="mt-1 text-sm text-ink-faint">Nothing on file</div>
+        <div className="mt-3">
+          <span className="display-num text-[44px] text-ink-faint">—</span>
+          <div className="mt-3 text-sm text-ink-faint">Nothing on file</div>
+        </div>
       )}
     </div>
   );

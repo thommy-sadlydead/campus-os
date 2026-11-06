@@ -90,10 +90,30 @@ interface NativeStorePlugin {
   addListener(event: "transaction", listener: (data: { jws: string }) => void): Promise<PluginListenerHandle>;
 }
 
+/** A tap of the Taptic Engine (ios/App/App/HapticsPlugin.swift). App 1.3+. */
+interface HapticsPlugin {
+  impact(options: { style: "light" | "medium" | "heavy" }): Promise<void>;
+}
+
 export const SharedInbox = registerPlugin<SharedInboxPlugin>("SharedInbox");
 export const NativeRecorder = registerPlugin<NativeRecorderPlugin>("NativeRecorder");
 export const AuthSession = registerPlugin<AuthSessionPlugin>("AuthSession");
 export const NativeStore = registerPlugin<NativeStorePlugin>("NativeStore");
+const NativeHaptics = registerPlugin<HapticsPlugin>("Haptics");
+
+/**
+ * A small physical tap for checking something off and starting or stopping
+ * a recording: the Taptic Engine in the app (once a build has the plugin),
+ * the vibration API on Android browsers, nothing elsewhere.
+ */
+export function haptic(style: "light" | "medium" | "heavy" = "light"): void {
+  if (typeof window === "undefined") return;
+  if (isNativeApp() && Capacitor.isPluginAvailable("Haptics")) {
+    NativeHaptics.impact({ style }).catch(() => {});
+    return;
+  }
+  navigator.vibrate?.(style === "heavy" ? 20 : 10);
+}
 
 /** True in an app build that has this native plugin (an older build might not). */
 export function hasNativePlugin(name: "SharedInbox" | "NativeRecorder" | "AuthSession" | "NativeStore"): boolean {

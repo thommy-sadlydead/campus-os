@@ -13,6 +13,7 @@
 		CA050000000000000000000C /* SharedInbox.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500000000000000000001 /* SharedInbox.swift */; };
 		CA050000000000000000000D /* SharedInboxPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500000000000000000002 /* SharedInboxPlugin.swift */; };
 		CA050000000000000000000E /* AuthSessionPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500000000000000000003 /* AuthSessionPlugin.swift */; };
+		CA05000000000000000000F2 /* HapticsPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA05000000000000000000F1 /* HapticsPlugin.swift */; };
 		CA050000000000000000000F /* NativeRecorderPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500000000000000000004 /* NativeRecorderPlugin.swift */; };
 		CA0500000000000000000010 /* CampusBridgeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500000000000000000005 /* CampusBridgeViewController.swift */; };
 		CA0500000000000000000011 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500000000000000000007 /* ShareViewController.swift */; };
@@ -60,6 +61,7 @@
 		CA0500000000000000000001 /* SharedInbox.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedInbox.swift; sourceTree = "<group>"; };
 		CA0500000000000000000002 /* SharedInboxPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedInboxPlugin.swift; sourceTree = "<group>"; };
 		CA0500000000000000000003 /* AuthSessionPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthSessionPlugin.swift; sourceTree = "<group>"; };
+		CA05000000000000000000F1 /* HapticsPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticsPlugin.swift; sourceTree = "<group>"; };
 		CA0500000000000000000004 /* NativeRecorderPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeRecorderPlugin.swift; sourceTree = "<group>"; };
 		CA0500000000000000000005 /* CampusBridgeViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CampusBridgeViewController.swift; sourceTree = "<group>"; };
 		CA0500000000000000000006 /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
@@ -127,6 +129,7 @@
 				CA0500000000000000000002 /* SharedInboxPlugin.swift */,
 				CA0500000000000000000004 /* NativeRecorderPlugin.swift */,
 				CA0500000000000000000003 /* AuthSessionPlugin.swift */,
+				CA05000000000000000000F1 /* HapticsPlugin.swift */,
 				CA0500000000000000000034 /* NativeStorePlugin.swift */,
 				CA0500000000000000000006 /* App.entitlements */,
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
@@ -284,6 +287,7 @@
 				CA050000000000000000000D /* SharedInboxPlugin.swift in Sources */,
 				CA050000000000000000000F /* NativeRecorderPlugin.swift in Sources */,
 				CA050000000000000000000E /* AuthSessionPlugin.swift in Sources */,
+				CA05000000000000000000F2 /* HapticsPlugin.swift in Sources */,
 				CA0500000000000000000035 /* NativeStorePlugin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -1,11 +1,11 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 import "./globals.css";
 
-// Geist for everything, Geist Mono for timers and figures.
-const geist = Geist({ subsets: ["latin"], variable: "--font-geist" });
-const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" });
+// Inter for everything. Its optical-size axis gives headings and big numbers
+// the Display cut automatically; timers use its tabular digits.
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter", axes: ["opsz"] });
 
 export const metadata: Metadata = {
   title: "Campus OS",
@@ -30,8 +30,8 @@ export const viewport: Viewport = {
   // and the home indicator.
   viewportFit: "cover",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f6f7f9" },
-    { media: "(prefers-color-scheme: dark)", color: "#0a0b0f" },
+    { media: "(prefers-color-scheme: light)", color: "#f2f2f0" },
+    { media: "(prefers-color-scheme: dark)", color: "#111111" },
   ],
   colorScheme: "light dark",
 };
@@ -40,7 +40,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body
-        className={`${geist.variable} ${geistMono.variable} font-sans antialiased`}
+        className={`${inter.variable} font-sans antialiased`}
       >
         {children}
         <ServiceWorkerRegister />

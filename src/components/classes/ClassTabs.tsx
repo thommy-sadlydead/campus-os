@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { NotesBoard, type NotesBoardSection } from "@/components/notes/NotesBoard";
 import { OverviewPanel, type OverviewClassInfo, type OverviewScheduleEvent, type OverviewEmail } from "@/components/classes/OverviewPanel";
 import { ClassAssignmentsPanel, type ClassAssignmentRow } from "@/components/classes/ClassAssignmentsPanel";
@@ -60,10 +60,23 @@ export function ClassTabs({
     const row = tabRowRef.current;
     const selected = row?.querySelector<HTMLElement>("[data-selected]");
     if (!row || !selected) return;
-    const left = selected.offsetLeft - row.offsetLeft;
+    // The row is the tabs' positioned parent, so offsetLeft is within it.
+    const left = selected.offsetLeft;
     if (left < row.scrollLeft || left + selected.offsetWidth > row.scrollLeft + row.clientWidth) {
       row.scrollTo({ left: Math.max(0, left - 16) });
     }
+  }, [tab]);
+  // Where the sliding pill sits: under the selected tab, measured after
+  // layout and again when the window resizes.
+  const [pill, setPill] = useState({ left: 0, width: 0 });
+  useLayoutEffect(() => {
+    const measure = () => {
+      const selected = tabRowRef.current?.querySelector<HTMLElement>("[data-selected]");
+      if (selected) setPill({ left: selected.offsetLeft, width: selected.offsetWidth });
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
   }, [tab]);
   // Set when one tab sends you to a specific item in another: a lecture's
   // "Edit in Notes", or a lecture note's "From lecture" link.
@@ -98,27 +111,38 @@ export function ClassTabs({
 
   return (
     <div>
-      {/* On a phone the row scrolls sideways, edge to edge. */}
-      <div
-        ref={tabRowRef}
-        className="-mx-4 mb-6 flex gap-1.5 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden"
-      >
-        {tabs.map((t) => (
-          <button
-            key={t}
-            data-selected={tab === t || undefined}
-            aria-pressed={tab === t}
-            onClick={() => go(t)}
-            className={`flex flex-none items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors ${
-              tab === t ? "bg-ink text-surface shadow-sm" : "text-ink-soft hover:bg-surface-2 hover:text-ink"
-            }`}
-          >
-            {t}
-            {counts[t] != null && (
-              <span className={`text-xs tabular-nums ${tab === t ? "text-surface opacity-60" : "text-ink-faint"}`}>{counts[t]}</span>
-            )}
-          </button>
-        ))}
+      {/* A segmented control: a black pill slides to the selected tab. On a
+          phone the row scrolls sideways, edge to edge. */}
+      <div className="-mx-5 mb-6 px-5 sm:mx-0 sm:px-0">
+        <div
+          ref={tabRowRef}
+          role="tablist"
+          aria-label="Class sections"
+          className="relative flex gap-0.5 overflow-x-auto rounded-full border border-border-soft bg-surface p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          <span
+            aria-hidden
+            className="absolute bottom-1 top-1 rounded-full bg-ink transition-[left,width] duration-300"
+            style={{ left: pill.left, width: pill.width, transitionTimingFunction: "cubic-bezier(0.34, 1.3, 0.64, 1)", opacity: pill.width ? 1 : 0 }}
+          />
+          {tabs.map((t) => (
+            <button
+              key={t}
+              role="tab"
+              data-selected={tab === t || undefined}
+              aria-selected={tab === t}
+              onClick={() => go(t)}
+              className={`relative z-10 flex flex-none items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-[13px] font-semibold transition-colors duration-200 ${
+                tab === t ? "text-surface" : "text-ink-soft hover:text-ink"
+              }`}
+            >
+              {t}
+              {counts[t] != null && (
+                <span className={`text-[11px] tabular-nums ${tab === t ? "text-surface opacity-60" : "text-ink-faint"}`}>{counts[t]}</span>
+              )}
+            </button>
+          ))}
+        </div>
       </div>
 
       {tab === "Overview" && (

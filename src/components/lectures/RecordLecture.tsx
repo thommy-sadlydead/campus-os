@@ -50,7 +50,7 @@ export function RecordLecture({
     return (
       <div className="empty">
         Recordings are saved to a class, and you don&apos;t have any yet.{" "}
-        <Link href="/connect" className="font-medium text-accent-ink underline">
+        <Link href="/connect" className="font-semibold text-ink underline decoration-border underline-offset-4">
           Connect your classes
         </Link>{" "}
         to bring them in.
@@ -87,7 +87,11 @@ export function RecordLecture({
             </option>
           ))}
         </select>
-        {!suggested && (
+        {suggested ? (
+          <p className="mt-1.5 text-xs leading-relaxed text-ink-faint">
+            Picked from your schedule: {suggested.name} is {SUGGESTION_LABEL[suggestion.reason]}.
+          </p>
+        ) : (
           <p className="mt-1.5 text-xs leading-relaxed text-ink-faint">
             No class is on your schedule right now. Add meeting times on the Schedule page and Campus OS will pick
             the class for you.
@@ -96,17 +100,20 @@ export function RecordLecture({
       </div>
 
       <div className="card card-pad">
-        <div className="flex rounded-xl bg-surface-2 p-1">
+        {/* A segmented control: the chosen side is the black pill. */}
+        <div className="flex rounded-full border border-border-soft bg-surface p-1" role="tablist" aria-label="Record or upload">
           {(["record", "upload"] as const).map((value) => (
             <button
               key={value}
+              role="tab"
+              aria-selected={mode === value}
               onClick={() => setMode(value)}
               disabled={busy}
-              className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50 ${
-                mode === value ? "bg-surface text-ink shadow-sm" : "text-ink-soft hover:text-ink"
+              className={`flex-1 rounded-full px-3 py-2 text-[13px] font-semibold transition-colors duration-200 disabled:opacity-50 ${
+                mode === value ? "bg-ink text-surface" : "text-ink-soft hover:text-ink"
               }`}
             >
-              {value === "record" ? "Record now" : "Upload a recording"}
+              {value === "record" ? "Record now" : "Upload"}
             </button>
           ))}
         </div>

@@ -8,18 +8,20 @@ import { DAY_LABELS, WEEK_ORDER, type MeetingDates } from "@/lib/meetings";
 // the semester's first and last day (optional).
 
 export function DayPicker({ days, onChange, compact = false }: { days: number[]; onChange: (days: number[]) => void; compact?: boolean }) {
+  // A row of seven circles, M T W T F S S; picked days are black.
   return (
     <fieldset>
       <legend className={compact ? "sr-only" : "field-label"}>Days</legend>
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex justify-between gap-1">
         {WEEK_ORDER.map((d) => {
           const on = days.includes(d);
           return (
             <label
               key={d}
-              className={`inline-flex cursor-pointer select-none items-center justify-center rounded-full border text-xs font-medium transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-[var(--accent-ring)] ${
-                compact ? "h-7 min-w-[2.5rem] px-2" : "h-8 min-w-[2.75rem] px-2.5"
-              } ${on ? "border-accent bg-accent-soft text-accent-ink" : "border-border bg-surface text-ink-soft hover:border-ink-faint hover:text-ink"}`}
+              title={DAY_LABELS[d]}
+              className={`inline-flex flex-none cursor-pointer select-none items-center justify-center rounded-full border text-[13px] font-semibold transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-[var(--accent-ring)] ${
+                compact ? "h-8 w-8" : "h-10 w-10"
+              } ${on ? "border-ink bg-ink text-surface" : "border-border-soft bg-surface text-ink-soft hover:border-ink hover:text-ink"}`}
             >
               <input
                 type="checkbox"
@@ -29,7 +31,8 @@ export function DayPicker({ days, onChange, compact = false }: { days: number[];
                 onChange={() => onChange(on ? days.filter((x) => x !== d) : [...days, d])}
                 className="sr-only"
               />
-              {DAY_LABELS[d]}
+              <span aria-hidden>{DAY_LABELS[d][0]}</span>
+              <span className="sr-only">{DAY_LABELS[d]}</span>
             </label>
           );
         })}

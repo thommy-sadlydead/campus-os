@@ -12,7 +12,6 @@ import type { AssignmentRowStatus } from "@/components/assignments/AssignmentRow
 import type { LectureRow } from "@/components/classes/LecturesPanel";
 import type { ClassMaterialRow } from "@/components/classes/ResourcesPanel";
 import { ChevronLeftIcon } from "@/components/icons";
-import { courseInitials, courseStyle } from "@/lib/course-style";
 import { hasAiConsent } from "@/lib/ai-consent";
 import { listConnectedApps } from "@/lib/oauth/oauth-server";
 import { chatgptStudyPrompts } from "@/lib/flashcards";
@@ -139,18 +138,9 @@ export default async function ClassPage({
           <ChevronLeftIcon className="h-4 w-4" />
           Classes
         </Link>
-        <div className="mt-3 flex items-center gap-4">
-          <span
-            aria-hidden
-            className="course-tint flex h-12 w-12 flex-none items-center justify-center rounded-xl2 text-base font-semibold"
-            style={courseStyle(cls.color)}
-          >
-            {courseInitials(cls.name)}
-          </span>
-          <div className="min-w-0">
-            {cls.code && <p className="eyebrow">{cls.code}</p>}
-            <h1 className="font-display text-2xl font-semibold leading-tight text-ink sm:text-[28px]">{cls.name}</h1>
-          </div>
+        <div className="mt-4">
+          {cls.code && <p className="eyebrow">{cls.code}</p>}
+          <h1 className="mt-1.5 font-display text-[36px] font-bold leading-[1.02] text-ink sm:text-[40px]">{cls.name}</h1>
         </div>
       </div>
 

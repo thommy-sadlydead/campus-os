@@ -408,7 +408,7 @@ function NoteCard({
         <div className="flex flex-wrap items-start justify-between gap-2">
           <button onClick={onToggleOpen} className="min-w-0 flex-1 text-left" aria-expanded="true">
             <span className="flex items-center gap-1.5 text-base font-semibold text-ink">
-              {note.pinned && <PinIcon className="h-4 w-4 flex-none text-accent" />}
+              {note.pinned && <PinIcon className="h-4 w-4 flex-none text-ink" />}
               {note.title}
             </span>
           </button>
@@ -453,7 +453,7 @@ function NoteCard({
       <div className="flex items-start gap-1.5">
         <button onClick={onToggleOpen} className="min-w-0 flex-1 text-left" aria-expanded="false">
           <div className="flex items-center gap-1.5">
-            {note.pinned && <PinIcon className="h-3.5 w-3.5 flex-none text-accent" />}
+            {note.pinned && <PinIcon className="h-3.5 w-3.5 flex-none text-ink" />}
             <span className="truncate text-sm font-medium text-ink">{note.title}</span>
           </div>
           {preview && <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-ink-faint">{preview}</p>}

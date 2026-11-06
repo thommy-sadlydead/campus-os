@@ -9,7 +9,7 @@ function Svg({ className = "h-5 w-5", children }: IconProps & { children: React.
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth={1.75}
+      strokeWidth={1.5}
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden
