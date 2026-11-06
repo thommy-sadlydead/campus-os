@@ -67,7 +67,7 @@ first, falling back to older ones. Nothing is specific to one school.
 | `activeTab` | When the student clicks the button, reads the address of the tab they're on to recognize Brightspace or Blackboard. |
 | `scripting` | Checks the open page for Brightspace or Blackboard markers when the address doesn't say, and registers the visit script for allowed sites. |
 | `alarms` | An hourly check that syncs an allowed site that's open and due. |
-| Host: `https://app.campus-os.net/*` | Sends the student's course data to their own Campus OS account, and runs the pairing bridge on Campus OS's pages. |
+| Host: `https://campus-os-mocha-pi.vercel.app/*`, `https://app.campus-os.net/*` | Campus OS's two addresses (the one the iPhone and Mac apps use, and the custom domain). Sends the student's course data to their own Campus OS account, and runs the pairing bridge on Campus OS's pages. |
 | Optional host: `https://*/*` | Asked for at run time, one school site at a time (plus `*.blackboardcdn.com` for Blackboard files), only when the student clicks "Allow access." Schools' LMS addresses aren't known in advance, so a fixed list isn't possible. |
 
 The extension doesn't request `cookies`, `tabs`, `history`, `webRequest` or
@@ -93,7 +93,7 @@ To publish:
 2. Build the ZIP and upload it as a new item.
 3. Fill in the listing with the text below and the screenshots. On the
    privacy tab, enter the permission reasons from the table above, a single
-   purpose, and the privacy policy URL: https://app.campus-os.net/privacy.
+   purpose, and the privacy policy URL: https://campus-os-mocha-pi.vercel.app/privacy.
    Under data use, it handles "website content" and "personally
    identifiable information" (the student's name and email from the LMS),
    only to provide the feature, never sold or transferred elsewhere.

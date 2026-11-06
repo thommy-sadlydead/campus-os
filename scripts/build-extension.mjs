@@ -37,9 +37,8 @@ if (process.argv.includes("--dev")) {
   const config = path.join(out, "src", "config.js");
   writeFileSync(
     config,
-    readFileSync(config, "utf8").replace(
-      'export const API_ORIGINS = ["https://app.campus-os.net"];',
-      `export const API_ORIGINS = ${JSON.stringify(["https://app.campus-os.net", ...local])};`
+    readFileSync(config, "utf8").replace(/^export const API_ORIGINS = (\[[^\]]*\]);$/m, (_, list) =>
+      `export const API_ORIGINS = ${JSON.stringify([...JSON.parse(list), ...local])};`
     )
   );
   console.log(`Development build in ${path.relative(process.cwd(), out)}. Load it unpacked from chrome://extensions.`);
