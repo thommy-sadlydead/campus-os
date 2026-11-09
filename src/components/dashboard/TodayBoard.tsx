@@ -9,8 +9,9 @@ import { ChevronDownIcon, ExternalIcon } from "@/components/icons";
 
 // The top of Today and its list, kept quiet on purpose (Nov 9, 2026: the
 // first redesign read as busy). A short headline of what's due today, the
-// overdue work folded into one row, then plain rows split by hairlines. Red
-// is only for overdue work. Tap a row's text for its directions.
+// overdue work folded into one black row, then each day's work as rows in
+// one white card. Red is only for overdue work. Tap a row's text for its
+// directions.
 
 export interface TodayRow {
   id: string;
@@ -74,11 +75,13 @@ export function TodayBoard({
         ) : (
           sections.map((s) => (
             <section key={s.key}>
-              <div className="mb-1 flex items-baseline justify-between">
-                <h2 className="eyebrow">{s.title}</h2>
-                <span className="text-[13px] font-medium tabular-nums text-ink-faint">{s.rows.length}</span>
+              <div className="mb-2 flex items-baseline justify-between px-1">
+                <h2 className="eyebrow text-ink">{s.title}</h2>
+                <span className="text-[13px] font-semibold tabular-nums text-ink">{s.rows.length}</span>
               </div>
-              <RowList rows={s.rows} />
+              <div className="card px-4">
+                <RowList rows={s.rows} />
+              </div>
             </section>
           ))
         )}
@@ -87,20 +90,20 @@ export function TodayBoard({
   );
 }
 
-/** "● 8 overdue", opening in place to the overdue rows. */
+/** "● 8 overdue" on a black card, opening in place to the overdue rows. */
 function OverdueFold({ rows }: { rows: TodayRow[] }) {
   const [open, setOpen] = useState(false);
   return (
-    <section>
+    <section className="card theme-inverse px-4">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="flex w-full items-center gap-2.5 border-y border-border-soft py-3.5 text-left text-[15px] font-semibold text-ink"
+        className={`flex w-full items-center gap-2.5 py-4 text-left text-[15px] font-semibold text-ink ${open ? "border-b border-border-soft" : ""}`}
       >
-        <span aria-hidden className="h-2 w-2 flex-none rounded-full bg-accent" />
+        <span aria-hidden className="h-2.5 w-2.5 flex-none rounded-full bg-accent" />
         <span className="flex-1">{rows.length} overdue</span>
-        <ChevronDownIcon className={`h-4 w-4 text-ink-faint transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+        <ChevronDownIcon className={`h-4 w-4 text-ink-soft transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
       </button>
       {open && <RowList rows={rows} overdue />}
     </section>
@@ -120,7 +123,7 @@ function RowList({ rows, overdue = false }: { rows: TodayRow[]; overdue?: boolea
         ))}
       </ul>
       {rows.length > INITIAL && (
-        <button type="button" onClick={() => setAll((v) => !v)} className="mt-2 text-[13px] font-semibold text-ink underline decoration-border underline-offset-4">
+        <button type="button" onClick={() => setAll((v) => !v)} className="mb-3.5 mt-1 text-[13px] font-semibold text-ink underline decoration-border underline-offset-4">
           {all ? "Show less" : `Show ${rows.length - INITIAL} more`}
         </button>
       )}
@@ -156,7 +159,7 @@ function Row({ row, overdue }: { row: TodayRow; overdue: boolean }) {
       >
         <span
           className={`flex h-[22px] w-[22px] items-center justify-center rounded-full border-[1.5px] transition-colors duration-200 ${
-            done ? "border-ink bg-ink text-surface" : "border-ink-faint text-transparent hover:border-ink"
+            done ? "border-ink bg-ink text-surface" : "border-ink text-transparent"
           }`}
         >
           <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -174,7 +177,7 @@ function Row({ row, overdue }: { row: TodayRow; overdue: boolean }) {
               {row.title}
             </span>
           </span>
-          <span className="mt-0.5 block truncate text-[13px] text-ink-faint">
+          <span className="mt-0.5 block truncate text-[13px] text-ink-soft">
             {row.classLabel}
             {row.dueShort && (
               <>

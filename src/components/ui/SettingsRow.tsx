@@ -24,9 +24,9 @@ export function SettingsRow({
   return (
     <details id={id} className="group scroll-mt-24">
       <summary className="flex cursor-pointer list-none items-center gap-3 px-5 py-4 transition-colors hover:bg-surface-2 [&::-webkit-details-marker]:hidden">
-        <span className={`flex-none ${danger ? "text-danger" : "text-ink-faint"}`}>{icon}</span>
+        <span className={`flex-none ${danger ? "text-danger" : "text-ink"}`}>{icon}</span>
         <span className={`flex-1 text-[15px] font-semibold ${danger ? "text-danger" : "text-ink"}`}>{title}</span>
-        {status && <span className="truncate text-[13px] text-ink-faint">{status}</span>}
+        {status && <span className="truncate text-[13px] text-ink-soft">{status}</span>}
         <ChevronDownIcon className="h-4 w-4 flex-none text-ink-faint transition-transform duration-200 group-open:rotate-180" />
       </summary>
       <div className="px-5 pb-5">{children}</div>
@@ -38,7 +38,7 @@ export function SettingsRow({
 export function SettingsLinkRow({ href, icon, title }: { href: string; icon: React.ReactNode; title: string }) {
   return (
     <Link href={href} className="flex items-center gap-3 px-5 py-4 transition-colors hover:bg-surface-2">
-      <span className="flex-none text-ink-faint">{icon}</span>
+      <span className="flex-none text-ink">{icon}</span>
       <span className="flex-1 text-[15px] font-semibold text-ink">{title}</span>
       <ChevronRightIcon className="h-4 w-4 flex-none text-ink-faint" />
     </Link>

@@ -11,9 +11,10 @@
  *   bg / surface / surface-2   off-white canvas, white cards, quiet fills
  *   ink / ink-soft / ink-faint  black text and primary surfaces, a readable
  *                              warm gray for secondary text, and the lighter
- *                              warm gray (#8A8A85) for labels and metadata
- *   border / border-soft       control outlines, and the 1px hairlines that
- *                              stand in for shadows
+ *                              warm gray (#6B6B66) for labels and metadata,
+ *                              dark enough to read on the canvas (Nov 9, 2026)
+ *   border / border-soft       control outlines, and the 1px hairlines; cards
+ *                              also sit on a soft shadow (shadow-card)
  *   accent (+ -ink, -soft)     signal red-orange, used only for urgency, the
  *                              "now" marker and recording
  *   danger                     the same red; ok / warn are monochrome
@@ -27,10 +28,10 @@
   --surface: #ffffff;
   --surface-2: #eaeae6;
   --ink: #0a0a0a;
-  --ink-soft: #5c5c58;
-  --ink-faint: #8a8a85;
-  --border: #d6d6d2;
-  --border-soft: #e5e5e2;
+  --ink-soft: #4a4a46;
+  --ink-faint: #6b6b66;
+  --border: #c9c9c4;
+  --border-soft: #dcdcd8;
   --accent: #ff4d2e;
   /* Links and highlights were the old accent; they're ink now, so red
      stays for urgency (accent, danger). */
@@ -71,10 +72,10 @@
     --surface: #1c1c1e;
     --surface-2: #262628;
     --ink: #f2f2f0;
-    --ink-soft: #a8a8a3;
-    --ink-faint: #8a8a85;
-    --border: #3a3a3c;
-    --border-soft: #2a2a2c;
+    --ink-soft: #b8b8b3;
+    --ink-faint: #9a9a95;
+    --border: #48484b;
+    --border-soft: #333336;
     --accent: #ff5a3d;
     --accent-ink: #f2f2f0;
     --accent-soft: #262628;
@@ -105,10 +106,10 @@
   --surface: #1c1c1e;
   --surface-2: #262628;
   --ink: #f2f2f0;
-  --ink-soft: #a8a8a3;
-  --ink-faint: #8a8a85;
-  --border: #3a3a3c;
-  --border-soft: #2a2a2c;
+  --ink-soft: #b8b8b3;
+  --ink-faint: #9a9a95;
+  --border: #48484b;
+  --border-soft: #333336;
   --accent: #ff5a3d;
   --accent-ink: #f2f2f0;
   --accent-soft: #262628;
@@ -160,9 +161,9 @@
     --surface: #f2f2f0;
     --surface-2: #e5e5e2;
     --ink: #0a0a0a;
-    --ink-soft: #5c5c58;
-    --ink-faint: #8a8a85;
-    --border: #d6d6d2;
+    --ink-soft: #4a4a46;
+    --ink-faint: #6b6b66;
+    --border: #c9c9c4;
     --border-soft: #dcdcd8;
     --accent-ring: rgba(10, 10, 10, 0.12);
     --accent-ink: #0a0a0a;
@@ -263,9 +264,10 @@ textarea:focus-visible {
     backdrop-filter: saturate(180%) blur(18px);
   }
 
-  /* Surfaces: one radius (20px) and a 1px hairline instead of a shadow. */
+  /* Surfaces: one radius (20px), a 1px hairline and a soft shadow, so cards
+     stand off the off-white canvas. */
   .card {
-    @apply rounded-xl2 border border-border-soft bg-surface;
+    @apply rounded-xl2 border border-border-soft bg-surface shadow-card;
   }
   .card-pad {
     @apply p-5 sm:p-6;
@@ -291,7 +293,7 @@ textarea:focus-visible {
     @apply bg-ink text-surface hover:opacity-90;
   }
   .btn-secondary {
-    @apply border border-border-soft bg-surface text-ink hover:bg-surface-2;
+    @apply border border-border bg-surface text-ink shadow-sm hover:bg-surface-2;
   }
   .btn-ghost {
     @apply text-ink-soft hover:bg-surface-2 hover:text-ink;
@@ -342,7 +344,7 @@ textarea:focus-visible {
   /* Small labels and badges. Labels are 11-13px uppercase warm gray with
      +6% tracking; the type does the hierarchy, not boxes. */
   .eyebrow {
-    @apply text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-faint;
+    @apply text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-soft;
   }
   .badge {
     @apply inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium;

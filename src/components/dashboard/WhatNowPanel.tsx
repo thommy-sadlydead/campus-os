@@ -14,7 +14,7 @@ export function WhatNowPanel() {
       <button
         onClick={() => startTransition(async () => setResult(await whatShouldIDoRightNowAction()))}
         disabled={pending}
-        className="btn btn-secondary w-full sm:w-auto"
+        className="btn btn-primary w-full sm:w-auto"
       >
         <SparkIcon className="h-4 w-4" />
         {pending ? "Thinking…" : "What should I do now?"}

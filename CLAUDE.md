@@ -67,8 +67,10 @@ no third-party auth.
 ## Design system (monochrome editorial, Nov 6, 2026)
 
 - **Tokens** live in `src/app/globals.css`: off-white `--bg` #F2F2F0, black
-  `--ink` #0A0A0A, warm gray `--ink-faint` #8A8A85 for labels, `#E5E5E2`
-  hairlines instead of shadows, and one accent, red-orange `--accent`
+  `--ink` #0A0A0A, warm gray `--ink-faint` #6B6B66 for labels, `#DCDCD8`
+  hairlines with a soft `shadow-card` under every `.card` (Nov 9, 2026:
+  Reece found the hairline-only, lighter-gray first pass hard to see, so
+  don't fade them back), and one accent, red-orange `--accent`
   #FF4D2E, used only for urgency, the NOW marker and recording. The old
   `accent-ink`/`accent-soft` (links, highlights) now map to ink and a
   neutral fill; the old gradient vars are solid ink. Dark mode inverts it
@@ -83,8 +85,9 @@ no third-party auth.
   `.badge-later` for status as text.
 - **Today** is `src/components/dashboard/TodayBoard.tsx`, kept quiet since
   Nov 9, 2026 (the first version read as busy, five phone screens): a
-  headline of what's due today, one status line, the overdue work folded
-  into one red-dot row, then plain rows with hairlines, no cards or badges.
+  headline of what's due today, one status line, a black "What should I
+  do now?" button, the overdue work folded into one black red-dot card,
+  then each section's rows in one white card, with no per-row badges.
   Every count on it is of rows (an assignment's steps count separately);
   the risk text says "assignments" when it counts those. Free time is
   logged on Schedule. Account is a list of rows that open in place

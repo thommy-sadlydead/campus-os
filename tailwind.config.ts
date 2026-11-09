@@ -43,11 +43,12 @@ const config: Config = {
           8: "var(--c-8)",
         },
       },
-      // Hairlines instead of shadows; only things that float over the page
-      // (the tab bar, sheets, menus) keep a soft shadow.
+      // Cards sit on a soft shadow under their hairline (Nov 9, 2026: with
+      // hairlines alone they blurred into the canvas); things that float over
+      // the page (the tab bar, sheets, menus) get the deeper pop.
       boxShadow: {
-        sm: "none",
-        card: "none",
+        sm: "0 1px 2px rgba(var(--shadow-color), 0.08)",
+        card: "0 1px 2px rgba(var(--shadow-color), 0.06), 0 8px 20px -10px rgba(var(--shadow-color), 0.2)",
         pop: "0 18px 40px -16px rgba(var(--shadow-color), 0.28)",
       },
       // One card radius (20px); chips and buttons are full pills.

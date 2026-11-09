@@ -30,13 +30,13 @@ export function RiskStatusCard({ risk }: { risk: RiskAssessment }) {
 
   const line = (
     <>
-      <Icon className="mt-0.5 h-4 w-4 flex-none text-ink-faint" />
+      <Icon className="mt-0.5 h-4 w-4 flex-none text-ink" />
       <span className="flex-1">{risk.headline}</span>
     </>
   );
 
   return (
-    <section className="text-[14px] leading-snug text-ink-soft">
+    <section className="text-[14px] font-medium leading-snug text-ink">
       {hasDetails ? (
         <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="flex w-full items-start gap-2 text-left">
           {line}
@@ -47,7 +47,7 @@ export function RiskStatusCard({ risk }: { risk: RiskAssessment }) {
       )}
 
       {open && (
-        <div className="mt-3 pl-6">
+        <div className="mt-3 pl-6 font-normal text-ink-soft">
           {narrative ? (
             <p className="leading-relaxed">{narrative}</p>
           ) : (
