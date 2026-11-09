@@ -52,66 +52,67 @@ const SECTION_ORDER: UrgencyBucket[] = ["OVERDUE", "TODAY", "TOMORROW", "THIS_WE
 export default async function DashboardPage() {
   const user = await requireUser();
   const now = new Date();
-  const features = await featuresFor(user);
-  // Canvas grades change between syncs; refresh them after this page is sent (src/lib/grades-server.ts).
-  if (features.has("grades")) after(() => refreshCanvasGrades(user.id));
   const week = weekBounds(now, user.timezone);
-  const [planSessions, weekSessions, dueDecks, gradedClasses] = await Promise.all([
-    features.has("exam-prep")
-      ? prisma.studySession.findMany({
-          where: {
-            userId: user.id,
-            status: "PLANNED",
-            startsAt: { lte: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000) },
-            exam: { examAt: { gt: now } },
-            class: { archived: false },
-          },
-          include: { class: { select: { name: true } }, exam: { select: { name: true } } },
-          orderBy: { startsAt: "asc" },
-          take: 8,
-        })
-      : Promise.resolve([]),
-    features.has("exam-prep")
-      ? prisma.studySession.findMany({ where: { userId: user.id, startsAt: { gte: week.start, lt: week.end } }, select: { status: true } })
-      : Promise.resolve([]),
-    features.has("smart-review")
-      ? prisma.flashcardDeck.findMany({
-          where: { class: { userId: user.id, archived: false } },
-          select: { classId: true, class: { select: { name: true } }, _count: { select: { cards: { where: { dueAt: { lte: now } } } } } },
-        })
-      : Promise.resolve([]),
-    features.has("grades")
-      ? prisma.class.findMany({
-          where: { userId: user.id, archived: false, gradePercent: { not: null } },
-          select: {
-            id: true,
-            name: true,
-            gradePercent: true,
-            gradeTarget: true,
-            officeHours: true,
-            gradeSnapshots: { where: { takenAt: { gte: new Date(now.getTime() - SLIP_WINDOW_DAYS * 24 * 60 * 60 * 1000) } }, select: { percent: true, takenAt: true } },
-          },
-        })
-      : Promise.resolve([]),
-  ]);
-  const reviewByClass = new Map<string, { classId: string; className: string; due: number }>();
-  for (const d of dueDecks) {
-    if (d._count.cards === 0) continue;
-    const row = reviewByClass.get(d.classId) ?? { classId: d.classId, className: d.class.name, due: 0 };
-    row.due += d._count.cards;
-    reviewByClass.set(d.classId, row);
-  }
-  const gradeAlerts: GradeAlert[] = gradedClasses.flatMap((c) => {
-    const slip = gradeSlip(c.gradePercent as number, c.gradeSnapshots, now, c.gradeTarget);
-    return slip ? [{ classId: c.id, className: c.name, percent: c.gradePercent as number, slip, officeHours: c.officeHours }] : [];
-  });
-  const weekKept = weekSessions.filter((s) => s.status !== "SKIPPED");
-
   // The iPhone app adds this to its user agent (capacitor.config.json); only
   // it can show reminders, so only it gets the deadlines for them.
   const inApp = (await headers()).get("user-agent")?.includes("CampusOSApp") ?? false;
 
-  const [items, availableMinutesToday, pendingChangeCount, classCount, reminderDeadlines, connections] = await Promise.all([
+  // Everything below needs only the signed-in user, so it's all asked for at
+  // once: one wait on the database instead of several in a row (Today took
+  // about a second on the server on Nov 9, 2026). The lookups behind a
+  // feature wait only for the feature check. AppShell's own lookups (features,
+  // the LMS link) are cached for the request, so they reuse these.
+  const featured = featuresFor(user).then(async (features) => {
+    const [planSessions, weekSessions, dueDecks, gradedClasses] = await Promise.all([
+      features.has("exam-prep")
+        ? prisma.studySession.findMany({
+            where: {
+              userId: user.id,
+              status: "PLANNED",
+              startsAt: { lte: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000) },
+              exam: { examAt: { gt: now } },
+              class: { archived: false },
+            },
+            include: { class: { select: { name: true } }, exam: { select: { name: true } } },
+            orderBy: { startsAt: "asc" },
+            take: 8,
+          })
+        : Promise.resolve([]),
+      features.has("exam-prep")
+        ? prisma.studySession.findMany({ where: { userId: user.id, startsAt: { gte: week.start, lt: week.end } }, select: { status: true } })
+        : Promise.resolve([]),
+      features.has("smart-review")
+        ? prisma.flashcardDeck.findMany({
+            where: { class: { userId: user.id, archived: false } },
+            select: { classId: true, class: { select: { name: true } }, _count: { select: { cards: { where: { dueAt: { lte: now } } } } } },
+          })
+        : Promise.resolve([]),
+      features.has("grades")
+        ? prisma.class.findMany({
+            where: { userId: user.id, archived: false, gradePercent: { not: null } },
+            select: {
+              id: true,
+              name: true,
+              gradePercent: true,
+              gradeTarget: true,
+              officeHours: true,
+              gradeSnapshots: { where: { takenAt: { gte: new Date(now.getTime() - SLIP_WINDOW_DAYS * 24 * 60 * 60 * 1000) } }, select: { percent: true, takenAt: true } },
+            },
+          })
+        : Promise.resolve([]),
+    ]);
+    return { features, planSessions, weekSessions, dueDecks, gradedClasses };
+  });
+  const [
+    { features, planSessions, weekSessions, dueDecks, gradedClasses },
+    items,
+    availableMinutesToday,
+    pendingChangeCount,
+    classCount,
+    reminderDeadlines,
+    connections,
+  ] = await Promise.all([
+    featured,
     loadWorkItemsForUser(user.id),
     getAvailableMinutesToday(user.id, now, user.timezone),
     prisma.pendingChange.count({ where: { userId: user.id, status: "PENDING" } }),
@@ -130,6 +131,21 @@ export default async function DashboardPage() {
       : Promise.resolve([]),
     getConnections(user.id),
   ]);
+  // Canvas grades change between syncs; refresh them after this page is sent (src/lib/grades-server.ts).
+  if (features.has("grades")) after(() => refreshCanvasGrades(user.id));
+  const reviewByClass = new Map<string, { classId: string; className: string; due: number }>();
+  for (const d of dueDecks) {
+    if (d._count.cards === 0) continue;
+    const row = reviewByClass.get(d.classId) ?? { classId: d.classId, className: d.class.name, due: 0 };
+    row.due += d._count.cards;
+    reviewByClass.set(d.classId, row);
+  }
+  const gradeAlerts: GradeAlert[] = gradedClasses.flatMap((c) => {
+    const slip = gradeSlip(c.gradePercent as number, c.gradeSnapshots, now, c.gradeTarget);
+    return slip ? [{ classId: c.id, className: c.name, percent: c.gradePercent as number, slip, officeHours: c.officeHours }] : [];
+  });
+  const weekKept = weekSessions.filter((s) => s.status !== "SKIPPED");
+
   // For two weeks after connecting an LMS that doesn't say what's turned in
   // (Brightspace, Blackboard), a reminder that work here stays open until
   // it's checked off. The Assignments page always says so.

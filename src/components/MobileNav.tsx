@@ -84,7 +84,7 @@ export function MobileNav({
       >
         <div className="pointer-events-auto relative mx-auto max-w-md">
           {record && (
-            <Link prefetch={false}
+            <Link
               href="/record"
               aria-label="Record a lecture"
               aria-current={active === "/record" ? "page" : undefined}
@@ -96,7 +96,7 @@ export function MobileNav({
           <ul className="theme-inverse flex items-center justify-between rounded-full p-1.5 shadow-pop">
             {[today, classes].map(({ href, label: text, Icon }) => (
               <li key={href}>
-                <Link prefetch={false} href={href} className={tabClass(active === href)} aria-current={active === href ? "page" : undefined}>
+                <Link href={href} className={tabClass(active === href)} aria-current={active === href ? "page" : undefined}>
                   <Icon className={iconClass} />
                   {label(active === href, text)}
                 </Link>
@@ -107,7 +107,7 @@ export function MobileNav({
             ) : (
               third && (
                 <li>
-                  <Link prefetch={false} href={third.href} className={tabClass(active === third.href)} aria-current={active === third.href ? "page" : undefined}>
+                  <Link href={third.href} className={tabClass(active === third.href)} aria-current={active === third.href ? "page" : undefined}>
                     <third.Icon className={iconClass} />
                     {label(active === third.href, third.label)}
                   </Link>
@@ -115,7 +115,7 @@ export function MobileNav({
               )
             )}
             <li>
-              <Link prefetch={false}
+              <Link
                 href={schedule.href}
                 className={tabClass(active === schedule.href)}
                 aria-current={active === schedule.href ? "page" : undefined}
@@ -153,7 +153,7 @@ export function MobileNav({
             <ul className="mx-auto flex max-w-lg flex-col gap-0.5">
               {moreLinks.map(({ href, label, Icon, match }) => (
                 <li key={href}>
-                  <Link prefetch={false}
+                  <Link
                     href={href}
                     onClick={() => setMoreOpen(false)}
                     aria-current={active === match ? "page" : undefined}
