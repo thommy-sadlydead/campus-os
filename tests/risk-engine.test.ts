@@ -93,14 +93,14 @@ describe("assessRisk — at-risk (red)", () => {
     ];
     const result = assess(items, null);
     expect(result.level).toBe("at-risk");
-    expect(result.reasons).toContain("3 items are already overdue.");
+    expect(result.reasons).toContain("3 assignments are already overdue.");
     expect(result.reasons).toContain("1 assignment due within the next 48 hours.");
-    expect(result.headline).toBe("You're falling behind — 3 items are overdue and 1 more is due within 48 hours.");
+    expect(result.headline).toBe("You're falling behind — 3 assignments are overdue and 1 more is due within 48 hours.");
   });
 
   it("headlines the overdue count when nothing else is due soon", () => {
     const items = [item({ id: "a", title: "Late", dueAt: new Date("2026-08-19T23:59:00-04:00") })];
-    expect(assess(items, null).headline).toBe("You're falling behind — 1 item is overdue.");
+    expect(assess(items, null).headline).toBe("You're falling behind — 1 assignment is overdue.");
   });
 
   it("goes red when logged free time is an hour or more behind today's workload — matches the spec's own example shape", () => {
@@ -170,7 +170,7 @@ describe("assessRisk — counting assignments, not steps", () => {
       item({ id: `t${n}`, assignmentId: "paper", kind: "task", title, dueAt: new Date("2026-08-20T23:59:00-04:00") })
     );
     const result = assess([...steps, item({ id: "quiz", assignmentId: "quiz", title: "Quiz", dueAt: new Date("2026-08-19T23:59:00-04:00") })], null);
-    expect(result.reasons).toContain("2 items are already overdue.");
+    expect(result.reasons).toContain("2 assignments are already overdue.");
   });
 
   it("counts steps due soon as one assignment", () => {

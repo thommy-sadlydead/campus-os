@@ -81,8 +81,14 @@ no third-party auth.
   `.eyebrow` (11px uppercase, +6% tracking). One card radius (20px, `xl2`),
   pills for chips and buttons; `.badge-urgent` / `.badge-soon` /
   `.badge-later` for status as text.
-- **Today** is `src/components/dashboard/TodayBoard.tsx` (hero, day strip,
-  week pills, two-line cards) on the numbers in `src/lib/today.ts` (tested).
+- **Today** is `src/components/dashboard/TodayBoard.tsx`, kept quiet since
+  Nov 9, 2026 (the first version read as busy, five phone screens): a
+  headline of what's due today, one status line, the overdue work folded
+  into one red-dot row, then plain rows with hairlines, no cards or badges.
+  Every count on it is of rows (an assignment's steps count separately);
+  the risk text says "assignments" when it counts those. Free time is
+  logged on Schedule. Account is a list of rows that open in place
+  (`src/components/ui/SettingsRow.tsx`; `/account#features` opens one).
   `haptic()` in `src/lib/native-app.ts` uses `ios/App/App/HapticsPlugin.swift`
   from app build 1.3 on.
 - **Local preview**: `next dev` crashes on Today, class pages and Schedule
@@ -378,7 +384,7 @@ no third-party auth.
 ## Verifying a change before calling it done
 
 1. `npx tsc --noEmit` (after `npx prisma generate` if the schema changed)
-2. `npx vitest run` — 564 tests as of this writing across 53 files
+2. `npx vitest run` — 561 tests as of this writing across 53 files
 3. Clean build: `rm -rf .next && npx next build` (use `next build` directly
    to skip the `db push` the `npm run build` script triggers, if you're not
    ready to push schema changes yet)

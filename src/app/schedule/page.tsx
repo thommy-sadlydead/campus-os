@@ -7,7 +7,7 @@ import { ScheduleAddForm } from "@/components/schedule/ScheduleAddForm";
 import { CalendarSyncCard } from "@/components/schedule/CalendarSyncCard";
 import { deleteScheduleEventAction } from "@/app/classes/[id]/actions";
 import { lmsLink, type LmsLink } from "@/lib/lms/providers";
-import { dayKey, formatTzTime } from "@/lib/time";
+import { dayKey, formatTzTime, startOfTzDay } from "@/lib/time";
 import { CardsIcon, ClockIcon, ExternalIcon, XIcon } from "@/components/icons";
 import { meetingRunsOn } from "@/lib/meetings";
 import { freeGaps, shortRange } from "@/lib/today";
@@ -15,6 +15,7 @@ import { semesterForNewMeetings } from "@/lib/meetings-server";
 import { calendarLinksFor } from "@/lib/calendar-feed-server";
 import { featuresFor } from "@/lib/features-server";
 import { CommitmentsCard } from "@/components/schedule/CommitmentsCard";
+import { AvailabilityCard } from "@/components/schedule/AvailabilityCard";
 
 function minutesToLabel(min: number): string {
   const h = Math.floor(min / 60);
@@ -87,7 +88,7 @@ export default async function SchedulePage() {
   const now = new Date();
   const features = await featuresFor(user);
 
-  const [classes, events, assignments, exams, semester, calendarLinks, commitments, studySessions] = await Promise.all([
+  const [classes, events, assignments, exams, semester, calendarLinks, commitments, studySessions, freeBlocks] = await Promise.all([
     prisma.class.findMany({ where: { userId: user.id, archived: false }, orderBy: { name: "asc" } }),
     prisma.scheduleEvent.findMany({
       where: { class: { userId: user.id, archived: false } },
@@ -120,6 +121,9 @@ export default async function SchedulePage() {
           },
           include: { class: true, exam: { select: { name: true } } },
         })
+      : Promise.resolve([]),
+    features.has("free-time")
+      ? prisma.availabilityBlock.findMany({ where: { userId: user.id, date: startOfTzDay(now, user.timezone) }, orderBy: { startMinute: "asc" } })
       : Promise.resolve([]),
   ]);
 
@@ -286,6 +290,7 @@ export default async function SchedulePage() {
           </div>
 
           <div className="flex flex-col gap-3 lg:sticky lg:top-10 lg:h-fit">
+            {features.has("free-time") && <AvailabilityCard blocks={freeBlocks} />}
             {features.has("commitments") && (
               <CommitmentsCard
                 commitments={commitments.map((c) => ({ id: c.id, label: c.label, dayOfWeek: c.dayOfWeek, startMinute: c.startMinute, endMinute: c.endMinute }))}

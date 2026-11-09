@@ -2,10 +2,8 @@ import { cookies, headers } from "next/headers";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { AppShell } from "@/components/AppShell";
-import { TodayBoard, type TodaySection } from "@/components/dashboard/TodayBoard";
+import { TodayBoard, type TodayRow, type TodaySection } from "@/components/dashboard/TodayBoard";
 import { WhatNowPanel } from "@/components/dashboard/WhatNowPanel";
-import { WorkloadSummaryCard } from "@/components/dashboard/WorkloadSummaryCard";
-import { AvailabilityCard } from "@/components/dashboard/AvailabilityCard";
 import { AskPanel } from "@/components/dashboard/AskPanel";
 import { RiskStatusCard } from "@/components/dashboard/RiskStatusCard";
 import { NativeReminders } from "@/components/dashboard/NativeReminders";
@@ -15,9 +13,7 @@ import Link from "next/link";
 import { loadWorkItemsForUser, getAvailableMinutesToday } from "@/lib/workload";
 import { rankWorkItems, computeWorkloadSummary, type UrgencyBucket } from "@/lib/priority-engine";
 import { assessRisk } from "@/lib/risk-engine";
-import { dayKey, startOfTzDay } from "@/lib/time";
-import { dayTimeline, dueBadge, dueShort, dueThisWeek, heroDate, weekDays } from "@/lib/today";
-import { meetingRunsOn } from "@/lib/meetings";
+import { dueShort, heroDate } from "@/lib/today";
 import { stripHtml } from "@/lib/text";
 import { CheckOffNote } from "@/components/connect/CheckOffNote";
 import { getConnections } from "@/lib/lms/connections";
@@ -115,13 +111,9 @@ export default async function DashboardPage() {
   // it can show reminders, so only it gets the deadlines for them.
   const inApp = (await headers()).get("user-agent")?.includes("CampusOSApp") ?? false;
 
-  const [items, availableMinutesToday, availabilityBlocks, pendingChangeCount, classCount, reminderDeadlines, connections] = await Promise.all([
+  const [items, availableMinutesToday, pendingChangeCount, classCount, reminderDeadlines, connections] = await Promise.all([
     loadWorkItemsForUser(user.id),
     getAvailableMinutesToday(user.id, now, user.timezone),
-    prisma.availabilityBlock.findMany({
-      where: { userId: user.id, date: startOfTzDay(now, user.timezone) },
-      orderBy: { startMinute: "asc" },
-    }),
     prisma.pendingChange.count({ where: { userId: user.id, status: "PENDING" } }),
     prisma.class.count({ where: { userId: user.id, archived: false } }),
     inApp
@@ -138,15 +130,6 @@ export default async function DashboardPage() {
       : Promise.resolve([]),
     getConnections(user.id),
   ]);
-  // Today's class meetings, for the strip at the top.
-  const todayKey = dayKey(now, user.timezone);
-  const todayMeetings = (
-    await prisma.scheduleEvent.findMany({
-      where: { class: { userId: user.id, archived: false }, dayOfWeek: new Date(`${todayKey}T12:00:00Z`).getUTCDay() },
-      select: { startMinute: true, endMinute: true, startsOn: true, endsOn: true, class: { select: { code: true, name: true } } },
-    })
-  ).filter((m) => meetingRunsOn(m, todayKey));
-
   // For two weeks after connecting an LMS that doesn't say what's turned in
   // (Brightspace, Blackboard), a reminder that work here stays open until
   // it's checked off. The Assignments page always says so.
@@ -157,10 +140,6 @@ export default async function DashboardPage() {
   const ranked = rankWorkItems(items, now, user.timezone);
   const summary = computeWorkloadSummary(items, now, user.timezone, availableMinutesToday);
   const risk = assessRisk(ranked, summary, now, user.timezone);
-
-  // Counts are of assignments: one broken into steps lists each step, but
-  // it's still one thing due (see computeWorkloadSummary).
-  const assignmentCount = (list: typeof ranked) => new Set(list.map((r) => r.item.assignmentId)).size;
 
   const grouped = new Map<UrgencyBucket, typeof ranked>();
   for (const r of ranked) {
@@ -261,24 +240,27 @@ export default async function DashboardPage() {
     );
   }
 
-  const sections: TodaySection[] = SECTION_ORDER.filter((b) => grouped.has(b)).map((bucket) => ({
-    key: bucket,
-    title: SECTION_TITLES[bucket],
-    cards: grouped.get(bucket)!.map((r) => ({
+  // Every count on Today is of rows, the same rows the list shows: an
+  // assignment broken into steps counts each step.
+  const rows = (bucket: UrgencyBucket): TodayRow[] =>
+    (grouped.get(bucket) ?? []).map((r) => ({
       id: r.item.id,
       kind: r.item.kind,
       title: r.item.title,
       classLabel: r.item.classCode?.trim() || r.item.className,
       className: r.item.className,
-      dueKey: r.item.dueAt ? dayKey(r.item.dueAt, user.timezone) : null,
       dueShort: dueShort(bucket, r.item.dueAt, user.timezone),
       estimatedMinutes: r.item.estimatedMinutes,
       reason: r.reason,
       description: r.item.description ? stripHtml(r.item.description).trim() || null : null,
       lmsLink: r.item.lmsLink,
-      badge: dueBadge(bucket),
-    })),
+    }));
+  const sections: TodaySection[] = SECTION_ORDER.filter((b) => b !== "OVERDUE" && grouped.has(b)).map((bucket) => ({
+    key: bucket,
+    title: SECTION_TITLES[bucket],
+    rows: rows(bucket),
   }));
+  const count = (bucket: UrgencyBucket) => grouped.get(bucket)?.length ?? 0;
 
   return (
     <AppShell active="/dashboard" userName={user.name ?? user.email}>
@@ -287,20 +269,16 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-1 gap-x-10 gap-y-8 lg:grid-cols-[minmax(0,1fr)_340px]">
         <TodayBoard
           dateLabel={heroDate(now, user.timezone)}
-          dueThisWeek={dueThisWeek(ranked, now, user.timezone)}
-          overdue={assignmentCount(grouped.get("OVERDUE") ?? [])}
-          week={weekDays(ranked, now, user.timezone)}
-          timeline={dayTimeline(
-            todayMeetings.map((m) => ({ startMinute: m.startMinute, endMinute: m.endMinute, label: m.class.code || m.class.name })),
-            availabilityBlocks
-          )}
-          tz={user.timezone}
+          dueToday={count("TODAY")}
+          dueLaterThisWeek={count("TOMORROW") + count("THIS_WEEK")}
+          overdue={rows("OVERDUE")}
           sections={sections}
           emptyText="Nothing on file right now. New assignments show up here after a sync."
         >
+          {features.has("risk") && <RiskStatusCard risk={risk} />}
+          <WhatNowPanel />
           {!user.featuresChosenAt && <FeatureChooserCard />}
           {!hasAiConsent(user) && !(await cookies()).get(AI_NOT_NOW_COOKIE) && <AiConsentCard />}
-          {features.has("risk") && <RiskStatusCard risk={risk} />}
           {checkOffNames && <CheckOffNote names={checkOffNames} />}
           {inApp && (
             <NativeReminders
@@ -327,7 +305,6 @@ export default async function DashboardPage() {
               </span>
             </Link>
           )}
-          <WhatNowPanel />
         </TodayBoard>
 
         <div className="flex flex-col gap-3 lg:pt-1">
@@ -350,8 +327,6 @@ export default async function DashboardPage() {
           )}
           {reviewByClass.size > 0 && <ReviewDueCard classes={[...reviewByClass.values()]} />}
           {features.has("assistant") && <AskPanel />}
-          <WorkloadSummaryCard summary={summary} now={now} tz={user.timezone} freeTime={features.has("free-time")} />
-          {features.has("free-time") && <AvailabilityCard blocks={availabilityBlocks} />}
         </div>
       </div>
     </AppShell>

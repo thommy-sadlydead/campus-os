@@ -59,8 +59,8 @@ export function FeaturePicker({
         <p className="eyebrow mb-2">Always included</p>
         <ul className="flex flex-wrap gap-1.5">
           {CORE_FEATURES.map((name) => (
-            <li key={name} className="badge bg-surface-2 text-ink-soft">
-              <CheckIcon className="h-3.5 w-3.5" />
+            <li key={name} className="badge max-w-full whitespace-normal bg-surface-2 text-ink-soft">
+              <CheckIcon className="h-3.5 w-3.5 flex-none" />
               {name}
             </li>
           ))}

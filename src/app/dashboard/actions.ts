@@ -144,6 +144,7 @@ export async function addAvailabilityBlockAction(formData: FormData) {
   });
 
   revalidatePath("/dashboard");
+  revalidatePath("/schedule");
 }
 
 export interface AskResult {
@@ -197,6 +198,7 @@ export async function removeAvailabilityBlockAction(id: string) {
   if (!block || block.userId !== user.id) throw new Error("Not found.");
   await prisma.availabilityBlock.delete({ where: { id } });
   revalidatePath("/dashboard");
+  revalidatePath("/schedule");
 }
 
 export interface ExplainRiskResult {

@@ -23,7 +23,7 @@ export function AvailabilityCard({
       <CardHeader
         icon={<CalendarIcon className="h-[18px] w-[18px]" />}
         title="Free time today"
-        description="Only used if you log it — the dashboard never guesses how much free time you have."
+        description="Only used if you log it: Today never guesses how much free time you have. It tells you whether your work fits."
       />
 
       {blocks.length > 0 && (

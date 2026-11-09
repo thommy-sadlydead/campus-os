@@ -77,7 +77,7 @@ export function assessRisk(ranked: PriorityResult[], summary: WorkloadSummary, n
 
   const reasons: string[] = [];
   if (summary.overdueCount > 0) {
-    reasons.push(`${summary.overdueCount} item${summary.overdueCount === 1 ? " is" : "s are"} already overdue.`);
+    reasons.push(`${summary.overdueCount} assignment${summary.overdueCount === 1 ? " is" : "s are"} already overdue.`);
   }
   if (dueSoon.length > 0) {
     reasons.push(`${dueSoon.length} assignment${dueSoon.length === 1 ? "" : "s"} due within the next 48 hours.`);
@@ -100,8 +100,9 @@ export function assessRisk(ranked: PriorityResult[], summary: WorkloadSummary, n
   if (level === "at-risk" && behindMinutes >= RED_BEHIND_MINUTES) {
     headline = `You're currently about ${formatMinutes(behindMinutes)} behind your planned workload.`;
   } else if (level === "at-risk" && summary.overdueCount > 0) {
-    // Lead with what actually tipped it to red, so the number matches the list below.
-    const overdue = `${summary.overdueCount} item${summary.overdueCount === 1 ? " is" : "s are"} overdue`;
+    // Lead with what actually tipped it to red. It counts assignments, so it
+    // says so: Today's list shows an assignment's steps as rows of their own.
+    const overdue = `${summary.overdueCount} assignment${summary.overdueCount === 1 ? " is" : "s are"} overdue`;
     headline =
       dueSoon.length > 0
         ? `You're falling behind — ${overdue} and ${dueSoon.length} more ${dueSoon.length === 1 ? "is" : "are"} due within 48 hours.`
