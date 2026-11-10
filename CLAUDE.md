@@ -23,9 +23,15 @@ compile never touches the database). Those two schema steps run from
 `scripts/db-push.sh` on Prisma Postgres's direct host (`db.prisma.io`, which
 `DATABASE_URL` names), while the app itself runs on the pooled host
 (`pooled.db.prisma.io`, same user and password), which can't run schema
-changes: `src/lib/db-url.ts` switches it at runtime, caps each serverless
-instance's pool and turns on pgbouncer mode (`DATABASE_POOLING=off` undoes
-the switch). On Nov 5, 2026, five students signing in at once took the site
+changes: `src/lib/db-url.ts` switches it at runtime and caps each
+serverless instance's pool (`DATABASE_POOLING=off` undoes the switch). The
+app talks to it through node-postgres (`@prisma/adapter-pg`, the
+`driverAdapters` preview feature, `src/lib/prisma.ts`), not Prisma's own
+engine: in PgBouncer's transaction mode the engine needed `pgbouncer=true`,
+which took about four round trips a query (40-48 ms from Vercel, measured
+Nov 9, 2026) against one for node-postgres (8 ms). Scripts run with plain
+`node`/`tsx` (`scripts/sync-canvas.ts`, `prisma/seed.ts`) still use the
+engine directly, which is fine. On Nov 5, 2026, five students signing in at once took the site
 down with "too many connections" on the direct host, which allows only a
 handful; the shell's nav links also stopped prefetching then, and still
 don't (`src/components/ShellLink.tsx`). A tap answers at once anyway: the
@@ -61,7 +67,8 @@ it reads, say) — make it additive, or tolerate a short window.
 
 ## Tech stack
 
-Next.js 15.5.27 (App Router, Server Actions), React 19, Prisma 5.22 +
+Next.js 15.5.27 (App Router, Server Actions), React 19, Prisma 5.22 (through
+`@prisma/adapter-pg` and `pg`) +
 PostgreSQL, Zod, Tailwind (no typography plugin — manual `[&_x]:`
 child-selector utilities in `src/lib/markdown.ts`'s `MARKDOWN_CLASSNAME`),
 Vitest (`environment: "node"`). `@anthropic-ai/sdk@1.6.0` (upgraded from

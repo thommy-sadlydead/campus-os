@@ -19,8 +19,12 @@
 //   through PendingChange so a human confirms anything ambiguous or
 //   conflicting (see lib/email-intelligence.ts in phase 4).
 
+// driverAdapters: the app talks to the database through node-postgres
+// (src/lib/prisma.ts), which sends each query in one round trip through
+// Prisma Postgres's pooler (Nov 9, 2026).
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {

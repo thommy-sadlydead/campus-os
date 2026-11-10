@@ -1,27 +1,41 @@
-// The database URL Prisma Client connects with at runtime.
+// How the app connects to the database at runtime.
 //
 // Every Vercel function instance opens its own connection pool, and Prisma's
 // default size (CPU count × 2 + 1) ran Prisma Postgres out of connections
 // when five students opened the app at once on Nov 5, 2026 ("too many
 // connections for role"). So each instance gets a small pool, and waits a
-// little longer for a free connection instead of failing.
+// little for a free connection instead of failing.
 //
 // Prisma Postgres gives every database two hosts with the same user and
-// password: db.prisma.io (direct, a handful of connections) and
-// pooled.db.prisma.io (pooled, many more). DATABASE_URL stays on the direct
-// host, which the build's schema changes need (scripts/db-push.sh), and the
-// app itself runs on the pooled one. That pools by transaction, so Prisma 5
-// also needs pgbouncer=true there: prepared statements don't survive from one
-// transaction to the next. DATABASE_POOLING=off keeps the app on the direct
-// host, in case the pooled one ever misbehaves.
+// password: db.prisma.io (direct, only 5 connections for the app on the
+// Starter plan) and pooled.db.prisma.io (PgBouncer in transaction mode, 100).
+// DATABASE_URL stays on the direct host, which the build's schema changes
+// need (scripts/db-push.sh), and the app itself runs on the pooled one.
+// DATABASE_POOLING=off keeps the app on the direct host, in case the pooled
+// one ever misbehaves.
+//
+// The app reaches it through node-postgres (src/lib/prisma.ts), which sends
+// each query in one round trip with an unnamed statement, so nothing it
+// prepares has to outlive a transaction. Until Nov 9, 2026 Prisma's own
+// engine ran with pgbouncer=true instead, which took about four round trips
+// a query: 40-48 ms each from Vercel, against 8 ms now.
 
-export const POOL_SIZE = "3";
-export const POOL_TIMEOUT_SECONDS = "20";
-// Prisma's default is 5 s to open a connection; a slow moment on the
-// database shouldn't fail a page load (Nov 6, 2026).
-export const CONNECT_TIMEOUT_SECONDS = "10";
+export const POOL_SIZE = 3;
+// Prisma's default was 5 s to open a connection; a slow moment on the
+// database shouldn't fail a page load (Nov 6, 2026). It's also how long a
+// query waits for a free connection when all of this instance's are busy.
+export const CONNECT_TIMEOUT_MS = 10_000;
+// Opening a connection costs several round trips (about 100 ms), so idle
+// ones stay open a little while for the student's next tap. Vercel keeps an
+// instance awake until they close (attachDatabasePool in src/lib/prisma.ts)
+// and suggests a few seconds; half a minute covers a pause between pages.
+export const IDLE_TIMEOUT_MS = 30_000;
+
 const DIRECT_HOST = "db.prisma.io";
 const POOLED_HOST = "pooled.db.prisma.io";
+// Prisma engine settings that older DATABASE_URLs carry; node-postgres
+// doesn't use them, so they're dropped rather than sent to the server.
+const PRISMA_ONLY_PARAMS = ["connection_limit", "pool_timeout", "connect_timeout", "pgbouncer", "schema"];
 
 export function runtimeDatabaseUrl(
   raw: string | undefined,
@@ -36,10 +50,6 @@ export function runtimeDatabaseUrl(
   }
   if (!/^postgres(ql)?:$/.test(url.protocol)) return raw;
   if (pooling && url.hostname === DIRECT_HOST) url.hostname = POOLED_HOST;
-  const params = url.searchParams;
-  if (!params.has("connection_limit")) params.set("connection_limit", POOL_SIZE);
-  if (!params.has("pool_timeout")) params.set("pool_timeout", POOL_TIMEOUT_SECONDS);
-  if (!params.has("connect_timeout")) params.set("connect_timeout", CONNECT_TIMEOUT_SECONDS);
-  if (url.hostname === POOLED_HOST && !params.has("pgbouncer")) params.set("pgbouncer", "true");
+  for (const key of PRISMA_ONLY_PARAMS) url.searchParams.delete(key);
   return url.toString();
 }

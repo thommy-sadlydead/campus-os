@@ -11,6 +11,13 @@ describe("isTransientDbError", () => {
   it("is true only when the database never answered", () => {
     expect(isTransientDbError(unreachable)).toBe(true);
     expect(isTransientDbError(Object.assign(new Error("pool"), { code: "P2024" }))).toBe(true);
+    // What node-postgres passes on (seen against a closed port and an address that never answers).
+    expect(isTransientDbError(Object.assign(new Error("connect ECONNREFUSED 127.0.0.1:55499"), { name: "PrismaClientKnownRequestError", code: "ECONNREFUSED" }))).toBe(true);
+    expect(isTransientDbError(new Error("Connection terminated due to connection timeout"))).toBe(true);
+    expect(isTransientDbError(new Error("timeout exceeded when trying to connect"))).toBe(true);
+    // Dropped mid-query: the query might have run, so it isn't retried.
+    expect(isTransientDbError(new Error("Connection terminated unexpectedly"))).toBe(false);
+    expect(isTransientDbError(Object.assign(new Error("read ECONNRESET"), { code: "ECONNRESET" }))).toBe(false);
     expect(isTransientDbError(Object.assign(new Error("unique"), { code: "P2002" }))).toBe(false);
     expect(isTransientDbError(new Error("Not found."))).toBe(false);
     expect(isTransientDbError(null)).toBe(false);
