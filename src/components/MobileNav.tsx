@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import { ShellLink } from "@/components/ShellLink";
 import { logoutAction } from "@/app/login/actions";
 import {
   BookIcon,
@@ -84,22 +84,22 @@ export function MobileNav({
       >
         <div className="pointer-events-auto relative mx-auto max-w-md">
           {record && (
-            <Link
+            <ShellLink
               href="/record"
               aria-label="Record a lecture"
               aria-current={active === "/record" ? "page" : undefined}
               className="absolute -top-9 left-1/2 z-10 flex h-16 w-16 -translate-x-1/2 items-center justify-center rounded-full bg-ink text-surface ring-[5px] ring-bg transition-transform active:scale-95"
             >
               <MicIcon className="h-[26px] w-[26px]" />
-            </Link>
+            </ShellLink>
           )}
           <ul className="theme-inverse flex items-center justify-between rounded-full p-1.5 shadow-pop">
             {[today, classes].map(({ href, label: text, Icon }) => (
               <li key={href}>
-                <Link href={href} className={tabClass(active === href)} aria-current={active === href ? "page" : undefined}>
+                <ShellLink href={href} className={tabClass(active === href)} aria-current={active === href ? "page" : undefined}>
                   <Icon className={iconClass} />
                   {label(active === href, text)}
-                </Link>
+                </ShellLink>
               </li>
             ))}
             {record ? (
@@ -107,22 +107,22 @@ export function MobileNav({
             ) : (
               third && (
                 <li>
-                  <Link href={third.href} className={tabClass(active === third.href)} aria-current={active === third.href ? "page" : undefined}>
+                  <ShellLink href={third.href} className={tabClass(active === third.href)} aria-current={active === third.href ? "page" : undefined}>
                     <third.Icon className={iconClass} />
                     {label(active === third.href, third.label)}
-                  </Link>
+                  </ShellLink>
                 </li>
               )
             )}
             <li>
-              <Link
+              <ShellLink
                 href={schedule.href}
                 className={tabClass(active === schedule.href)}
                 aria-current={active === schedule.href ? "page" : undefined}
               >
                 <schedule.Icon className={iconClass} />
                 {label(active === schedule.href, schedule.label)}
-              </Link>
+              </ShellLink>
             </li>
             <li>
               <button
@@ -153,7 +153,7 @@ export function MobileNav({
             <ul className="mx-auto flex max-w-lg flex-col gap-0.5">
               {moreLinks.map(({ href, label, Icon, match }) => (
                 <li key={href}>
-                  <Link
+                  <ShellLink
                     href={href}
                     onClick={() => setMoreOpen(false)}
                     aria-current={active === match ? "page" : undefined}
@@ -166,7 +166,7 @@ export function MobileNav({
                     </span>
                     <span className="flex-1">{label}</span>
                     <ChevronRightIcon className="h-4 w-4 text-ink-faint" />
-                  </Link>
+                  </ShellLink>
                 </li>
               ))}
               <li className="mt-2 border-t border-border-soft pt-2">

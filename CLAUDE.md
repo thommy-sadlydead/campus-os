@@ -27,12 +27,12 @@ changes: `src/lib/db-url.ts` switches it at runtime, caps each serverless
 instance's pool and turns on pgbouncer mode (`DATABASE_POOLING=off` undoes
 the switch). On Nov 5, 2026, five students signing in at once took the site
 down with "too many connections" on the direct host, which allows only a
-handful; the shell's nav links also stopped prefetching then. They prefetch
-again since Nov 9: every page the shell links to has a `loading.tsx` that
-draws the frame with placeholders (`ShellSkeleton` in
-`src/components/ShellChrome.tsx`), so a tap answers at once and a prefetch
-stops there without touching the database. A new page linked from the shell
-needs one too, or its prefetch renders the whole page. On Nov 6 the
+handful; the shell's nav links also stopped prefetching then, and still
+don't (`src/components/ShellLink.tsx`). A tap answers at once anyway: the
+frame (`src/components/ShellChrome.tsx`) swaps the page for placeholders
+while the next one renders. **Don't add a `loading.tsx`**: with one, Next.js
+15 left the page stuck after any `<form action>` save (saved, but not shown
+until the next navigation), which shipped in 435acf8 on Nov 9. On Nov 6 the
 pooled host didn't answer for a few seconds and two page loads failed, so every
 query now retries when it couldn't connect at all (`src/lib/db-retry.ts`) and
 `src/app/error.tsx` replaces Next.js's bare "Application error". Real users exist in
