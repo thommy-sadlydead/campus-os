@@ -26,9 +26,11 @@ export const POOL_SIZE = 3;
 // query waits for a free connection when all of this instance's are busy.
 export const CONNECT_TIMEOUT_MS = 10_000;
 // Opening a connection costs several round trips (about 100 ms), so idle
-// ones stay open a little while for the student's next tap. Vercel keeps an
-// instance awake until they close (attachDatabasePool in src/lib/prisma.ts)
-// and suggests a few seconds; half a minute covers a pause between pages.
+// ones stay open a little while for the student's next tap; half a minute
+// covers a pause between pages. (Vercel's attachDatabasePool, which keeps an
+// instance awake until they close, can't see the request when node-postgres
+// releases a connection here, so it only logged a warning per query; it
+// came out on Nov 10, 2026.)
 export const IDLE_TIMEOUT_MS = 30_000;
 
 const DIRECT_HOST = "db.prisma.io";
@@ -51,5 +53,9 @@ export function runtimeDatabaseUrl(
   if (!/^postgres(ql)?:$/.test(url.protocol)) return raw;
   if (pooling && url.hostname === DIRECT_HOST) url.hostname = POOLED_HOST;
   for (const key of PRISMA_ONLY_PARAMS) url.searchParams.delete(key);
+  // node-postgres already checks the certificate and host name for "require"
+  // (and "prefer", "verify-ca"), and warns on every cold start that this
+  // changes in pg 9. Saying verify-full keeps today's check without the warning.
+  if (["require", "prefer", "verify-ca"].includes(url.searchParams.get("sslmode") ?? "")) url.searchParams.set("sslmode", "verify-full");
   return url.toString();
 }

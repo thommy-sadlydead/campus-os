@@ -23,7 +23,6 @@
     "@prisma/adapter-pg": "5.22.0",
     "@prisma/client": "^5.22.0",
     "@vercel/blob": "^2.8.0",
-    "@vercel/functions": "3.10.3",
     "assemblyai": "^4.36.7",
     "bcryptjs": "^2.4.3",
     "date-fns": "^3.6.0",

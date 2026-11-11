@@ -1,7 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
-import { attachDatabasePool } from "@vercel/functions";
 import { CONNECT_TIMEOUT_MS, IDLE_TIMEOUT_MS, POOL_SIZE, runtimeDatabaseUrl } from "@/lib/db-url";
 import { withDbRetry } from "@/lib/db-retry";
 
@@ -19,9 +18,6 @@ function createClient(): PrismaClient {
     idleTimeoutMillis: IDLE_TIMEOUT_MS,
     keepAlive: true,
   });
-  // On Vercel, closes the idle connections before an instance is suspended,
-  // so they aren't left open (or dead) while it sleeps.
-  attachDatabasePool(pool);
   // An idle connection the server closed reports here; without a listener
   // Node would treat it as an uncaught error. The pool replaces it on the
   // next query.
