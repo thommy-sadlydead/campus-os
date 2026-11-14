@@ -1,0 +1,74 @@
+name: Uptime check
+
+# Every 10 minutes, checks that the live site, the database behind it and
+# the ChatGPT connection answer (scripts/uptime-check.sh). When something is
+# down it opens ONE issue (one email, not one every 10 minutes) and closes
+# it when everything answers again. campus-os.net sat on hold at Squarespace
+# from Nov 5 to Nov 14, 2026 with nobody alerted; this would have said so
+# within about 15 minutes.
+#
+# Limits worth knowing: GitHub runs scheduled workflows on a best-effort
+# basis (a run can start many minutes late), and turns them off after 60
+# days without any activity in a public repository. A push restarts that
+# clock. The job always finishes green on purpose: a red scheduled run
+# would email on every failed run. The issue is the alert.
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  # Run it by hand from the Actions tab to test.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: uptime
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Is Campus OS up?
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the site, the database and the ChatGPT connection
+        id: check
+        run: |
+          if sh scripts/uptime-check.sh; then
+            echo "down=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "down=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open or close the "Campus OS is down" issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          DOWN: ${{ steps.check.outputs.down }}
+        run: |
+          gh label create uptime --color B60205 --description "Opened and closed by the uptime check" 2>/dev/null || true
+          open=$(gh issue list --label uptime --state open --json number --jq '.[0].number // empty')
+          run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          now=$(date -u '+%Y-%m-%d %H:%M UTC')
+          if [ "$DOWN" = true ]; then
+            echo "::error::Campus OS failed its uptime check"
+            cat uptime-report.md
+            if [ -z "$open" ]; then
+              {
+                echo "@$GITHUB_REPOSITORY_OWNER the uptime check found a problem at $now:"
+                echo
+                cat uptime-report.md
+                echo
+                echo "[Check run]($run_url). This issue closes itself when everything answers again."
+              } > issue.md
+              gh issue create --title "Campus OS is down" --label uptime --body-file issue.md
+            fi
+          elif [ -n "$open" ]; then
+            gh issue comment "$open" --body "Everything answers again as of $now ([run]($run_url))."
+            gh issue close "$open"
+          fi

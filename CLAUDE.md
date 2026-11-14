@@ -399,7 +399,7 @@ no third-party auth.
 ## Verifying a change before calling it done
 
 1. `npx tsc --noEmit` (after `npx prisma generate` if the schema changed)
-2. `npx vitest run` — 561 tests as of this writing across 53 files
+2. `npx vitest run` — 567 tests as of this writing across 54 files
 3. Clean build: `rm -rf .next && npx next build` (use `next build` directly
    to skip the `db push` the `npm run build` script triggers, if you're not
    ready to push schema changes yet)
@@ -412,6 +412,34 @@ no third-party auth.
    curl -s "https://api.github.com/repos/thommy-sadlydead/campus-os/commits/$SHA/status"
    ```
 6. Live-check the deployed URL once the status is `success`.
+
+### Automatic checks and monitoring (added Nov 14, 2026)
+
+- **CI** (`.github/workflows/ci.yml`): every push to `master` and every pull
+  request runs `tsc --noEmit`, `vitest run` and a plain `next build`, with a
+  placeholder `DATABASE_URL`. **Never give this workflow a real
+  `DATABASE_URL` or any other secret, and never make it run `npm run
+  build`**: that pushes schema changes to the live production database
+  (the tests don't need a database). It can't stop a deploy: Vercel builds
+  every push to `master` on its own, and Reece pushes straight to `master`.
+  Read its result with
+  `curl -s https://api.github.com/repos/thommy-sadlydead/campus-os/commits/$SHA/check-runs`.
+- **`/api/health`** (`src/app/api/health/route.ts`, `src/lib/health.ts`):
+  public, runs one `SELECT 1`, answers `{"ok":true}` (200) or `{"ok":false}`
+  (503, after at most 8 s). It must never return error text; the route is
+  public.
+- **Uptime check** (`.github/workflows/uptime.yml`, `scripts/uptime-check.sh`):
+  every 10 minutes it asks `app.campus-os.net` for `/login`, `/api/health`
+  and `POST /mcp`, retrying each three times. When any fails it opens ONE
+  GitHub issue titled "Campus OS is down" (label `uptime`, mentions the repo
+  owner) and closes it, with a comment, when everything answers again. The
+  job itself always finishes green so GitHub doesn't email on every failed
+  run. Limits: GitHub starts scheduled runs late at times, and switches them
+  off after 60 days without any repository activity (a push restarts the
+  clock). If the domain changes, change `SITE_URL`'s default in the script.
+- Not set up (decide before adding): an error tracker such as Sentry
+  (needs an account and a DSN in Vercel), and Vercel's own error alerts.
+  Until then a server error shows only in Vercel's logs.
 
 ### Verifying against real data
 

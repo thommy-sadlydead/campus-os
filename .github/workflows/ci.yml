@@ -1,0 +1,53 @@
+name: CI
+
+# Type check, tests and a production build on every push to master and every
+# pull request. A red run emails the person who pushed.
+#
+# This job has NO database credentials, on purpose: the tests don't use a
+# database, and the build is plain `next build` with a placeholder
+# DATABASE_URL. Never swap it for `npm run build`, which pushes schema
+# changes to the live production database (see CLAUDE.md). Don't add
+# DATABASE_URL or any other secret to this workflow.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  # A newer push to a pull request replaces its older run; master runs all finish.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  checks:
+    name: Types · Tests · Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      # postinstall runs `prisma generate`, which doesn't need a database.
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Tests
+        run: npx vitest run
+
+      - name: Build (no database)
+        run: npx next build
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+          NEXT_TELEMETRY_DISABLED: "1"
