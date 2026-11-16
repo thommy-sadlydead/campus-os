@@ -11,7 +11,7 @@ import type { LmsLink } from "@/lib/lms/providers";
 
 export type WorkStatus = "NOT_STARTED" | "IN_PROGRESS" | "SUBMITTED" | "GRADED" | "DONE";
 
-export type UrgencyBucket = "OVERDUE" | "TODAY" | "TOMORROW" | "THIS_WEEK" | "LATER" | "NO_DATE";
+export type UrgencyBucket = "OVERDUE" | "TODAY" | "TOMORROW" | "THIS_WEEK" | "LATER" | "NO_DATE" | "REVIEW";
 
 export type PriorityColor = "red" | "orange" | "yellow" | "green" | "gray";
 
@@ -34,6 +34,13 @@ export interface WorkItem {
   description: string | null;
   /** "Open in Canvas" link, or null when the item didn't come from an LMS (or it gave no link). */
   lmsLink: LmsLink | null;
+  /**
+   * True for work an LMS sync brought in already past due, which the student
+   * hasn't touched: it may be turned in on paper, excused or long forgotten,
+   * so it's something to review, not "overdue". Deadlines that pass after
+   * the work came in stay overdue. See workload.ts.
+   */
+  cameInOverdue?: boolean;
 }
 
 export interface PriorityResult {
@@ -51,6 +58,7 @@ const BUCKET_RANK: Record<UrgencyBucket, number> = {
   THIS_WEEK: 2,
   LATER: 1,
   NO_DATE: 0,
+  REVIEW: -1, // below everything: never what to do next
 };
 
 const BUCKET_COLOR: Record<UrgencyBucket, PriorityColor> = {
@@ -60,6 +68,7 @@ const BUCKET_COLOR: Record<UrgencyBucket, PriorityColor> = {
   THIS_WEEK: "yellow",
   LATER: "green",
   NO_DATE: "gray",
+  REVIEW: "gray",
 };
 
 export function classifyUrgency(dueAt: Date | null, now: Date, tz: string): UrgencyBucket {
@@ -77,14 +86,34 @@ function isActionable(item: WorkItem): boolean {
   return item.status !== "DONE" && item.status !== "SUBMITTED" && item.status !== "GRADED";
 }
 
+/**
+ * Whether a stored assignment is work a sync brought in already past due
+ * that the student hasn't touched: from an LMS (it has an item id), not
+ * started, and due before the row was created. Something the student typed
+ * in with a past date is theirs to have overdue; a deadline that passes
+ * after the row was made stays overdue. Pure; tested in
+ * tests/priority-engine.test.ts.
+ */
+export function cameInOverdue(a: { lmsItemId: string | null; status: string; dueAt: Date | null; createdAt: Date }): boolean {
+  return a.lmsItemId != null && a.status === "NOT_STARTED" && a.dueAt != null && a.dueAt.getTime() < a.createdAt.getTime();
+}
+
+/** Whether an item is something to look over rather than to do: it came in past due and nothing has happened since. */
+function needsReview(item: WorkItem, bucket: UrgencyBucket): boolean {
+  return bucket === "OVERDUE" && item.cameInOverdue === true;
+}
+
 function scoreItem(item: WorkItem, now: Date, tz: string): { score: number; bucket: UrgencyBucket } {
-  const bucket = classifyUrgency(item.dueAt, now, tz);
+  const urgency = classifyUrgency(item.dueAt, now, tz);
+  const bucket = needsReview(item, urgency) ? "REVIEW" : urgency;
   let score = BUCKET_RANK[bucket] * 100_000;
 
   if (item.dueAt) {
     // Within the same bucket, soonest-due wins — subtract hours-until-due
-    // so a smaller (or negative, i.e. overdue) value scores higher.
-    score -= hoursUntil(item.dueAt, now);
+    // so a smaller (or negative, i.e. overdue) value scores higher. Work to
+    // review goes the other way: the most recently due first, since the
+    // oldest is the likeliest to be long finished.
+    score += bucket === "REVIEW" ? hoursUntil(item.dueAt, now) : -hoursUntil(item.dueAt, now);
   }
 
   if (item.isExamLinked) score += 40; // exams carry weight beyond their own due date
@@ -115,6 +144,9 @@ function reasonFor(item: WorkItem, bucket: UrgencyBucket, now: Date): string {
       break;
     case "NO_DATE":
       parts.push("No due date on file, so this is a lower-urgency pick");
+      break;
+    case "REVIEW":
+      parts.push("This was already past due when it came in from your class, so it may be turned in on paper or no longer owed. Check it off if it's done");
       break;
   }
 
@@ -151,8 +183,12 @@ export function rankWorkItems(items: WorkItem[], now: Date, tz: string): Priorit
 
 /** The single best thing to work on right now. Null if there's nothing actionable. */
 export function whatShouldIDoRightNow(items: WorkItem[], now: Date, tz: string): PriorityResult | null {
-  const ranked = rankWorkItems(items, now, tz);
-  return ranked[0] ?? null;
+  return toDo(rankWorkItems(items, now, tz))[0] ?? null;
+}
+
+/** The ranked work worth doing, without what's only there to review. */
+function toDo(ranked: PriorityResult[]): PriorityResult[] {
+  return ranked.filter((r) => r.bucket !== "REVIEW");
 }
 
 export interface FitResult {
@@ -178,7 +214,7 @@ export function findBestFitForMinutes(
   tz: string,
   minutes: number
 ): FitResult | NoFitResult {
-  const ranked = rankWorkItems(items, now, tz);
+  const ranked = toDo(rankWorkItems(items, now, tz));
   const withEstimate = ranked.filter((r) => r.item.estimatedMinutes != null);
 
   const fitting = withEstimate.filter((r) => (r.item.estimatedMinutes as number) <= minutes);
@@ -207,7 +243,10 @@ export function findBestFitForMinutes(
 }
 
 export interface WorkloadSummary {
+  /** Assignments past due that the student let slide: not the ones that came in already past due (reviewCount). */
   overdueCount: number;
+  /** Assignments that came in already past due and are waiting for the student to check them off or not. */
+  reviewCount: number;
   dueTodayCount: number;
   dueTomorrowCount: number;
   totalRemainingMinutesToday: number;
@@ -225,12 +264,14 @@ export function computeWorkloadSummary(
   tz: string,
   availableMinutesToday: number | null
 ): WorkloadSummary {
-  const actionable = items.filter(isActionable);
+  const all = items.filter(isActionable);
+  const actionable = all.filter((i) => !(i.cameInOverdue && i.dueAt && i.dueAt.getTime() < now.getTime()));
   // Counts are of assignments, not work items: an assignment broken into
   // three steps is three items (each inherits the due date) but still one
   // overdue assignment. Counting items made a breakdown raise the count.
   const countAssignments = (list: WorkItem[]) => new Set(list.map((i) => i.assignmentId)).size;
   const overdueCount = countAssignments(actionable.filter((i) => i.dueAt && i.dueAt.getTime() < now.getTime()));
+  const reviewCount = countAssignments(all.filter((i) => !actionable.includes(i)));
   const dueTodayCount = countAssignments(actionable.filter((i) => i.dueAt && isSameTzDay(i.dueAt, now, tz)));
   const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
   const dueTomorrowCount = countAssignments(actionable.filter((i) => i.dueAt && isSameTzDay(i.dueAt, tomorrow, tz)));
@@ -256,6 +297,7 @@ export function computeWorkloadSummary(
 
   return {
     overdueCount,
+    reviewCount,
     dueTodayCount,
     dueTomorrowCount,
     totalRemainingMinutesToday,

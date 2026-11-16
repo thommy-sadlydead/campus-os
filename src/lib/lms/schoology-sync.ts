@@ -13,6 +13,7 @@
 // Takes a PrismaClient as a parameter, like canvas-sync.ts.
 
 import type { PrismaClient } from "@prisma/client";
+import { cleanCourseName } from "@/lib/lms/course-name";
 import { applyLmsCourses, type LmsAssignmentInput, type LmsCourseInput, type LmsExamInput } from "@/lib/lms/apply";
 import { calendarOnlyExams, isExamLikeName } from "@/lib/lms/exams";
 import { emptyReport, type SyncReport } from "@/lib/lms/report";
@@ -49,7 +50,7 @@ export interface SchoologySettings {
 export function schoologyClassNames(sections: SchoologySection[]): Map<string, { name: string; code: string }> {
   const base = sections.map((s) => ({
     id: String(s.id),
-    name: (s.course_title || s.section_title || `Schoology course ${s.id}`).trim(),
+    name: cleanCourseName((s.course_title || s.section_title || `Schoology course ${s.id}`).trim()),
     section: (s.section_title || "").trim(),
     code: (s.course_code || s.section_code || s.section_school_code || "").trim(),
   }));
@@ -157,6 +158,8 @@ export async function syncSchoologyForUser(
     inputs.push({
       id: sectionId,
       name,
+      // Tidied, and given its section when two sections share a course, in schoologyClassNames.
+      nameIsFinal: true,
       code,
       assignments,
       exams: calendarOnlyExams(calendarExams, assignments.filter((a) => a.isExam).map((a) => a.name)),

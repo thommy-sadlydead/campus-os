@@ -121,8 +121,9 @@ export function assessRisk(ranked: PriorityResult[], summary: WorkloadSummary, n
   // overwhelm the user, keep recommendations actionable" — and empty when
   // on-track, since a green status shouldn't nag with busywork.
   const recommendations: string[] = [];
-  if (level !== "on-track" && ranked.length > 0) {
-    const top = ranked.slice(0, level === "at-risk" ? 3 : 2);
+  const worthDoing = ranked.filter((r) => r.bucket !== "REVIEW");
+  if (level !== "on-track" && worthDoing.length > 0) {
+    const top = worthDoing.slice(0, level === "at-risk" ? 3 : 2);
     if (top.length === 1) {
       recommendations.push(`Focus on "${top[0].item.title}" (${top[0].item.className}) — ${formatDueLabel(top[0].item.dueAt, now, tz).toLowerCase()}.`);
     } else if (top.length >= 2) {

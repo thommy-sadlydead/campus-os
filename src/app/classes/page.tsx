@@ -10,6 +10,7 @@ import { rankWorkItems, computeWorkloadSummary, type WorkItem } from "@/lib/prio
 import { assessRisk, type RiskAssessment } from "@/lib/risk-engine";
 import { featuresFor } from "@/lib/features-server";
 import { formatPercent } from "@/lib/grades";
+import { ClassStats } from "@/components/classes/ClassStats";
 
 export default async function ClassesPage() {
   const user = await requireUser();
@@ -85,10 +86,11 @@ export default async function ClassesPage() {
           {ordered.map(({ cls: c, risk, next }) => {
             const isFeatured = featured?.cls.id === c.id;
             return (
-              <Link
+              // The whole card opens the class (the name's link stretches over
+              // it), and the "Add a syllabus" link sits above that one.
+              <div
                 key={c.id}
-                href={`/classes/${c.id}`}
-                className={`card group flex flex-col p-5 transition-colors ${
+                className={`card group relative flex flex-col p-5 transition-colors ${
                   isFeatured ? "theme-inverse sm:col-span-2" : "hover:border-border"
                 }`}
               >
@@ -102,36 +104,29 @@ export default async function ClassesPage() {
                   <p className="eyebrow mt-4">Next class · {meetingLabel(next, now, user.timezone)}</p>
                 )}
                 <h2 className={`${isFeatured && next ? "mt-1" : "mt-4"} text-[17px] font-semibold leading-snug tracking-[-0.01em] text-ink`}>
-                  {c.name}
+                  <Link href={`/classes/${c.id}`} className="after:absolute after:inset-0 after:content-['']">
+                    {c.name}
+                  </Link>
                 </h2>
                 <p className="mt-0.5 text-[13px] text-ink-faint">
                   {[c.code, c.professor].filter(Boolean).join(" · ") || "\u00a0"}
                 </p>
-                <div className="mt-auto grid grid-cols-3 gap-3 pt-6">
-                  <Stat n={c._count.assignments} label="assignments" />
-                  <Stat n={c._count.exams} label="exams" />
-                  <Stat n={c._count.resources + c._count.materials} label="resources" />
-                </div>
+                <ClassStats
+                  classId={c.id}
+                  assignments={c._count.assignments}
+                  exams={c._count.exams}
+                  resources={c._count.resources + c._count.materials}
+                />
                 {features.has("grades") && c.gradePercent != null && (
                   <p className="mt-4 border-t border-border-soft pt-3 text-[13px] text-ink-soft">
                     Grade <span className="font-semibold text-ink">{formatPercent(c.gradePercent)}</span>
                   </p>
                 )}
-              </Link>
+              </div>
             );
           })}
         </div>
       )}
     </AppShell>
-  );
-}
-
-/** A big number with its label underneath. */
-function Stat({ n, label }: { n: number; label: string }) {
-  return (
-    <div>
-      <p className="display-num text-[32px] text-ink">{n}</p>
-      <p className="mt-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-faint">{label}</p>
-    </div>
   );
 }

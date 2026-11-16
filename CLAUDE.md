@@ -161,7 +161,11 @@ no third-party auth.
   A new optional feature goes in `FEATURES` with `isNew: true`, so accounts
   that haven't picked don't suddenly get it (they keep `LEGACY_FEATURES`),
   and turning one off hides it but never deletes its data. Syncs keep
-  grades only for students with Grades on (`gradesOn`).
+  grades only for students with Grades on (`gradesOn`). **Onboarding comes
+  before data:** an account made after the picker shipped (Nov 4, 2026)
+  that hasn't picked is sent from Today to `/welcome?new=1`
+  (`needsFeaturePick`). Only older accounts see the "Pick what you want"
+  card on Today, and the App Store review account sees neither.
 - **Phones get a bottom tab bar** (`src/components/MobileNav.tsx`, below
   `lg`); the sidebar in `AppShell` is for wide screens. The viewport uses
   `viewport-fit=cover`, so anything fixed to the top or bottom pads itself
@@ -399,7 +403,7 @@ no third-party auth.
 ## Verifying a change before calling it done
 
 1. `npx tsc --noEmit` (after `npx prisma generate` if the schema changed)
-2. `npx vitest run` — 567 tests as of this writing across 54 files
+2. `npx vitest run` — 601 tests as of this writing across 55 files
 3. Clean build: `rm -rf .next && npx next build` (use `next build` directly
    to skip the `db push` the `npm run build` script triggers, if you're not
    ready to push schema changes yet)
@@ -491,6 +495,32 @@ Two known-good workarounds, both used this session:
   long-finished work as overdue. The sync report gives the count and points
   to Assignments to uncheck anything still owed. Deadlines that pass after
   connecting stay open until checked off.
+- **Work that came in already past due is "to review", not overdue**
+  (`cameInOverdue` in `src/lib/priority-engine.ts`): an LMS row (it has an
+  item id) the student hasn't started, whose due date is before the row's
+  `createdAt`. A first sync pulls in weeks of such work (Canvas says
+  "unsubmitted" for anything turned in on paper or excused), and counting
+  it overdue opened a new student's Today with "You're falling behind —
+  15 overdue". It gets its own bucket (`REVIEW`): a "to review" fold at the
+  bottom of Today, left out of `overdueCount`, the risk status, the
+  minutes owed today, and "What should I do now?". A deadline that passes
+  after the work came in stays overdue; breaking it into steps or starting
+  it makes it ordinary work; a manual assignment is never "to review". No
+  stored flag, so it also applies to rows imported before this existed.
+- **Course names lose their section and term** (`cleanCourseName` in
+  `src/lib/lms/course-name.ts`, applied in `applyLmsCourses` on every
+  sync, so stored names are tidied the next time each student syncs):
+  "US History to 1877 (01) 2026FA" is stored as "US History to 1877".
+  Only clear section and term tokens at an end of the name come off
+  ("(Honors)" and "(101)" stay). `nameIsFinal` opts out: a student's rename
+  in the calendar-feed preview, and Schoology's own "(Section)" added to
+  tell two sections of one course apart.
+- **An exam the LMS gives no date gets the one in its name**
+  (`examDateFromName` in `src/lib/lms/exams.ts`, in `applyLmsCourses`):
+  "Exam #2 – October 30th" is due Oct 30 at 11:59 PM in the student's time
+  zone, on both the assignment and the exam. Exactly one date in the name,
+  or none is read; no year means the one nearest today. A date the LMS
+  sets later wins on the next sync.
 - **Schoology**: turned-in status is only checked for work due from a week
   ago to a month out (one request per assignment, under its rate limit);
   graded status covers everything. An edited Schoology page isn't

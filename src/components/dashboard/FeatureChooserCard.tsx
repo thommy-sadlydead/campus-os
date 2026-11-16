@@ -2,7 +2,11 @@ import Link from "next/link";
 import { keepCurrentFeaturesAction } from "@/app/account/actions";
 import { LayersIcon } from "@/components/icons";
 
-/** On Today until the student picks features (src/lib/features.ts): accounts from before the picker, or a skipped /welcome. */
+/**
+ * On Today until an account from before the picker (Nov 4, 2026) chooses
+ * features (src/lib/features.ts). New accounts pick during onboarding
+ * instead (/welcome) and never see this.
+ */
 export function FeatureChooserCard() {
   return (
     <section className="card card-pad mb-6">

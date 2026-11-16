@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { calendarOnlyExams, isExamLikeName } from "../src/lib/lms/exams";
+import { calendarOnlyExams, examDateFromName, isExamLikeName } from "../src/lib/lms/exams";
 
 describe("isExamLikeName", () => {
   it("recognizes exams, midterms and finals that say exam", () => {
@@ -68,5 +68,54 @@ describe("calendarOnlyExams", () => {
   it("keeps every calendar exam when there are no exam assignments", () => {
     const calendar = [{ name: "Exam 1" }];
     expect(calendarOnlyExams(calendar, [])).toEqual(calendar);
+  });
+});
+
+describe("examDateFromName", () => {
+  const TZ = "America/New_York";
+  const NOV_13 = new Date("2026-11-13T16:00:00Z");
+  const end = (iso: string) => new Date(iso); // 23:59 local, as UTC
+
+  it("reads the date out of an exam's name, at the end of that day", () => {
+    expect(examDateFromName("Exam #2 – October 30th", NOV_13, TZ)).toEqual(end("2026-10-31T03:59:00Z"));
+    expect(examDateFromName("Midterm (Oct. 14)", NOV_13, TZ)).toEqual(end("2026-10-15T03:59:00Z"));
+    expect(examDateFromName("Final Exam - December 9", NOV_13, TZ)).toEqual(end("2026-12-10T04:59:00Z"));
+    expect(examDateFromName("Exam 3 10/30", NOV_13, TZ)).toEqual(end("2026-10-31T03:59:00Z"));
+    expect(examDateFromName("Exam 3 (11/20/26)", NOV_13, TZ)).toEqual(end("2026-11-21T04:59:00Z"));
+    expect(examDateFromName("Exam 2: Sept 4th, 2026", NOV_13, TZ)).toEqual(end("2026-09-05T03:59:00Z"));
+  });
+
+  it("picks the year that puts the date nearest today", () => {
+    const LATE_DEC = new Date("2026-12-28T16:00:00Z");
+    expect(examDateFromName("Final Exam - January 15", LATE_DEC, TZ)).toEqual(end("2027-01-16T04:59:00Z"));
+    const EARLY_JAN = new Date("2027-01-05T16:00:00Z");
+    expect(examDateFromName("Exam 4 - December 12", EARLY_JAN, TZ)).toEqual(end("2026-12-13T04:59:00Z"));
+  });
+
+  it("uses the student's time zone for the end of the day", () => {
+    expect(examDateFromName("Exam 1 - October 30", NOV_13, "America/Los_Angeles")).toEqual(end("2026-10-31T06:59:00Z"));
+  });
+
+  it("says nothing when the name has no date", () => {
+    for (const name of [
+      "Exam #2 (Remotely Proctored)",
+      "Exam 1 (12%)",
+      "Exam 2: Chapters 4-6",
+      "Final Exam (Secure Browser)",
+      "Midterm 1",
+      "Exam #1 - Retake (Extra Credit | Remotely Proctored)",
+    ]) {
+      expect(examDateFromName(name, NOV_13, TZ), name).toBeNull();
+    }
+  });
+
+  it("says nothing when the name has more than one date, or one that can't be", () => {
+    expect(examDateFromName("Exam 2 - Oct 30 (makeup Nov 6)", NOV_13, TZ)).toBeNull();
+    expect(examDateFromName("Exam 2 - February 30", NOV_13, TZ)).toBeNull();
+    expect(examDateFromName("Exam 2 - 13/40", NOV_13, TZ)).toBeNull();
+  });
+
+  it("counts the same date written twice as one", () => {
+    expect(examDateFromName("Exam 2 - Oct 30 (10/30)", NOV_13, TZ)).toEqual(end("2026-10-31T03:59:00Z"));
   });
 });

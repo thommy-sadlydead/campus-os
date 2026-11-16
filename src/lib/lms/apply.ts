@@ -12,6 +12,9 @@
 // - Nothing the LMS stops listing is deleted, and a student's own marks
 //   stick unless the LMS knows better (src/lib/lms/status.ts).
 // - Rows are only written when something changed.
+// - A course's name loses its section and term ("(01) 2026FA"), and an
+//   exam the LMS gave no date gets the one written in its name ("Exam #2 –
+//   October 30th"); see prepareCourse.
 //
 // Takes a PrismaClient rather than importing the app's singleton, so the
 // CLI script (scripts/sync-canvas.ts) can use it too.
@@ -22,6 +25,8 @@ import { decideAssignmentStatus, type LmsSubmission } from "@/lib/lms/status";
 import type { LmsProvider } from "@/lib/lms/providers";
 import type { ClassSyncResult } from "@/lib/lms/report";
 import { recordGrade } from "@/lib/grade-records";
+import { cleanCourseName } from "@/lib/lms/course-name";
+import { examDateFromName } from "@/lib/lms/exams";
 
 export interface LmsAssignmentInput {
   /** The LMS's id for it, unique within the course. */
@@ -54,6 +59,8 @@ export interface LmsExamInput {
 export interface LmsCourseInput {
   id: string;
   name: string;
+  /** The name was chosen on purpose (a student's rename, a section added to tell two sections apart): stored as given, not tidied. */
+  nameIsFinal?: boolean;
   code: string;
   /** Null when they couldn't be loaded this time: what's stored is kept. */
   assignments: LmsAssignmentInput[] | null;
@@ -87,6 +94,28 @@ function uniqueById<T extends { id: string }>(items: T[]): T[] {
   return items.filter((item) => (seen.has(item.id) ? false : (seen.add(item.id), true)));
 }
 
+/**
+ * What a course looks like once stored: a tidied name, and a date for each
+ * exam the LMS gave none, taken from its name when the name has exactly
+ * one. This runs on every sync, before anything is compared with what's
+ * stored, so a date the LMS later sets wins and one it never sets stays.
+ */
+function prepareCourse(course: LmsCourseInput, now: Date, tz: string): LmsCourseInput {
+  return {
+    ...course,
+    name: course.nameIsFinal ? course.name : cleanCourseName(course.name),
+    assignments: course.assignments
+      ? course.assignments.map((a) => (a.isExam && !a.dueAt ? { ...a, dueAt: examDateFromName(a.name, now, tz) } : a))
+      : null,
+    exams: course.exams.map((e) => (e.examAt ? e : { ...e, examAt: examDateFromName(e.name, now, tz) })),
+  };
+}
+
+async function timezoneOf(prisma: PrismaClient, userId: string): Promise<string> {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { timezone: true } });
+  return user?.timezone ?? "America/New_York";
+}
+
 /** Gives each new class the color the account uses least, so classes stay easy to tell apart. */
 async function colorPicker(prisma: PrismaClient, userId: string): Promise<() => number> {
   const used = await prisma.class.findMany({ where: { userId, archived: false }, select: { color: true } });
@@ -109,8 +138,10 @@ export async function applyLmsCourses(
 ): Promise<ApplyResult> {
   const result: ApplyResult = { classes: [], reopened: [], checkedOff: 0 };
   const nextColor = await colorPicker(prisma, userId);
+  const tz = await timezoneOf(prisma, userId);
 
-  for (const course of uniqueById(courses)) {
+  for (const reported of uniqueById(courses)) {
+    const course = prepareCourse(reported, now, tz);
     const classResult: ClassSyncResult = {
       name: course.name,
       assignments: course.assignments?.length ?? 0,

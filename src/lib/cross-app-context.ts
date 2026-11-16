@@ -55,6 +55,9 @@ export async function buildCrossAppPrompt(userId: string, tz: string): Promise<{
     "",
     "=== WORKLOAD SUMMARY ===",
     `Overdue: ${summary.overdueCount}. Due today: ${summary.dueTodayCount}. Due tomorrow: ${summary.dueTomorrowCount}.`,
+    summary.reviewCount > 0
+      ? `To review: ${summary.reviewCount} (already past due when they came in from the LMS, and not started: possibly turned in elsewhere or no longer owed, so don't call them overdue or the student behind).`
+      : "",
     `Remaining work today: ${formatMinutes(summary.totalRemainingMinutesToday)}.`,
     summary.availableMinutesToday == null
       ? "Free time today: not tracked."
@@ -69,7 +72,7 @@ export async function buildCrossAppPrompt(userId: string, tz: string): Promise<{
   const deterministicSummary = [
     ranked.length === 0
       ? "Nothing open right now — fully caught up."
-      : `${ranked.length} open item(s). ${summary.overdueCount} overdue, ${summary.dueTodayCount} due today, ${summary.dueTomorrowCount} due tomorrow.`,
+      : `${ranked.length} open item(s). ${summary.overdueCount} overdue, ${summary.dueTodayCount} due today, ${summary.dueTomorrowCount} due tomorrow${summary.reviewCount > 0 ? `, ${summary.reviewCount} to review (came in already past due)` : ""}.`,
     summary.upcomingDeadlines.length > 0
       ? `Coming up: ${summary.upcomingDeadlines.map((d) => `${d.title} (${d.className}, ${formatDueLabel(d.dueAt, now, tz)})`).join("; ")}.`
       : "",

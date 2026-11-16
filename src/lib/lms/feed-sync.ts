@@ -106,6 +106,7 @@ export function feedCourseInputs(provider: FeedProvider, analysis: FeedAnalysis,
     inputs.push({
       id: course.key,
       name: choice?.name?.trim() || course.name,
+      nameIsFinal: Boolean(choice?.name?.trim()),
       code: "",
       assignments: items
         .filter((i) => i.kind === "assignment")

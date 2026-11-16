@@ -1,4 +1,5 @@
 import { cookies, headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { AppShell } from "@/components/AppShell";
@@ -23,6 +24,7 @@ import { gmailOpenTo } from "@/lib/gmail-access";
 import { SampleClassesButton } from "@/components/demo/SampleClassesButton";
 import { ArrowRightIcon, BookIcon, CalendarIcon, ChevronRightIcon, LayersIcon, MailIcon } from "@/components/icons";
 import { featuresFor } from "@/lib/features-server";
+import { needsFeaturePick } from "@/lib/features";
 import { FeatureChooserCard } from "@/components/dashboard/FeatureChooserCard";
 import { after } from "next/server";
 import { refreshCanvasGrades } from "@/lib/grades-server";
@@ -45,12 +47,18 @@ const SECTION_TITLES: Record<UrgencyBucket, string> = {
   THIS_WEEK: "This week",
   LATER: "Later",
   NO_DATE: "No due date",
+  REVIEW: "To review",
 };
 
-const SECTION_ORDER: UrgencyBucket[] = ["OVERDUE", "TODAY", "TOMORROW", "THIS_WEEK", "LATER", "NO_DATE"];
+const SECTION_ORDER: UrgencyBucket[] = ["OVERDUE", "TODAY", "TOMORROW", "THIS_WEEK", "LATER", "NO_DATE", "REVIEW"];
 
 export default async function DashboardPage() {
   const user = await requireUser();
+  // Features are picked before any of the student's data shows (sign-up
+  // sends a new account to /welcome; this catches one that got here
+  // another way). Accounts from before the picker see a card instead.
+  const demo = isDemoAccount(user.email);
+  if (needsFeaturePick(user, { demo })) redirect("/welcome?new=1");
   const now = new Date();
   const week = weekBounds(now, user.timezone);
   // The iPhone app adds this to its user agent (capacitor.config.json); only
@@ -271,7 +279,7 @@ export default async function DashboardPage() {
       description: r.item.description ? stripHtml(r.item.description).trim() || null : null,
       lmsLink: r.item.lmsLink,
     }));
-  const sections: TodaySection[] = SECTION_ORDER.filter((b) => b !== "OVERDUE" && grouped.has(b)).map((bucket) => ({
+  const sections: TodaySection[] = SECTION_ORDER.filter((b) => b !== "OVERDUE" && b !== "REVIEW" && grouped.has(b)).map((bucket) => ({
     key: bucket,
     title: SECTION_TITLES[bucket],
     rows: rows(bucket),
@@ -288,12 +296,13 @@ export default async function DashboardPage() {
           dueToday={count("TODAY")}
           dueLaterThisWeek={count("TOMORROW") + count("THIS_WEEK")}
           overdue={rows("OVERDUE")}
+          review={rows("REVIEW")}
           sections={sections}
           emptyText="Nothing on file right now. New assignments show up here after a sync."
         >
           {features.has("risk") && <RiskStatusCard risk={risk} />}
           <WhatNowPanel />
-          {!user.featuresChosenAt && <FeatureChooserCard />}
+          {!user.featuresChosenAt && !demo && <FeatureChooserCard />}
           {!hasAiConsent(user) && !(await cookies()).get(AI_NOT_NOW_COOKIE) && <AiConsentCard />}
           {checkOffNames && <CheckOffNote names={checkOffNames} />}
           {inApp && (

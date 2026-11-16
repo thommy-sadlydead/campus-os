@@ -327,6 +327,88 @@ describe("applyLmsCourses", () => {
     });
   });
 
+  describe("tidying names and dating exams", () => {
+    const exam = (id: string, name: string, dueAt: Date | null = null) => ({
+      id,
+      name,
+      description: null,
+      dueAt,
+      pointsPossible: null,
+      url: null,
+      submission: null,
+      tracksSubmissions: false,
+      isExam: true,
+    });
+
+    it("stores a course without its section and term, and renames one stored with them", async () => {
+      const { prisma, db } = createFakePrisma({
+        class: [{ id: "c1", userId: "me", lmsProvider: "canvas", lmsCourseId: "7", name: "US History to 1877 (01) 2026FA", code: "HIST", color: 1, archived: false }],
+      });
+
+      const result = await applyLmsCourses(
+        prisma,
+        "me",
+        "canvas",
+        [course({ id: "7", name: "US History to 1877 (01) 2026FA", code: "HIST" }), course({ id: "8", name: "Calculus II (Honors)" })],
+        NOW
+      );
+
+      expect(db.class.map((c) => c.name)).toEqual(["US History to 1877", "Calculus II (Honors)"]);
+      expect(result.classes.map((c) => c.name)).toEqual(["US History to 1877", "Calculus II (Honors)"]);
+    });
+
+    it("keeps a name chosen on purpose exactly as given", async () => {
+      const { prisma, db } = createFakePrisma();
+      await applyLmsCourses(prisma, "me", "brightspace", [course({ id: "1", name: "Bio (02)", nameIsFinal: true })], NOW);
+      expect(db.class[0].name).toBe("Bio (02)");
+    });
+
+    it("dates an exam from its name when the LMS gave no date, in the student's time zone", async () => {
+      const { prisma, db } = createFakePrisma({ user: [{ id: "me", timezone: "America/Chicago" }] });
+
+      await applyLmsCourses(prisma, "me", "canvas", [course({ assignments: [exam("1", "Exam #2 – October 30th")] })], NOW);
+
+      const due = new Date("2026-10-31T04:59:00Z"); // Oct 30, 11:59 PM Central
+      expect(db.assignment[0].dueAt).toEqual(due);
+      expect(db.exam[0].examAt).toEqual(due);
+    });
+
+    it("dates a calendar exam the same way", async () => {
+      const { prisma, db } = createFakePrisma();
+      const calendar = { id: "event:1", name: "Midterm - Oct 14", examAt: null, location: null, url: null };
+
+      await applyLmsCourses(prisma, "me", "canvas", [course({ exams: [calendar] })], NOW);
+
+      expect(db.exam[0].examAt).toEqual(new Date("2026-10-15T03:59:00Z"));
+    });
+
+    it("leaves an exam the LMS dated alone, and one whose name has no date undated", async () => {
+      const { prisma, db } = createFakePrisma();
+      const real = new Date("2026-10-20T14:00:00Z");
+
+      await applyLmsCourses(
+        prisma,
+        "me",
+        "canvas",
+        [course({ assignments: [exam("1", "Exam 1 - October 30", real), exam("2", "Exam #3 (Remotely Proctored)")] })],
+        NOW
+      );
+
+      expect(Object.fromEntries(db.exam.map((e) => [e.lmsItemId, e.examAt]))).toEqual({ "1": real, "2": null });
+    });
+
+    it("lets a date the LMS sets later replace the one read from the name", async () => {
+      const { prisma, db } = createFakePrisma();
+      await applyLmsCourses(prisma, "me", "canvas", [course({ assignments: [exam("1", "Exam 2 - Oct 30")] })], NOW);
+      const set = new Date("2026-11-02T15:00:00Z");
+
+      await applyLmsCourses(prisma, "me", "canvas", [course({ assignments: [exam("1", "Exam 2 - Oct 30", set)] })], NOW);
+
+      expect(db.exam[0].examAt).toEqual(set);
+      expect(db.assignment[0].dueAt).toEqual(set);
+    });
+  });
+
   it("gives new classes the colors used least", async () => {
     const { prisma, db } = createFakePrisma({
       class: [{ id: "c1", userId: "me", lmsProvider: null, lmsCourseId: null, name: "Mine", code: "", color: 1, archived: false }],

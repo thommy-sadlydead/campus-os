@@ -180,3 +180,30 @@ describe("assessRisk — counting assignments, not steps", () => {
     expect(assess(steps, null).reasons).toContain("1 assignment due within the next 48 hours.");
   });
 });
+
+describe("assessRisk — work that came in already past due", () => {
+  const old = (id: string) =>
+    item({ id, title: `Old ${id}`, dueAt: new Date("2026-08-05T23:59:00-04:00"), cameInOverdue: true, estimatedMinutes: 30 });
+  const fifteen = Array.from({ length: 15 }, (_, i) => old(`o${i}`));
+
+  it("doesn't open a new student's Today with \"falling behind\"", () => {
+    const result = assess(fifteen, null);
+    expect(result.level).toBe("on-track");
+    expect(result.headline).not.toMatch(/falling behind/i);
+    expect(result.reasons.join(" ")).not.toMatch(/already overdue/i);
+  });
+
+  it("still says so when work that was on time has gone overdue", () => {
+    const slipped = item({ id: "s", title: "Slipped", dueAt: new Date("2026-08-20T23:59:00-04:00") });
+    const result = assess([...fifteen, slipped], null);
+    expect(result.level).toBe("at-risk");
+    expect(result.headline).toMatch(/falling behind — 1 assignment is overdue/);
+  });
+
+  it("never recommends it", () => {
+    const soon = item({ id: "soon", title: "Quiz 4", dueAt: new Date("2026-08-22T20:00:00-04:00") });
+    const result = assess([...fifteen, soon], null);
+    expect(result.recommendations.join(" ")).toContain("Quiz 4");
+    expect(result.recommendations.join(" ")).not.toContain("Old");
+  });
+});

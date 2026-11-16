@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  cameInOverdue,
   classifyUrgency,
   rankWorkItems,
   whatShouldIDoRightNow,
@@ -168,6 +169,75 @@ describe("computeWorkloadSummary", () => {
     expect(summary.overdueCount).toBe(1);
     expect(summary.dueTodayCount).toBe(1);
     expect(summary.dueTomorrowCount).toBe(1);
+  });
+});
+
+describe("work that came in already past due", () => {
+  const old = (id: string, due: string) => item({ id, assignmentId: id, title: `Old ${id}`, dueAt: new Date(due), cameInOverdue: true, estimatedMinutes: 30 });
+
+  it("is to review, not overdue", () => {
+    const [r] = rankWorkItems([old("a", "2026-08-10T23:59:00-04:00")], NOW, TZ);
+    expect(r.bucket).toBe("REVIEW");
+    expect(r.color).toBe("gray");
+  });
+
+  it("stays overdue when the deadline passed after it came in", () => {
+    const [r] = rankWorkItems([item({ id: "late", dueAt: new Date("2026-08-20T23:59:00-04:00") })], NOW, TZ);
+    expect(r.bucket).toBe("OVERDUE");
+  });
+
+  it("stops being to review once the due date moves ahead", () => {
+    const [r] = rankWorkItems([item({ id: "moved", dueAt: new Date("2026-08-25T23:59:00-04:00"), cameInOverdue: true })], NOW, TZ);
+    expect(r.bucket).toBe("THIS_WEEK");
+  });
+
+  it("ranks after everything, the most recently due first", () => {
+    const ranked = rankWorkItems(
+      [
+        old("oldest", "2026-06-01T23:59:00-04:00"),
+        item({ id: "nodate", title: "No date" }),
+        old("newest", "2026-08-18T23:59:00-04:00"),
+        item({ id: "soon", title: "Soon", dueAt: new Date("2026-08-28T23:59:00-04:00") }),
+      ],
+      NOW,
+      TZ
+    );
+    expect(ranked.map((r) => r.item.id)).toEqual(["soon", "nodate", "newest", "oldest"]);
+  });
+
+  it("isn't counted as overdue, or as time owed today", () => {
+    const items = [old("a", "2026-08-10T23:59:00-04:00"), old("b", "2026-08-12T23:59:00-04:00"), item({ id: "o", assignmentId: "o", dueAt: new Date("2026-08-20T09:00:00-04:00"), estimatedMinutes: 20 })];
+    const summary = computeWorkloadSummary(items, NOW, TZ, 60);
+    expect(summary.overdueCount).toBe(1);
+    expect(summary.reviewCount).toBe(2);
+    expect(summary.totalRemainingMinutesToday).toBe(20);
+    expect(summary.aheadBehindMinutes).toBe(40);
+  });
+
+  it("is never what to do next", () => {
+    expect(whatShouldIDoRightNow([old("a", "2026-08-10T23:59:00-04:00")], NOW, TZ)).toBeNull();
+    const fit = findBestFitForMinutes([old("a", "2026-08-10T23:59:00-04:00")], NOW, TZ, 60);
+    expect(fit.fits).toBe(false);
+    if (!fit.fits) expect(fit.closest).toBeNull();
+  });
+});
+
+describe("cameInOverdue", () => {
+  const created = new Date("2026-08-15T12:00:00Z");
+  const base = { lmsItemId: "123", status: "NOT_STARTED", dueAt: new Date("2026-08-01T03:59:00Z"), createdAt: created };
+
+  it("is true for LMS work not started that was already due when it came in", () => {
+    expect(cameInOverdue(base)).toBe(true);
+  });
+
+  it("is false for work due after it came in, even if it's late now", () => {
+    expect(cameInOverdue({ ...base, dueAt: new Date("2026-08-16T03:59:00Z") })).toBe(false);
+  });
+
+  it("is false for work the student added by hand, started, or has no date for", () => {
+    expect(cameInOverdue({ ...base, lmsItemId: null })).toBe(false);
+    expect(cameInOverdue({ ...base, status: "IN_PROGRESS" })).toBe(false);
+    expect(cameInOverdue({ ...base, dueAt: null })).toBe(false);
   });
 });
 

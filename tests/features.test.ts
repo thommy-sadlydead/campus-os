@@ -4,6 +4,7 @@ import {
   FEATURE_IDS,
   LEGACY_FEATURES,
   enabledFeatures,
+  needsFeaturePick,
   normalizeFeatures,
   toggleFeature,
 } from "../src/lib/features";
@@ -61,5 +62,30 @@ describe("enabledFeatures", () => {
     const chosen = new Date("2026-11-04T12:00:00Z");
     expect([...enabledFeatures({ features: ["grades", "tutor-mode"], featuresChosenAt: chosen })]).toEqual(["grades"]);
     expect(enabledFeatures({ features: [], featuresChosenAt: chosen }).size).toBe(0);
+  });
+});
+
+describe("needsFeaturePick", () => {
+  const user = (overrides: { featuresChosenAt?: Date | null; createdAt?: Date }) => ({
+    features: [],
+    featuresChosenAt: null,
+    createdAt: new Date("2026-11-10T12:00:00Z"),
+    ...overrides,
+  });
+
+  it("sends a new account that hasn't picked", () => {
+    expect(needsFeaturePick(user({}))).toBe(true);
+  });
+
+  it("lets an account that picked go straight to Today", () => {
+    expect(needsFeaturePick(user({ featuresChosenAt: new Date("2026-11-10T12:05:00Z") }))).toBe(false);
+  });
+
+  it("leaves an account from before the picker alone: it gets a card instead", () => {
+    expect(needsFeaturePick(user({ createdAt: new Date("2026-10-01T12:00:00Z") }))).toBe(false);
+  });
+
+  it("leaves the App Store review account alone", () => {
+    expect(needsFeaturePick(user({}), { demo: true })).toBe(false);
   });
 });

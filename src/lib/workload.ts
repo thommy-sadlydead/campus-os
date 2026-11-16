@@ -2,7 +2,7 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import { startOfTzDay } from "@/lib/time";
 import { lmsLink } from "@/lib/lms/providers";
-import type { WorkItem, WorkStatus } from "@/lib/priority-engine";
+import { cameInOverdue, type WorkItem, type WorkStatus } from "@/lib/priority-engine";
 
 /**
  * Loads every open (non-done) assignment/task for a user and flattens them
@@ -68,6 +68,10 @@ export async function loadWorkItemsForUser(userId: string): Promise<WorkItem[]> 
       }
 
       if (assignment.status === "SUBMITTED" || assignment.status === "GRADED") continue;
+      // Work a sync brought in already past due is "to review", not
+      // "overdue" (see WorkItem.cameInOverdue). A student who broke it into
+      // steps has engaged with it, so its steps (above) never are.
+      const cameIn = cameInOverdue(assignment);
       items.push({
         id: assignment.id,
         assignmentId: assignment.id,
@@ -83,6 +87,7 @@ export async function loadWorkItemsForUser(userId: string): Promise<WorkItem[]> 
         isExamLinked,
         description,
         lmsLink: link,
+        cameInOverdue: cameIn,
       });
     }
   }

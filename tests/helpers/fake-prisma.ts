@@ -32,6 +32,8 @@ export interface FakeDb {
   assignment: Row[];
   exam: Row[];
   pendingChange: Row[];
+  /** Accounts, for the one field the sync reads: timezone. A user that isn't here has the default. */
+  user: Row[];
 }
 
 export function createFakePrisma(seed: Partial<FakeDb> = {}): { prisma: PrismaClient; db: FakeDb } {
@@ -40,6 +42,7 @@ export function createFakePrisma(seed: Partial<FakeDb> = {}): { prisma: PrismaCl
     assignment: seed.assignment ?? [],
     exam: seed.exam ?? [],
     pendingChange: seed.pendingChange ?? [],
+    user: seed.user ?? [],
   };
   let counter = 0;
   const newId = (prefix: string) => `${prefix}${++counter}`;
@@ -79,6 +82,9 @@ export function createFakePrisma(seed: Partial<FakeDb> = {}): { prisma: PrismaCl
   }
 
   const prisma = {
+    user: {
+      findUnique: async ({ where }: { where: { id: string } }) => db.user.find((u) => u.id === where.id) ?? { id: where.id, timezone: "America/New_York" },
+    },
     class: {
       findUnique: async ({ where }: { where: Where }) => findClass(where),
       findUniqueOrThrow: async ({ where }: { where: Where }) => {

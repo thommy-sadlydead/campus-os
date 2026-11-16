@@ -212,3 +212,19 @@ export function enabledFeatures(user: FeatureUser, options: { demo?: boolean } =
   if (!user.featuresChosenAt) return new Set(options.demo ? FEATURE_IDS : LEGACY_FEATURES);
   return new Set(normalizeFeatures(user.features));
 }
+
+/** When the feature picker went live (Nov 4, 2026). Accounts older than this predate it. */
+export const FEATURE_PICKER_LAUNCHED = new Date("2026-11-04T00:00:00Z");
+
+/**
+ * Whether an account should pick its features before it sees Today: it
+ * was made after the picker existed and hasn't picked. Sign-up already
+ * sends a new account there, so this catches the ones that came another
+ * way (signing up on the way to connect ChatGPT) or left the page. Older
+ * accounts aren't made to: they keep what they had and get a card on Today
+ * instead (FeatureChooserCard). The App Store review account has every
+ * feature and goes straight in.
+ */
+export function needsFeaturePick(user: FeatureUser & { createdAt: Date }, options: { demo?: boolean } = {}): boolean {
+  return !user.featuresChosenAt && !options.demo && user.createdAt.getTime() >= FEATURE_PICKER_LAUNCHED.getTime();
+}

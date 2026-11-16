@@ -10,8 +10,10 @@ import { ChevronDownIcon, ExternalIcon } from "@/components/icons";
 // The top of Today and its list, kept quiet on purpose (Nov 9, 2026: the
 // first redesign read as busy). A short headline of what's due today, the
 // overdue work folded into one black row, then each day's work as rows in
-// one white card. Red is only for overdue work. Tap a row's text for its
-// directions.
+// one white card. Red is only for overdue work. Work that came in already
+// past due (a new student's first sync pulls in weeks of it) is not overdue:
+// it's folded below the list as "to review", in no color. Tap a row's text
+// for its directions.
 
 export interface TodayRow {
   id: string;
@@ -39,6 +41,7 @@ export function TodayBoard({
   dueToday,
   dueLaterThisWeek,
   overdue,
+  review,
   sections,
   emptyText,
   children,
@@ -50,6 +53,8 @@ export function TodayBoard({
   dueLaterThisWeek: number;
   /** Overdue rows, shown folded into one row. */
   overdue: TodayRow[];
+  /** Rows that came in already past due, shown folded at the bottom. */
+  review: TodayRow[];
   /** Everything else, in order: today, tomorrow, this week, later, no date. */
   sections: TodaySection[];
   emptyText: string;
@@ -70,7 +75,7 @@ export function TodayBoard({
 
       <div className="mt-8 flex flex-col gap-8">
         {overdue.length > 0 && <OverdueFold rows={overdue} />}
-        {overdue.length === 0 && sections.length === 0 ? (
+        {overdue.length === 0 && review.length === 0 && sections.length === 0 ? (
           <p className="empty">{emptyText}</p>
         ) : (
           sections.map((s) => (
@@ -85,6 +90,7 @@ export function TodayBoard({
             </section>
           ))
         )}
+        {review.length > 0 && <ReviewFold rows={review} />}
       </div>
     </div>
   );
@@ -106,6 +112,32 @@ function OverdueFold({ rows }: { rows: TodayRow[] }) {
         <ChevronDownIcon className={`h-4 w-4 text-ink-soft transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
       </button>
       {open && <RowList rows={rows} overdue />}
+    </section>
+  );
+}
+
+/** "15 to review" on a plain card, opening in place to work that came in already past due. */
+function ReviewFold({ rows }: { rows: TodayRow[] }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <section className="card px-4">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className={`flex w-full items-center gap-2.5 py-4 text-left text-[15px] font-semibold text-ink ${open ? "border-b border-border-soft" : ""}`}
+      >
+        <span className="flex-1">{rows.length} to review</span>
+        <ChevronDownIcon className={`h-4 w-4 text-ink-soft transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <>
+          <p className="pt-3 text-[13px] leading-relaxed text-ink-soft">
+            These were already past due when your classes came in. Check off what you turned in or don&apos;t owe.
+          </p>
+          <RowList rows={rows} />
+        </>
+      )}
     </section>
   );
 }
