@@ -441,7 +441,14 @@ no third-party auth.
   the cron says every 10 minutes, but GitHub actually started scheduled runs
   3 to 10 hours apart (Nov 15-16, 2026), so treat this as a safety net that
   catches an outage within hours, not minutes. Minute-level alerts need an
-  external pinger (e.g. UptimeRobot) on the same three URLs. Other limit:
+  external pinger on the same URLs, which is now set up: UptimeRobot, free
+  plan (its terms allow commercial use as of May 26, 2026), account on the
+  `investingclaude69` Gmail (never a campus-os.net address: a domain hold
+  stops that mail), three monitors every 5 minutes: `/login`, `/api/health`
+  and `/.well-known/oauth-protected-resource/mcp`. The free plan can only
+  send HEAD requests, so it can't make the POST ping to `/mcp` that the
+  GitHub check does (`/mcp` answers 405 to HEAD and GET); the discovery
+  document is the closest check it can make for ChatGPT. Other limit:
   GitHub switches scheduled runs off after 60 days without any repository
   activity (a push restarts the clock). If the domain changes, change
   `SITE_URL`'s default in the script.
