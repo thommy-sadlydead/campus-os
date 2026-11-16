@@ -429,14 +429,18 @@ no third-party auth.
   (503, after at most 8 s). It must never return error text; the route is
   public.
 - **Uptime check** (`.github/workflows/uptime.yml`, `scripts/uptime-check.sh`):
-  every 10 minutes it asks `app.campus-os.net` for `/login`, `/api/health`
-  and `POST /mcp`, retrying each three times. When any fails it opens ONE
-  GitHub issue titled "Campus OS is down" (label `uptime`, mentions the repo
-  owner) and closes it, with a comment, when everything answers again. The
-  job itself always finishes green so GitHub doesn't email on every failed
-  run. Limits: GitHub starts scheduled runs late at times, and switches them
-  off after 60 days without any repository activity (a push restarts the
-  clock). If the domain changes, change `SITE_URL`'s default in the script.
+  asks `app.campus-os.net` for `/login`, `/api/health` and `POST /mcp`,
+  retrying each three times. When any fails it opens ONE GitHub issue titled
+  "Campus OS is down" (label `uptime`, mentions the repo owner) and closes
+  it, with a comment, when everything answers again. The job itself always
+  finishes green so GitHub doesn't email on every failed run. **How fast:**
+  the cron says every 10 minutes, but GitHub actually started scheduled runs
+  3 to 10 hours apart (Nov 15-16, 2026), so treat this as a safety net that
+  catches an outage within hours, not minutes. Minute-level alerts need an
+  external pinger (e.g. UptimeRobot) on the same three URLs. Other limit:
+  GitHub switches scheduled runs off after 60 days without any repository
+  activity (a push restarts the clock). If the domain changes, change
+  `SITE_URL`'s default in the script.
 - Not set up (decide before adding): an error tracker such as Sentry
   (needs an account and a DSN in Vercel), and Vercel's own error alerts.
   Until then a server error shows only in Vercel's logs.

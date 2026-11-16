@@ -1,17 +1,21 @@
 name: Uptime check
 
-# Every 10 minutes, checks that the live site, the database behind it and
-# the ChatGPT connection answer (scripts/uptime-check.sh). When something is
-# down it opens ONE issue (one email, not one every 10 minutes) and closes
-# it when everything answers again. campus-os.net sat on hold at Squarespace
-# from Nov 5 to Nov 14, 2026 with nobody alerted; this would have said so
-# within about 15 minutes.
+# Checks that the live site, the database behind it and the ChatGPT
+# connection answer (scripts/uptime-check.sh). When something is down it
+# opens ONE issue (one email, not one every run) and closes it when
+# everything answers again. campus-os.net sat on hold at Squarespace from
+# Nov 5 to Nov 14, 2026 with nobody alerted; this would have said so.
 #
-# Limits worth knowing: GitHub runs scheduled workflows on a best-effort
-# basis (a run can start many minutes late), and turns them off after 60
-# days without any activity in a public repository. A push restarts that
-# clock. The job always finishes green on purpose: a red scheduled run
-# would email on every failed run. The issue is the alert.
+# HOW FAST: the schedule asks for every 10 minutes, but GitHub treats that
+# as a suggestion. In practice (Nov 15-16, 2026) scheduled runs started 3 to
+# 10 hours apart, so this is a safety net that catches an outage within
+# hours, not minutes. For minute-level alerts, add an external pinger
+# (e.g. UptimeRobot) on the same three URLs.
+#
+# Other limits: GitHub turns scheduled workflows off after 60 days without
+# any activity in a public repository (a push restarts that clock). The job
+# always finishes green on purpose: a red scheduled run would email on every
+# failed run. The issue is the alert.
 
 on:
   schedule:
