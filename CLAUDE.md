@@ -403,7 +403,7 @@ no third-party auth.
 ## Verifying a change before calling it done
 
 1. `npx tsc --noEmit` (after `npx prisma generate` if the schema changed)
-2. `npx vitest run` — 601 tests as of this writing across 55 files
+2. `npx vitest run` — 605 tests as of this writing across 56 files
 3. Clean build: `rm -rf .next && npx next build` (use `next build` directly
    to skip the `db push` the `npm run build` script triggers, if you're not
    ready to push schema changes yet)
@@ -507,6 +507,14 @@ Two known-good workarounds, both used this session:
   after the work came in stays overdue; breaking it into steps or starting
   it makes it ordinary work; a manual assignment is never "to review". No
   stored flag, so it also applies to rows imported before this existed.
+- **Today asks for class times once** (`ClassTimesCard`,
+  `src/lib/class-times.ts`): when classes have come in and none has a
+  meeting time (no LMS reports them; Record's automatic class pick,
+  Schedule and "next class" all need them). "Add class times" goes to
+  Schedule; "Not now" sets the `campusos_times_not_now` cookie for a year;
+  any one meeting time ends it. The meeting count isn't even queried once
+  the cookie is set. Importing times from a screenshot or a school
+  schedule is not built (it needs AI image reading and a preview step).
 - **Course names lose their section and term** (`cleanCourseName` in
   `src/lib/lms/course-name.ts`, applied in `applyLmsCourses` on every
   sync, so stored names are tidied the next time each student syncs):

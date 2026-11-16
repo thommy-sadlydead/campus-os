@@ -26,6 +26,8 @@ import { ArrowRightIcon, BookIcon, CalendarIcon, ChevronRightIcon, LayersIcon, M
 import { featuresFor } from "@/lib/features-server";
 import { needsFeaturePick } from "@/lib/features";
 import { FeatureChooserCard } from "@/components/dashboard/FeatureChooserCard";
+import { ClassTimesCard } from "@/components/dashboard/ClassTimesCard";
+import { CLASS_TIMES_NOT_NOW_COOKIE, asksForClassTimes } from "@/lib/class-times";
 import { after } from "next/server";
 import { refreshCanvasGrades } from "@/lib/grades-server";
 import { gradeSlip, SLIP_WINDOW_DAYS } from "@/lib/grades";
@@ -61,6 +63,7 @@ export default async function DashboardPage() {
   if (needsFeaturePick(user, { demo })) redirect("/welcome?new=1");
   const now = new Date();
   const week = weekBounds(now, user.timezone);
+  const timesNotNow = (await cookies()).has(CLASS_TIMES_NOT_NOW_COOKIE);
   // The iPhone app adds this to its user agent (capacitor.config.json); only
   // it can show reminders, so only it gets the deadlines for them.
   const inApp = (await headers()).get("user-agent")?.includes("CampusOSApp") ?? false;
@@ -117,6 +120,7 @@ export default async function DashboardPage() {
     availableMinutesToday,
     pendingChangeCount,
     classCount,
+    meetingCount,
     reminderDeadlines,
     connections,
   ] = await Promise.all([
@@ -125,6 +129,8 @@ export default async function DashboardPage() {
     getAvailableMinutesToday(user.id, now, user.timezone),
     prisma.pendingChange.count({ where: { userId: user.id, status: "PENDING" } }),
     prisma.class.count({ where: { userId: user.id, archived: false } }),
+    // Only to decide whether to ask for class times, so not asked once the student has said "not now".
+    timesNotNow ? Promise.resolve(0) : prisma.scheduleEvent.count({ where: { class: { userId: user.id, archived: false } } }),
     inApp
       ? prisma.assignment.findMany({
           where: {
@@ -303,6 +309,7 @@ export default async function DashboardPage() {
           {features.has("risk") && <RiskStatusCard risk={risk} />}
           <WhatNowPanel />
           {!user.featuresChosenAt && !demo && <FeatureChooserCard />}
+          {asksForClassTimes({ classCount, meetingCount, dismissed: timesNotNow }) && <ClassTimesCard recordOn={features.has("lectures")} />}
           {!hasAiConsent(user) && !(await cookies()).get(AI_NOT_NOW_COOKIE) && <AiConsentCard />}
           {checkOffNames && <CheckOffNote names={checkOffNames} />}
           {inApp && (
