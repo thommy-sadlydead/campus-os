@@ -12,14 +12,22 @@ code.
 
 ## Critical: this is a live production database
 
-There is **no dev/prod split**. `DATABASE_URL` (Prisma Postgres) points at
-the *same* real database Reece's deployed app uses, whether you're running
-`npm run dev` locally or not. There are no `prisma/migrations/` — schema
-changes go out via `npx prisma db push`, and **`npm run build` runs
-`next build`, then `prisma/pre-push.sql`, then `prisma db push
---skip-generate`**, so a normal build applies pending schema changes to
-production automatically (compiling first means a build that fails to
-compile never touches the database). Those two schema steps run from
+There is **no dev/prod split in the deployed app**: every push to `master`
+is built by Vercel against production's `DATABASE_URL` (Prisma Postgres; its
+value lives only in Vercel's environment variables). **Which database a
+local run uses depends on the local `.env`, so check before anything that
+writes.** As of Nov 16, 2026 this Mac's `.env` points at a throwaway
+Postgres in Docker (`campus-os-verify-db`, `127.0.0.1:55432`), so `npm run
+dev`, a local `npm run build` and the scripts touch only that. Production is
+`db.prisma.io` (direct) and `pooled.db.prisma.io` (pooled): if `.env` names
+either, you're on production. See the host without the password with
+`grep ^DATABASE_URL .env | sed -E 's#//[^@]*@#//***@#'`. There are no
+`prisma/migrations/` — schema changes go out via `npx prisma db push`, and
+**`npm run build` runs `next build`, then `prisma/pre-push.sql`, then
+`prisma db push --skip-generate`**, so a normal build applies pending schema
+changes to whatever database `DATABASE_URL` names, which on Vercel is
+production (compiling first means a build that fails to compile never
+touches the database). Those two schema steps run from
 `scripts/db-push.sh` on Prisma Postgres's direct host (`db.prisma.io`, which
 `DATABASE_URL` names), while the app itself runs on the pooled host
 (`pooled.db.prisma.io`, same user and password), which can't run schema
@@ -42,11 +50,21 @@ until the next navigation), which shipped in 435acf8 on Nov 9. On Nov 6 the
 pooled host didn't answer for a few seconds and two page loads failed, so every
 query now retries when it couldn't connect at all (`src/lib/db-retry.ts`) and
 `src/app/error.tsx` replaces Next.js's bare "Application error". Real users exist in
-this database today (`reecebroderick@cedarville.edu` is the primary one,
-plus a few others) with real Canvas-synced data. Treat any schema change or
-data-touching script accordingly — verify against a throwaway class/record
-when possible, not by mutating a real user's rows directly, and always run
-`npx prisma validate` before `db push`.
+the production database today (`reecebroderick@cedarville.edu` is the primary
+one, plus a few others) with real Canvas-synced data. Treat any schema
+change or data-touching script against it accordingly — verify against a
+throwaway class/record when possible, not by mutating a real user's rows
+directly, and always run `npx prisma validate` before `db push`.
+
+**Backups** (checked Nov 16, 2026): production is `prisma-postgres-aero-book`
+on Prisma Postgres's Starter plan, which takes automatic snapshots several
+times on busy days (gaps up to about a day when quiet) and keeps 7 days
+(Business keeps 30). Restore from Prisma's console (Vercel → Storage → the
+database → Open in Prisma Postgres → Backups): into a new database, or over
+the existing one, which is what keeps Vercel's connection strings working.
+There is no point-in-time restore, no copy outside Prisma, and a restore has
+never been rehearsed. Don't copy Praxis's GitHub-artifact dump: this repo is
+public, so artifacts here are downloadable by anyone.
 
 If a `db push` reports a possible data-loss warning, don't reflexively add
 `--accept-data-loss` — check what it actually means first (e.g. a new
@@ -423,8 +441,8 @@ no third-party auth.
   request runs `tsc --noEmit`, `vitest run` and a plain `next build`, with a
   placeholder `DATABASE_URL`. **Never give this workflow a real
   `DATABASE_URL` or any other secret, and never make it run `npm run
-  build`**: that pushes schema changes to the live production database
-  (the tests don't need a database). It can't stop a deploy: Vercel builds
+  build`**: that pushes schema changes to whatever `DATABASE_URL` names
+  (production, on Vercel; the tests don't need a database). It can't stop a deploy: Vercel builds
   every push to `master` on its own, and Reece pushes straight to `master`.
   Read its result with
   `curl -s https://api.github.com/repos/thommy-sadlydead/campus-os/commits/$SHA/check-runs`.
