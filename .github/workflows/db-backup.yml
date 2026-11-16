@@ -1,0 +1,111 @@
+name: Nightly database backup
+
+# An offsite copy of the production database. Prisma Postgres keeps its own
+# snapshots (7 days, same account as the data); this one lives on GitHub,
+# outside that account. Every night it dumps the database, encrypts the dump
+# to the public key in scripts/backup-recipient.txt, and keeps the encrypted
+# file as an artifact of the run: 90 days for Sunday's and manual runs, 14
+# days for the other nights. Restoring is in CLAUDE.md ("Backups").
+#
+# THIS REPOSITORY IS PUBLIC, so anyone can download its artifacts and read
+# its logs. That is why the file is encrypted to a PUBLIC key whose private
+# half exists only offline (saved when this was set up), and why
+# scripts/backup-db.sh prints nothing from the database. Never switch this to
+# a passphrase kept in a secret or to an unencrypted dump, and never print
+# anything from the database in this workflow.
+#
+# Unlike the uptime check, this job is meant to go RED when it fails (GitHub
+# emails the person who last edited the schedule). A backup that quietly
+# stops working is how you find out at restore time. What nothing here
+# catches is the job not running at all: GitHub turns scheduled workflows off
+# after 60 days without any activity in the repository (a push restarts the
+# clock), and UptimeRobot's heartbeat monitor, which would catch it, is a
+# paid feature. So glance at the Actions tab now and then.
+#
+# Secret (Settings → Secrets and variables → Actions):
+#   BACKUP_DATABASE_URL    a dedicated connection string for the DIRECT host
+#                          (db.prisma.io), made in Prisma's console so it can
+#                          be revoked on its own.
+
+on:
+  schedule:
+    # 07:17 UTC (2:17 AM Eastern). GitHub starts schedules late at times.
+    - cron: '17 7 * * *'
+  # Run it by hand from the Actions tab: for the first test, or before a
+  # risky change. Manual runs are kept 90 days.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Dump · Encrypt · Keep
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the secret
+        env:
+          URL: ${{ secrets.BACKUP_DATABASE_URL }}
+        run: |
+          if [ -z "$URL" ]; then
+            echo "::error::The BACKUP_DATABASE_URL secret is missing (Settings → Secrets and variables → Actions)."
+            exit 1
+          fi
+          case "$URL" in
+            postgres://*|postgresql://*) ;;
+            *) echo "::error::BACKUP_DATABASE_URL isn't a connection string: it should start with postgresql://"; exit 1 ;;
+          esac
+
+      # pg_dump has to be at least the server's major version. Ask the server
+      # first (any psql can talk to any version), then install that client,
+      # or 17 if the server is older. psql's own error output is dropped so
+      # a failed login can't put anything in this public log.
+      - name: Install age and the matching PostgreSQL client
+        env:
+          URL: ${{ secrets.BACKUP_DATABASE_URL }}
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q postgresql-common postgresql-client age
+          version_num=$(psql "$URL" -Atc 'show server_version_num' 2>/dev/null) || { echo "::error::Couldn't connect to the database with BACKUP_DATABASE_URL (wrong string, or revoked?)."; exit 1; }
+          major=$((version_num / 10000))
+          [ "$major" -ge 17 ] || major=17
+          echo "Server major version: $major"
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -q "postgresql-client-$major"
+          echo "/usr/lib/postgresql/$major/bin" >> "$GITHUB_PATH"
+
+      - name: Compute the file name and how long to keep it
+        id: ts
+        run: |
+          echo "stamp=$(date -u +%Y-%m-%dT%H-%M-%S)" >> "$GITHUB_OUTPUT"
+          if [ "$(date -u +%u)" = 7 ] || [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            echo "keep_days=90" >> "$GITHUB_OUTPUT"
+          else
+            echo "keep_days=14" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Dump and encrypt
+        env:
+          BACKUP_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+          STAMP: ${{ steps.ts.outputs.stamp }}
+          OUT_DIR: backup-out
+        run: sh scripts/backup-db.sh
+
+      # Only the encrypted file leaves the runner. It's already compressed
+      # and encrypted, so zipping it again gains nothing.
+      - name: Keep the encrypted dump
+        uses: actions/upload-artifact@v4
+        with:
+          name: campus-os-db-${{ steps.ts.outputs.stamp }}
+          path: backup-out/campus-os-${{ steps.ts.outputs.stamp }}.dump.age
+          retention-days: ${{ steps.ts.outputs.keep_days }}
+          compression-level: 0
+          if-no-files-found: error

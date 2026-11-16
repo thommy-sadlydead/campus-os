@@ -62,9 +62,42 @@ times on busy days (gaps up to about a day when quiet) and keeps 7 days
 (Business keeps 30). Restore from Prisma's console (Vercel → Storage → the
 database → Open in Prisma Postgres → Backups): into a new database, or over
 the existing one, which is what keeps Vercel's connection strings working.
-There is no point-in-time restore, no copy outside Prisma, and a restore has
-never been rehearsed. Don't copy Praxis's GitHub-artifact dump: this repo is
-public, so artifacts here are downloadable by anyone.
+There is no point-in-time restore.
+
+**Offsite copy** (set up Nov 16, 2026; `.github/workflows/db-backup.yml`,
+`scripts/backup-db.sh`, `scripts/restore-db-backup.sh`): every night at
+07:17 UTC (GitHub runs it late at times) a workflow dumps production with
+`pg_dump`, encrypts the dump with `age` and keeps it as an artifact of the
+run: 90 days for Sunday's and manual runs, 14 days otherwise. It needs one
+repo secret, `BACKUP_DATABASE_URL`: a connection string made just for this in
+Prisma's console (Connection strings), for the *direct* host
+(`db.prisma.io`), so it can be revoked alone. **This repo is public, so
+anyone can download its artifacts and read its logs.** That's why the file is
+encrypted to a public key (`scripts/backup-recipient.txt`) whose private key
+exists only offline, and why the scripts print nothing from the database. Don't
+switch to a passphrase kept in a secret, don't upload a plain dump, and don't
+print anything from the database in that workflow. The private key is
+`~/campus-os-backup-key.txt` on Reece's Mac (made Nov 16, 2026) and should
+also be in a password manager: **lose it and every backup is unreadable.** To
+rotate it, run `age-keygen`, replace the line in `backup-recipient.txt`, and
+keep the old key for the older backups. The job goes red when it fails
+(GitHub emails the person who last edited the schedule). Nothing catches it
+not running at all (GitHub stops scheduled workflows after 60 days with no
+repo activity; UptimeRobot's heartbeat monitor is paid), so glance at the
+Actions tab.
+
+**Restoring from the offsite copy:** download the run's artifact (Actions →
+Nightly database backup → the run → `campus-os-db-<time>`, a zip holding a
+`.dump.age`), make a NEW empty Prisma Postgres database, then
+`sh scripts/restore-db-backup.sh FILE.dump.age ~/campus-os-backup-key.txt
+"<the new database's direct URL>"` (needs `pg_restore`, `psql` of at least
+the server's major version, and `age`). It refuses a database that already has
+tables, so it can't overwrite anything. Check the data, then point Vercel's
+`DATABASE_URL` at the new database. Tested Nov 16, 2026 against a local
+Postgres 16: backup, restore, and all 35 tables with identical row counts, and
+it refuses an empty database, a non-empty target and a wrong key. It has
+**not** yet been run against production: do that once, from a real artifact
+into a scratch database.
 
 If a `db push` reports a possible data-loss warning, don't reflexively add
 `--accept-data-loss` — check what it actually means first (e.g. a new
