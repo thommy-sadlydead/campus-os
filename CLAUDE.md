@@ -93,11 +93,16 @@ Nightly database backup → the run → `campus-os-db-<time>`, a zip holding a
 "<the new database's direct URL>"` (needs `pg_restore`, `psql` of at least
 the server's major version, and `age`). It refuses a database that already has
 tables, so it can't overwrite anything. Check the data, then point Vercel's
-`DATABASE_URL` at the new database. Tested Nov 16, 2026 against a local
-Postgres 16: backup, restore, and all 35 tables with identical row counts, and
-it refuses an empty database, a non-empty target and a wrong key. It has
-**not** yet been run against production: do that once, from a real artifact
-into a scratch database.
+`DATABASE_URL` at the new database. Rehearsed twice. Nov 16, 2026 against a local Postgres 16: backup, restore, and
+all 35 tables with identical row counts; it refuses an empty database, a
+non-empty target and a wrong key. Nov 19, 2026 against a real production
+backup (the unattended nightly run, made by Postgres 17.2): decrypted with the
+saved key, restored by `restore-db-backup.sh` into a throwaway Postgres 17 in
+Docker, 35 tables, 96 indexes and 40 foreign keys, and `prisma migrate diff`
+against `prisma/schema.prisma` reported no difference. The scratch database
+and every decrypted copy were deleted afterwards. To rehearse again, restore
+into a scratch container the same way; the dump's header shows which Postgres
+major version to use (`head -c 600 db.dump | strings`).
 
 If a `db push` reports a possible data-loss warning, don't reflexively add
 `--accept-data-loss` — check what it actually means first (e.g. a new
