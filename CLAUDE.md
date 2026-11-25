@@ -77,10 +77,14 @@ encrypted to a public key (`scripts/backup-recipient.txt`) whose private key
 exists only offline, and why the scripts print nothing from the database. Don't
 switch to a passphrase kept in a secret, don't upload a plain dump, and don't
 print anything from the database in that workflow. The private key is
-`~/campus-os-backup-key.txt` on Reece's Mac (made Nov 16, 2026) and should
+`~/campus-os-backup-key.txt` on Reece's Mac (made Nov 24, 2026) and should
 also be in a password manager: **lose it and every backup is unreadable.** To
 rotate it, run `age-keygen`, replace the line in `backup-recipient.txt`, and
-keep the old key for the older backups. The job goes red when it fails
+keep the old key for the older backups. That has already happened once: the
+first key (made Nov 16, 2026) existed only on the old Mac and was lost with
+it, so it was replaced on Nov 24, 2026. Offsite backups made before that are
+encrypted to the lost key and can't be read unless it turns up (Prisma's own
+snapshots don't depend on it). The job goes red when it fails
 (GitHub emails the person who last edited the schedule). Nothing catches it
 not running at all (GitHub stops scheduled workflows after 60 days with no
 repo activity; UptimeRobot's heartbeat monitor is paid), so glance at the
