@@ -23,11 +23,18 @@ template (`cw.js`) and differ only in each LMS's steps:
 
 ## Making them
 
-1. Start the dev server on port 3100 against a **local** database (never
+1. Start the app on port 3100 against a **local** database (never
    production), with the seed data in it (`npm run db:seed`).
+   `npx next build && npx next start -p 3100` works (`next dev` crashes on
+   some pages; see CLAUDE.md).
 2. `node scripts/connect-videos/login.mjs` (logs headless Chrome in as the
-   seed account).
-3. `node scripts/connect-videos/render.mjs canvas` (or `schoology`,
-   `brightspace`, `blackboard`). Add `--preview` for a few stills per scene.
+   seed account). The seed account has to have picked its features first:
+   one that hasn't is sent to `/welcome` and login.mjs gives up. Pick them
+   once at `/welcome` in a browser.
+3. `node scripts/connect-videos/render.mjs <lms> --poster` for all four
+   first, since the last scene films the Connect page, which shows the
+   poster. Then `node scripts/connect-videos/render.mjs canvas` (or
+   `schoology`, `brightspace`, `blackboard`). Add `--preview` for a few
+   stills per scene.
 
 Needs Google Chrome (`CHROME_PATH` to point elsewhere) and ffmpeg.

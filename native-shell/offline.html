@@ -6,9 +6,9 @@
     <title>Campus OS</title>
     <!-- Colors match the design tokens in src/app/globals.css. -->
     <style>
-      :root { --bg: #f6f7f9; --ink: #0f1218; --ink-soft: #596273; --button: #0f1218; --on-button: #ffffff; --grad-from: #4c7dff; --grad-to: #ff7a2f; }
+      :root { --bg: #f6f7f9; --ink: #0f1218; --ink-soft: #596273; --button: #0f1218; --on-button: #ffffff; }
       @media (prefers-color-scheme: dark) {
-        :root { --bg: #0a0b0f; --ink: #f1f2f5; --ink-soft: #a4abb9; --button: #f1f2f5; --on-button: #0a0b0f; --grad-from: #5b8cff; --grad-to: #ff8a3d; }
+        :root { --bg: #0a0b0f; --ink: #f1f2f5; --ink-soft: #a4abb9; --button: #f1f2f5; --on-button: #0a0b0f; }
       }
       * { box-sizing: border-box; }
       html, body { height: 100%; margin: 0; }
@@ -22,8 +22,9 @@
       main { max-width: 22rem; text-align: center; display: flex; flex-direction: column; align-items: center; }
       .mark {
         width: 44px; height: 44px; border-radius: 13px; margin-bottom: 1.5rem;
-        display: flex; align-items: center; justify-content: center; color: #fff;
-        background-image: linear-gradient(135deg, var(--grad-from), var(--grad-to));
+        display: flex; align-items: center; justify-content: center;
+        /* the logo is black and white: ink tile, page-colored cap (flips in dark mode) */
+        background: var(--ink); color: var(--bg);
       }
       h1 { font-size: 1.375rem; font-weight: 600; letter-spacing: -0.02em; margin: 0 0 .5rem; }
       p { color: var(--ink-soft); font-size: .9375rem; margin: 0 0 1.5rem; }

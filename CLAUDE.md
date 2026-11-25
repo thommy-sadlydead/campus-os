@@ -147,6 +147,15 @@ no third-party auth.
   `accent-ink`/`accent-soft` (links, highlights) now map to ink and a
   neutral fill; the old gradient vars are solid ink. Dark mode inverts it
   (#111 page, #1C1C1E cards).
+- **The logo is black and white everywhere** (Nov 24, 2026): a white cap
+  on an ink (#0A0A0A) tile. Copies to keep in step: `LogoMark` in
+  `src/components/Logo.tsx` (flips in dark mode), the PNGs
+  (`src/app/icon.png`, `src/app/apple-icon.png`, `public/icons/`, the iOS
+  `AppIcon` and `LaunchIcon`, `chrome-extension/icons/`,
+  `chatgpt-plugin/assets/` plus its `brandColor`), `native-shell/offline.html`
+  and `logoMark` in `scripts/connect-videos/cw.js`. The PNGs were recolored
+  from the old brown-orange files at the same sizes; there's no source SVG
+  for them. Bump `CACHE_VERSION` in `public/sw.js` when an icon changes.
 - **`.theme-inverse`** flips a block to the opposite palette (the black
   cards: Ask, the featured class tile, the tab bar); everything inside keeps
   using text-ink etc.

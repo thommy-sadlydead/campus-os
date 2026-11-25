@@ -7,7 +7,6 @@
   const C = {
     bg: "#f6f7f9", surface: "#ffffff", s2: "#f1f3f6", ink: "#0f1218", soft: "#596273", faint: "#8a93a3",
     border: "#e2e5eb", accent: "#ea6a12", accentInk: "#b8500a", accentSoft: "#fff1e6", ok: "#15803d", okSoft: "#e9f7ee",
-    from: "#4c7dff", to: "#ff7a2f",
   };
   const FONT = `"Geist", var(--font-geist), -apple-system, system-ui, sans-serif`;
 
@@ -47,7 +46,7 @@
     print: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M7 9V3h10v6M7 18H4v-7h16v7h-3M7 14h10v7H7z"/></svg>`,
     nav: (d) => `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`,
   };
-  const logoMark = (size) => `<span style="display:inline-flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;border-radius:${size * 0.3}px;color:#fff;background:linear-gradient(135deg,${C.from},${C.to});box-shadow:0 6px 18px rgba(76,125,255,.25)">
+  const logoMark = (size) => `<span style="display:inline-flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;border-radius:${size * 0.3}px;color:#fff;background:#0a0a0a;box-shadow:0 6px 18px rgba(0,0,0,.18)">
     <svg viewBox="0 0 24 24" width="${size * 0.64}" height="${size * 0.64}" fill="currentColor"><path d="M12 5 2.5 9.2 12 13.4l9.5-4.2z"/><path d="M6.5 11.3v3.4c0 1.4 2.5 2.8 5.5 2.8s5.5-1.4 5.5-2.8v-3.4L12 13.8z"/><path d="M20.2 9.8v4.6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" fill="none"/></svg></span>`;
 
   // ---------- shared overlay: taps, callouts, caption, fades ----------
@@ -234,6 +233,18 @@
       ov.highlight(btn, at, btnAt + 0.6, 12);
       ov.tap(() => { const r = rectIn(btn, stage); return { x: r.cx, y: r.cy }; }, btnAt);
       const cap = makeCaption(stage, step, total, caption);
+      // Brightspace and Blackboard lead with the Chrome extension, so their
+      // calendar-link form is in a closed "No Chrome on a computer?" section
+      // below the fold: open it, and when the button would sit under the
+      // caption, scroll the section to the top. Pages whose form already
+      // fits (Canvas, Schoology) stay at the top.
+      const first = plan.length ? plan[0].el : btn;
+      const section = first.closest("details");
+      if (section) section.open = true;
+      window.scrollTo(0, 0);
+      const capTop = stage.lastElementChild.getBoundingClientRect().top;
+      const anchor = section || first; // the section's heading, just under the top bar
+      const scrollY = btn.getBoundingClientRect().bottom > capTop - 12 ? Math.max(0, Math.round(anchor.getBoundingClientRect().top - 64)) : 0;
       return (t) => {
         let focused = null;
         for (const p of plan) {
@@ -245,7 +256,7 @@
         if (focused && document.activeElement !== focused) focused.focus({ preventScroll: true });
         if (!focused && document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
         btn.style.transform = t >= btnAt && t <= btnAt + 0.16 ? "scale(.97)" : "";
-        window.scrollTo(0, 0);
+        window.scrollTo(0, scrollY);
         cap(t);
       };
     } };

@@ -34,7 +34,7 @@
           "What do I have due this week in Campus OS?",
           "Make a study guide for my next exam from my Campus OS notes."
         ],
-        "brandColor": "#EA6A12",
+        "brandColor": "#0A0A0A",
         "composerIcon": "./assets/icon.png",
         "logo": "./assets/logo.png"
       },
