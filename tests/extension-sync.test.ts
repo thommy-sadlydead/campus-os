@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { runSync } from "../chrome-extension/src/sync.js";
 import { MAX_PART_BYTES as EXTENSION_PART_BYTES, MAX_UPLOAD_BYTES as EXTENSION_MAX_BYTES } from "../chrome-extension/src/api.js";
 import { isExamLikeName as extensionExamRule } from "../chrome-extension/src/lms/common.js";
@@ -116,6 +116,15 @@ function campusOs({ unchanged = [] as string[] } = {}) {
 }
 
 describe("runSync", () => {
+  // The extension checks turned-in status only for work due from a week ago
+  // to a month out, so the stand-in's dates (Lab report due Nov 20) need a
+  // fixed "now". Only Date is faked; real timers keep fetch and the sync going.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-18T12:00:00Z"));
+  });
+  afterEach(() => vi.useRealTimers());
+
   it("imports the chosen course's work, then only the files Campus OS asks for, in parts when they're big", async () => {
     const server = campusOs({ unchanged: ["topic:15"] });
     const progress: { phase: string }[] = [];
