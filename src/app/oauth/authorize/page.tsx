@@ -74,7 +74,7 @@ export default async function AuthorizePage({ searchParams }: { searchParams: Pr
         It can&apos;t change anything in Campus OS, and it never sees your password, your Canvas or other school
         connections, or your Gmail. What it reads goes to {appName}
         {company ? ` (${company})` : ""} and is handled under their privacy policy.
-        You can disconnect any time under Account → Connected apps.{" "}
+        You can disconnect any time under Account → ChatGPT and Claude.{" "}
         <Link href="/privacy" className="underline underline-offset-2 hover:text-ink">
           Privacy policy
         </Link>

@@ -165,7 +165,7 @@ export default function PrivacyPage() {
               <a href="https://openai.com/policies/privacy-policy" className="underline hover:text-ink">
                 OpenAI&apos;s privacy policy
               </a>
-              . Disconnect any time under Account → Connected apps; changing your password disconnects it too.
+              . Disconnect any time under Account → ChatGPT and Claude; changing your password disconnects it too.
             </li>
             <li>
               <strong className="text-ink">Claude (Anthropic)</strong>, only if you add Campus OS to your own Claude
@@ -176,8 +176,8 @@ export default function PrivacyPage() {
               <a href="https://www.anthropic.com/legal/privacy" className="underline hover:text-ink">
                 Anthropic&apos;s privacy policy
               </a>
-              , not Campus OS&apos;s own use of Anthropic described above. Disconnect any time under Account → Connected
-              apps; changing your password disconnects it too.
+              , not Campus OS&apos;s own use of Anthropic described above. Disconnect any time under Account → ChatGPT
+              and Claude; changing your password disconnects it too.
             </li>
             <li>
               <strong className="text-ink">Your calendar app</strong> (Apple, Google, Outlook or another), only if you
@@ -231,7 +231,7 @@ export default function PrivacyPage() {
               Delete the token in Canvas as well, under Account → Settings → Approved Integrations.
             </li>
             <li>
-              <strong className="text-ink">ChatGPT or Claude only:</strong> Account → Connected apps → Disconnect stops
+              <strong className="text-ink">ChatGPT or Claude only:</strong> Account → ChatGPT and Claude → Disconnect stops
               that app from reading your account. What it already read stays in those conversations; delete them in
               ChatGPT or Claude.
             </li>

@@ -13,7 +13,7 @@ How it works on the website:
 - **The MCP endpoint** `https://<site>/mcp`: `src/app/mcp/route.ts`, with the
   protocol in `src/lib/mcp/protocol.ts` and the tools in
   `src/lib/mcp/tool-defs.ts` (definitions) and `tools-server.ts` (handlers).
-- Students see and disconnect it under Account → Connected apps. Changing or
+- Students see and disconnect it under Account → ChatGPT and Claude. Changing or
   resetting a password disconnects it too.
 - `scripts/check-mcp.mjs` runs the whole flow against a local server.
 - Claude uses the same endpoint and OAuth server (`claude-plugin/`). A

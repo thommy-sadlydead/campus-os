@@ -155,6 +155,31 @@ export function clientOwner(clientId: string): { host: string; company: string |
   return { host, company: CLIENT_COMPANIES[host] ?? null };
 }
 
+/** A chat app a student can connect Campus OS to (Account → ChatGPT and Claude). */
+export interface ChatApp {
+  name: "ChatGPT" | "Claude";
+  connected: boolean;
+  /** The app's directory page for Campus OS, once it's listed; until then the student adds it by its address. */
+  directoryUrl: string | null;
+}
+
+/** ChatGPT and Claude, each marked connected when one of the account's live grants is from its host. */
+export function chatAppsFor(connectedClientIds: string[], directoryUrls: { chatgpt: string | null; claude: string | null }): ChatApp[] {
+  const hosts = new Set(
+    connectedClientIds.map((id) => {
+      try {
+        return new URL(id).hostname;
+      } catch {
+        return "";
+      }
+    })
+  );
+  return [
+    { name: "ChatGPT", connected: hosts.has("chatgpt.com"), directoryUrl: directoryUrls.chatgpt },
+    { name: "Claude", connected: hosts.has("claude.ai"), directoryUrl: directoryUrls.claude },
+  ];
+}
+
 /** Reads a fetched client metadata document; null if it doesn't describe clientId. */
 export function parseClientMetadata(doc: unknown, clientId: string): ClientMetadata | null {
   if (!doc || typeof doc !== "object") return null;

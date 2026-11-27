@@ -6,6 +6,7 @@ import {
   authorizationResponseUrl,
   authorizationServerMetadata,
   bearerChallenge,
+  chatAppsFor,
   checkAuthorizeParams,
   clientOwner,
   isAllowedClientId,
@@ -130,6 +131,31 @@ describe("which apps can sign students in", () => {
     expect(parseClientMetadata({ ...doc, client_id: "https://chatgpt.com/other.json" }, CHATGPT)).toBeNull();
     expect(parseClientMetadata({ ...doc, redirect_uris: [] }, CHATGPT)).toBeNull();
     expect(parseClientMetadata("nope", CHATGPT)).toBeNull();
+  });
+});
+
+describe("Account → ChatGPT and Claude", () => {
+  const none = { chatgpt: null, claude: null };
+
+  it("lists both apps, unconnected, for an account with no grants", () => {
+    expect(chatAppsFor([], none)).toEqual([
+      { name: "ChatGPT", connected: false, directoryUrl: null },
+      { name: "Claude", connected: false, directoryUrl: null },
+    ]);
+  });
+
+  it("marks an app connected by its client_id's host", () => {
+    const apps = chatAppsFor([CLAUDE_CLIENT_ID, "http://localhost:4100/client.json"], none);
+    expect(apps.map((a) => [a.name, a.connected])).toEqual([
+      ["ChatGPT", false],
+      ["Claude", true],
+    ]);
+    expect(chatAppsFor([CHATGPT, "not a url"], none).map((a) => a.connected)).toEqual([true, false]);
+  });
+
+  it("passes on each app's directory page once it's listed", () => {
+    const apps = chatAppsFor([], { chatgpt: "https://chatgpt.com/apps/campus-os", claude: null });
+    expect(apps.map((a) => a.directoryUrl)).toEqual(["https://chatgpt.com/apps/campus-os", null]);
   });
 });
 

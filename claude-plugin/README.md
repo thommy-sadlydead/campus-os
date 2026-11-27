@@ -40,8 +40,9 @@ black-and-white PNGs as the ChatGPT plugin; brand color #0A0A0A).
   (`https://claude.ai/oauth/claude-code-client-metadata`) uses loopback
   redirect URIs on any port, which Campus OS doesn't allow; it gets "This app
   can't connect to Campus OS."
-- Students see Claude under Account → Connected apps and can disconnect it
-  there. Changing or resetting the password disconnects it too. The privacy
+- **Account → ChatGPT and Claude** (always shown) tells students how to add
+  Campus OS to either app, with the address to copy, and lists what's
+  connected with a Disconnect button. Changing or resetting the password disconnects it too. The privacy
   policy (`src/app/privacy`) has a Claude section.
 
 ## Testing locally
@@ -87,7 +88,7 @@ The website changes reach `https://app.campus-os.net` with the next push to
      connectors, and each member then taps **Connect**.
 3. **Sign in.** The Campus OS consent page should read "Connect Claude" and
    "Claude (claude.ai) is asking to read your Campus OS account". Tap Allow.
-   In Campus OS, Account → Connected apps should now list Claude.
+   In Campus OS, Account → ChatGPT and Claude should now list Claude.
 4. **Try it.** In a new chat, check the Campus OS connector is on (the tools
    menu under the message box), then run the five prompts in `listing.md`
    (Use cases). Under the connector's tool permissions, every tool should be
@@ -125,6 +126,10 @@ Do this only after the steps above work. Submitting needs a paid Claude plan
    account's login then.
 5. The **URL slug** (`campus-os`) can't change once published, and neither
    should the server URL: keep `app.campus-os.net`.
+6. **Once it's listed**, put its directory page in Vercel as
+   `CLAUDE_CONNECTOR_URL` and redeploy. Account → ChatGPT and Claude then
+   shows an "Open in Claude" button instead of the custom-connector steps.
+   (`CHATGPT_PLUGIN_URL` does the same for ChatGPT.)
 
 After a tool changes, the listing picks up the new definitions when the
 portal re-syncs the tools; keep `listing.md`, the consent page's list

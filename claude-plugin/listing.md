@@ -94,7 +94,7 @@ roommate's assignments in Campus OS").
 - **What Campus OS keeps about the connection:** which app, when it was
   connected and last used, and its tokens as one-way hashes. Nothing from the
   Claude conversation reaches Campus OS beyond the tool calls themselves.
-- **Disconnecting:** Account → Connected apps → Disconnect in Campus OS, or
+- **Disconnecting:** Account → ChatGPT and Claude → Disconnect in Campus OS, or
   removing the connector in Claude. Changing or resetting the Campus OS
   password disconnects it too.
 - **Limits:** tool calls are rate-limited per account; results are capped

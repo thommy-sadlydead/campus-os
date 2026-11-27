@@ -173,7 +173,7 @@ export async function verifyAccessToken(token: string, resource: string): Promis
   const row = await prisma.oAuthToken.findUnique({ where: { tokenHash: hashToken(token) }, include: { grant: true } });
   if (!row || row.kind !== "access" || row.expiresAt < new Date()) return null;
   if (row.grant.revokedAt || row.grant.resource !== resource) return null;
-  // "Last used", for the Connected apps list; at most once a minute.
+  // "Last used", for the list on Account → ChatGPT and Claude; at most once a minute.
   if (!row.grant.lastUsedAt || Date.now() - row.grant.lastUsedAt.getTime() > 60_000) {
     await prisma.oAuthGrant.update({ where: { id: row.grantId }, data: { lastUsedAt: new Date() } });
   }
@@ -209,7 +209,7 @@ export async function listConnectedApps(userId: string) {
   return [...apps.values()];
 }
 
-/** Account → Connected apps → Disconnect: every grant this account gave that app. */
+/** Account → ChatGPT and Claude → Disconnect: every grant this account gave that app. */
 export async function revokeApp(userId: string, clientId: string): Promise<void> {
   await prisma.oAuthGrant.updateMany({ where: { userId, clientId, revokedAt: null }, data: { revokedAt: new Date() } });
 }

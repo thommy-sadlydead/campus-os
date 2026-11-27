@@ -76,7 +76,7 @@ as out of scope.
 - **ChatGPT plugin**: students connect Campus OS in ChatGPT ("Sign in with
   Campus OS", OAuth 2.1 with PKCE) and ChatGPT can read their classes,
   assignments, exams, notes, lecture notes and course files through the MCP
-  endpoint at `/mcp`. Read-only; disconnect under Account → Connected apps.
+  endpoint at `/mcp`. Read-only; disconnect under Account → ChatGPT and Claude.
   See `chatgpt-plugin/README.md` for how it's built and submitted.
 - **Claude connector**: the same for Claude (claude.ai, the Claude desktop
   and mobile apps): students add Campus OS as a connector, sign in with
