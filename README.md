@@ -78,6 +78,12 @@ as out of scope.
   assignments, exams, notes, lecture notes and course files through the MCP
   endpoint at `/mcp`. Read-only; disconnect under Account → Connected apps.
   See `chatgpt-plugin/README.md` for how it's built and submitted.
+- **Claude connector**: the same for Claude (claude.ai, the Claude desktop
+  and mobile apps): students add Campus OS as a connector, sign in with
+  Campus OS, and Claude reads the same things through the same `/mcp`
+  endpoint, with Claude's published client metadata document as its client
+  id. See `claude-plugin/README.md` for setup, testing and the Connectors
+  Directory submission.
 - **LMS connections** (`/connect`): Canvas, Schoology, D2L Brightspace or
   Blackboard, each connected right in the app — no terminal needed — with
   a **Sync now** button to re-pull any time and a report of what each sync

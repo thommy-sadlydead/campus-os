@@ -4,14 +4,15 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { AuthCard } from "@/components/ui/AuthCard";
 import { CheckIcon } from "@/components/icons";
+import { clientOwner } from "@/lib/oauth/oauth";
 import { resolveAuthorizeRequest } from "./request";
 import { approveAuthorizationAction, denyAuthorizationAction, switchAccountAction } from "./actions";
 
 export const metadata: Metadata = { title: "Connect an app · Campus OS" };
 
-// What the student is shown before ChatGPT can read their account. Keep
-// this list in step with the MCP tools (src/lib/mcp/tools-server.ts) and
-// the privacy policy's ChatGPT section.
+// What the student is shown before ChatGPT or Claude can read their account.
+// Keep this list in step with the MCP tools (src/lib/mcp/tools-server.ts) and
+// the privacy policy's ChatGPT and Claude sections.
 const CAN_SEE = [
   "Your name and email address, to label the connection",
   "Your classes, meeting times and current grades",
@@ -41,9 +42,15 @@ export default async function AuthorizePage({ searchParams }: { searchParams: Pr
   if (!user) redirect(`/login?next=${encodeURIComponent(`/oauth/authorize?${query}`)}`);
 
   const appName = req.client.clientName;
+  // The host the request comes from, beside the name (the name is the app's own claim).
+  const { host, company } = clientOwner(req.client.clientId);
   const queryString = query.toString();
   return (
-    <AuthCard title={`Connect ${appName}`} description={`${appName} is asking to read your Campus OS account.`} footer={null}>
+    <AuthCard
+      title={`Connect ${appName}`}
+      description={`${appName} (${host}) is asking to read your Campus OS account.`}
+      footer={null}
+    >
       <div className="flex items-center justify-between gap-3 rounded-xl2 bg-surface-2 px-3.5 py-2.5 text-sm">
         <span className="min-w-0 truncate text-ink-soft">
           Signed in as <span className="font-medium text-ink">{user.email}</span>
@@ -65,7 +72,8 @@ export default async function AuthorizePage({ searchParams }: { searchParams: Pr
       </ul>
       <p className="mt-4 text-xs leading-relaxed text-ink-faint">
         It can&apos;t change anything in Campus OS, and it never sees your password, your Canvas or other school
-        connections, or your Gmail. What it reads goes to {appName} (OpenAI) and is handled under their privacy policy.
+        connections, or your Gmail. What it reads goes to {appName}
+        {company ? ` (${company})` : ""} and is handled under their privacy policy.
         You can disconnect any time under Account → Connected apps.{" "}
         <Link href="/privacy" className="underline underline-offset-2 hover:text-ink">
           Privacy policy

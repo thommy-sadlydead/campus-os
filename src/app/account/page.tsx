@@ -117,7 +117,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
           <SettingsRow id="delete" icon={<AlertIcon className="h-[18px] w-[18px]" />} title="Delete account" danger>
             <p className="text-sm leading-relaxed text-ink-soft">
               Permanently deletes your account and everything in it: classes, assignments, notes, lectures and their audio,
-              emails, your school and Gmail connections, and any connected apps like ChatGPT. Gmail access is revoked at Google, and lecture transcripts
+              emails, your school and Gmail connections, and any connected apps like ChatGPT or Claude. Gmail access is revoked at Google, and lecture transcripts
               are deleted from the transcription service. This can&apos;t be undone.
             </p>
             {payments && (

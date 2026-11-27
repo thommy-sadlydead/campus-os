@@ -84,6 +84,19 @@ export async function launch() {
       if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description ?? r.exceptionDetails.text);
       return r.result.value;
     },
+    /**
+     * Requests to URLs matching urlPattern (DevTools wildcards, like
+     * "https://claude.ai/*") never leave the browser: onRequest gets each
+     * one's URL and the request fails.
+     */
+    async block(urlPattern, onRequest) {
+      listeners.add((msg) => {
+        if (msg.method !== "Fetch.requestPaused") return;
+        onRequest(msg.params.request.url);
+        send("Fetch.failRequest", { requestId: msg.params.requestId, errorReason: "BlockedByClient" }).catch(() => {});
+      });
+      await send("Fetch.enable", { patterns: [{ urlPattern }] });
+    },
     async shot(file) {
       const { data } = await send("Page.captureScreenshot", { format: "png" });
       fs.writeFileSync(file, Buffer.from(data, "base64"));

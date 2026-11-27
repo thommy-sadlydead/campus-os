@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { handleMcpPost, LEGACY_VERSIONS, MODERN_VERSIONS, SERVER_INFO, type McpServer } from "../src/lib/mcp/protocol";
+import { handleMcpPost, hasOpenAiHints, LEGACY_VERSIONS, MODERN_VERSIONS, SERVER_INFO, type McpServer } from "../src/lib/mcp/protocol";
 import {
   PROFILE_OUTPUT_SCHEMA,
   SERVER_INSTRUCTIONS,
@@ -154,6 +154,70 @@ describe("modern clients (2026-07-28, no handshake)", () => {
     const res = await handleMcpPost(...modern("prompts/list"), server);
     expect(res.status).toBe(404);
     expect(res.body).toMatchObject({ error: { code: -32601 } });
+  });
+});
+
+describe("signing in before a tool call", () => {
+  const CHALLENGE = 'Bearer resource_metadata="https://campus.example.com/.well-known/oauth-protected-resource", scope="campus.read"';
+
+  /** The route's rule: no token and no ChatGPT hints means an HTTP 401. */
+  function signedOutServer() {
+    const { server, callTool } = fakeServer();
+    server.challengeToolCall = (params) => (hasOpenAiHints(params) ? null : CHALLENGE);
+    return { server, callTool };
+  }
+
+  it("tells ChatGPT's tool calls from everyone else's by their openai/* hints", () => {
+    expect(hasOpenAiHints({ name: "list_classes", _meta: { "openai/locale": "en-US", "openai/subject": "v1/abc" } })).toBe(true);
+    expect(hasOpenAiHints({ name: "list_classes" })).toBe(false);
+    expect(hasOpenAiHints({ name: "list_classes", _meta: { "io.modelcontextprotocol/protocolVersion": MODERN } })).toBe(false);
+    expect(hasOpenAiHints({ name: "list_classes", _meta: { progressToken: 1 } })).toBe(false);
+    expect(hasOpenAiHints({ _meta: "openai/locale" })).toBe(false);
+  });
+
+  it("answers a challenged tool call with HTTP 401 and WWW-Authenticate, without running it", async () => {
+    const { server, callTool } = signedOutServer();
+    const res = await handleMcpPost(
+      headers(),
+      JSON.stringify({ jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "list_classes", arguments: {} } }),
+      server
+    );
+    expect(res.status).toBe(401);
+    expect(res.headers).toEqual({ "WWW-Authenticate": CHALLENGE });
+    expect(res.body).toMatchObject({ jsonrpc: "2.0", id: 3, error: { code: -32001 } });
+    expect(callTool).not.toHaveBeenCalled();
+  });
+
+  it("challenges modern (2026-07-28) tool calls the same way", async () => {
+    const { server, callTool } = signedOutServer();
+    const res = await handleMcpPost(...modern("tools/call", { name: "get_profile", arguments: {} }), server);
+    expect(res.status).toBe(401);
+    expect(res.headers?.["WWW-Authenticate"]).toBe(CHALLENGE);
+    expect(callTool).not.toHaveBeenCalled();
+  });
+
+  it("still runs ChatGPT's signed-out tool calls, so it gets its challenge in the result", async () => {
+    const { server, callTool } = signedOutServer();
+    const res = await handleMcpPost(
+      headers(),
+      JSON.stringify({ jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "list_classes", arguments: {}, _meta: { "openai/locale": "en-US" } } }),
+      server
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers).toBeUndefined();
+    expect(callTool).toHaveBeenCalledOnce();
+  });
+
+  it("never challenges the handshake or the tool list", async () => {
+    const { server } = signedOutServer();
+    const init = await handleMcpPost(
+      headers(),
+      JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "claude-ai", version: "1" } } }),
+      server
+    );
+    const list = await handleMcpPost(headers(), JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }), server);
+    expect([init.status, list.status]).toEqual([200, 200]);
+    expect((list.body?.result as { tools: unknown[] }).tools).toHaveLength(TOOLS.length);
   });
 });
 

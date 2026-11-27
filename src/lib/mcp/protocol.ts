@@ -27,6 +27,12 @@ export interface ToolCallResult {
 export interface McpServer {
   instructions: string;
   tools: object[];
+  /**
+   * Asked before a tool runs: a WWW-Authenticate challenge to answer the
+   * call with HTTP 401 instead (the student has to sign in first), or null
+   * to run it.
+   */
+  challengeToolCall?(params: Record<string, unknown>): string | null;
   callTool(name: string, args: unknown): Promise<ToolCallResult>;
 }
 
@@ -34,6 +40,7 @@ export interface McpHttpResponse {
   status: number;
   /** A JSON-RPC response; absent for 202 Accepted. */
   body?: Record<string, unknown>;
+  headers?: Record<string, string>;
 }
 
 type Id = string | number | null;
@@ -42,6 +49,17 @@ const rpcError = (status: number, id: Id, code: number, message: string, data?: 
   status,
   body: { jsonrpc: "2.0", id, error: { code, message, ...(data !== undefined ? { data } : {}) } },
 });
+
+/**
+ * Whether a request carries the hints ChatGPT adds to its tool calls'
+ * _meta ("openai/locale", "openai/subject", "openai/session"...). ChatGPT
+ * signs in per tool from a challenge in the tool result's _meta; other
+ * clients, Claude among them, only sign in on an HTTP 401.
+ */
+export function hasOpenAiHints(params: Record<string, unknown>): boolean {
+  const meta = params._meta;
+  return Boolean(meta && typeof meta === "object" && Object.keys(meta).some((key) => key.startsWith("openai/")));
+}
 
 /** Reads a header value that may use the `=?base64?…?=` sentinel encoding. */
 export function decodeHeaderValue(value: string): string {
@@ -131,6 +149,10 @@ export async function handleMcpPost(headers: { get(name: string): string | null 
       return result({ tools: server.tools, ttlMs: 300_000, cacheScope: "public" });
     case "tools/call": {
       if (typeof params.name !== "string") return rpcError(modern ? 400 : 200, id, -32602, "Missing tool name");
+      const challenge = server.challengeToolCall?.(params) ?? null;
+      if (challenge) {
+        return { ...rpcError(401, id, -32001, "Authentication required: connect your Campus OS account."), headers: { "WWW-Authenticate": challenge } };
+      }
       const toolResult = await server.callTool(params.name, params.arguments);
       return result({ ...toolResult });
     }

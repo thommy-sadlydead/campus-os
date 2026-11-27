@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { exchangeCode, oauthOrigin, OAuthError, refreshTokens } from "@/lib/oauth/oauth-server";
 import { mcpResource } from "@/lib/oauth/oauth";
 
-// The OAuth token endpoint: ChatGPT trades an authorization code (with its
+// The OAuth token endpoint: ChatGPT or Claude trades an authorization code (with its
 // PKCE verifier) for tokens, and later a refresh token for new ones. Public
 // clients only, so there's no client secret to check; PKCE and the
 // single-use code are what stop a stolen code from working.

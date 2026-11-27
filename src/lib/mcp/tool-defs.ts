@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { OAUTH_SCOPE } from "@/lib/oauth/oauth";
 
-// The tools ChatGPT can call on the MCP endpoint (src/app/mcp): what each
+// The tools ChatGPT and Claude can call on the MCP endpoint (src/app/mcp): what each
 // one is for, its input, and the exact shape of what it returns. All of them
 // only read the signed-in student's own data. The handlers are in
 // tools-server.ts; scripts/check-mcp.mjs runs every one against a local

@@ -103,7 +103,7 @@ export async function redeemFreeAccessCodeAction(_prev: AccountActionState, form
   return { success: "Code accepted. Campus OS is free on this account." };
 }
 
-/** Account → Connected apps: stops an app (ChatGPT) from reading the account. */
+/** Account → Connected apps: stops an app (ChatGPT, Claude) from reading the account. */
 export async function disconnectAppAction(formData: FormData): Promise<void> {
   const user = await requireUser({ allowWithoutAccess: true });
   await revokeApp(user.id, String(formData.get("clientId") ?? ""));

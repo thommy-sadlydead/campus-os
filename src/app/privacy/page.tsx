@@ -32,7 +32,7 @@ export default function PrivacyPage() {
         <header>
           <p className="eyebrow">Legal</p>
           <h1 className="mt-2 font-display text-3xl font-semibold text-ink sm:text-4xl">Privacy policy</h1>
-          <p className="mt-1 text-xs text-ink-faint">Last updated November 4, 2026</p>
+          <p className="mt-1 text-xs text-ink-faint">Last updated November 27, 2026</p>
           <p className="mt-4">
             Campus OS is a personal academic organizer. It pulls your classes and assignments from your school&apos;s
             learning system (Canvas, Schoology, D2L Brightspace or Blackboard), reads
@@ -95,7 +95,7 @@ export default function PrivacyPage() {
               whether you did them.
             </li>
             <li>
-              <strong className="text-ink">Connected apps, if you connect one (ChatGPT):</strong> which app, when you
+              <strong className="text-ink">Connected apps, if you connect one (ChatGPT or Claude):</strong> which app, when you
               connected it and last used it, and its access tokens as one-way hashes (never the tokens themselves).
             </li>
             <li>
@@ -168,6 +168,18 @@ export default function PrivacyPage() {
               . Disconnect any time under Account → Connected apps; changing your password disconnects it too.
             </li>
             <li>
+              <strong className="text-ink">Claude (Anthropic)</strong>, only if you add Campus OS to your own Claude
+              account (on claude.ai, or in the Claude desktop or mobile app) and tap Allow. Claude can then read the same
+              things as ChatGPT above, when a request in your chat needs it, and likewise can&apos;t change anything in
+              Campus OS or get your password, your school connections or your Gmail. What it reads becomes part of your
+              Claude conversation, under your Claude account&apos;s settings and{" "}
+              <a href="https://www.anthropic.com/legal/privacy" className="underline hover:text-ink">
+                Anthropic&apos;s privacy policy
+              </a>
+              , not Campus OS&apos;s own use of Anthropic described above. Disconnect any time under Account → Connected
+              apps; changing your password disconnects it too.
+            </li>
+            <li>
               <strong className="text-ink">Your calendar app</strong> (Apple, Google, Outlook or another), only if you
               add your classes to it from Schedule. It reads your class names, course codes, meeting times and rooms
               from your private link every few hours, under that calendar&apos;s own privacy policy. Anyone you give the
@@ -219,9 +231,9 @@ export default function PrivacyPage() {
               Delete the token in Canvas as well, under Account → Settings → Approved Integrations.
             </li>
             <li>
-              <strong className="text-ink">ChatGPT only:</strong> Account → Connected apps → Disconnect stops ChatGPT
-              from reading your account. What it already read stays in those ChatGPT conversations; delete them in
-              ChatGPT.
+              <strong className="text-ink">ChatGPT or Claude only:</strong> Account → Connected apps → Disconnect stops
+              that app from reading your account. What it already read stays in those conversations; delete them in
+              ChatGPT or Claude.
             </li>
             <li>
               <strong className="text-ink">Schoology, Brightspace or Blackboard only:</strong> Connect → that system →

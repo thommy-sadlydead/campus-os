@@ -1,14 +1,17 @@
 import crypto from "node:crypto";
 
-// "Sign in with Campus OS": the OAuth 2.1 authorization server ChatGPT uses
-// to reach a student's data through the MCP endpoint (src/app/mcp). Pure
-// rules live here (tested in tests/oauth.test.ts); the database side is
-// oauth-server.ts. It follows the MCP authorization spec as OpenAI applies
-// it (developers.openai.com/plugins/build/auth):
+// "Sign in with Campus OS": the OAuth 2.1 authorization server ChatGPT and
+// Claude use to reach a student's data through the MCP endpoint
+// (src/app/mcp). Pure rules live here (tested in tests/oauth.test.ts); the
+// database side is oauth-server.ts. It follows the MCP authorization spec as
+// OpenAI (developers.openai.com/plugins/build/auth) and Anthropic
+// (claude.com/docs/connectors/building/authentication) apply it:
 // - Clients identify themselves with a Client ID Metadata Document (CIMD):
 //   client_id is an HTTPS URL of a JSON document listing its redirect URIs.
-//   Only allowlisted hosts (chatgpt.com) can connect, so no other site can
-//   collect a student's consent.
+//   Only allowlisted clients (chatgpt.com's, and Claude's one document) can
+//   connect, so no other site can collect a student's consent. Claude uses
+//   CIMD because the metadata advertises it with auth method "none"; there's
+//   no dynamic client registration.
 // - Public clients only (token_endpoint_auth_method "none"), so PKCE with
 //   S256 is required on every authorization.
 // - Every authorization response carries `iss` (RFC 9207), which lets
@@ -25,15 +28,33 @@ export const REFRESH_TOKEN_TTL_DAYS = 60;
 export const ALLOWED_CLIENT_HOSTS = ["chatgpt.com"];
 
 /**
- * ChatGPT's published client metadata (https://chatgpt.com/oauth/client.json),
- * used when fetching it fails: chatgpt.com sits behind bot protection that
- * can turn away a server-side fetch.
+ * Claude's client metadata document for claude.ai, Claude Desktop and the
+ * Claude mobile apps (its only redirect URI is
+ * https://claude.ai/api/mcp/auth_callback). Allowed by its exact URL, not by
+ * host: Claude Code publishes another document on claude.ai, with loopback
+ * redirect URIs on any port, and that one isn't allowed.
+ */
+export const CLAUDE_CLIENT_ID = "https://claude.ai/oauth/mcp-oauth-client-metadata";
+export const ALLOWED_CLIENT_IDS = [CLAUDE_CLIENT_ID];
+
+/** Who makes each allowed app, by its client_id's host: the consent page says where the data goes. */
+const CLIENT_COMPANIES: Record<string, string> = { "chatgpt.com": "OpenAI", "claude.ai": "Anthropic" };
+
+/**
+ * The published client metadata of ChatGPT (https://chatgpt.com/oauth/client.json)
+ * and Claude, used when fetching it fails: chatgpt.com and claude.ai sit
+ * behind bot protection that can turn away a server-side fetch.
  */
 export const KNOWN_CLIENTS: Record<string, ClientMetadata> = {
   "https://chatgpt.com/oauth/client.json": {
     clientId: "https://chatgpt.com/oauth/client.json",
     clientName: "ChatGPT",
     redirectUris: ["https://chatgpt.com/connector_platform_oauth_redirect"],
+  },
+  [CLAUDE_CLIENT_ID]: {
+    clientId: CLAUDE_CLIENT_ID,
+    clientName: "Claude",
+    redirectUris: ["https://claude.ai/api/mcp/auth_callback"],
   },
 };
 
@@ -78,7 +99,7 @@ export function authorizationServerMetadata(origin: string) {
   };
 }
 
-/** The WWW-Authenticate challenge that sends ChatGPT to the metadata (and to sign in again). */
+/** The WWW-Authenticate challenge that sends ChatGPT or Claude to the metadata (and to sign in again). */
 export function bearerChallenge(origin: string, error?: { code: string; description: string }): string {
   const parts = [`resource_metadata="${origin}/.well-known/oauth-protected-resource"`, `scope="${OAUTH_SCOPE}"`];
   if (error) parts.push(`error="${error.code}"`, `error_description="${error.description.replace(/"/g, "'")}"`);
@@ -106,11 +127,13 @@ export function pkceMatches(verifier: string, challenge: string): boolean {
 }
 
 /**
- * Whether a client_id URL may sign students in: HTTPS on an allowed host,
- * with no credentials or fragment. allowLocal admits http://localhost
- * clients for local testing (never in production).
+ * Whether a client_id URL may sign students in: one of ALLOWED_CLIENT_IDS
+ * exactly, or HTTPS on an allowed host, with no credentials or fragment.
+ * allowLocal admits http://localhost clients for local testing (never in
+ * production).
  */
 export function isAllowedClientId(clientId: string, { allowLocal = false } = {}): boolean {
+  if (ALLOWED_CLIENT_IDS.includes(clientId)) return true;
   let url: URL;
   try {
     url = new URL(clientId);
@@ -120,6 +143,16 @@ export function isAllowedClientId(clientId: string, { allowLocal = false } = {})
   if (url.username || url.password || url.hash) return false;
   if (allowLocal && url.protocol === "http:" && (url.hostname === "localhost" || url.hostname === "127.0.0.1")) return true;
   return url.protocol === "https:" && ALLOWED_CLIENT_HOSTS.includes(url.hostname) && url.pathname !== "/";
+}
+
+/**
+ * For the consent page: the host the app's client_id is on (what Anthropic
+ * asks to show, since a client_name is self-asserted) and the company that
+ * gets what it reads (null for a local test client).
+ */
+export function clientOwner(clientId: string): { host: string; company: string | null } {
+  const host = new URL(clientId).hostname;
+  return { host, company: CLIENT_COMPANIES[host] ?? null };
 }
 
 /** Reads a fetched client metadata document; null if it doesn't describe clientId. */

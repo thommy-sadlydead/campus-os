@@ -1,15 +1,20 @@
 import { oauthOrigin, verifyAccessToken } from "@/lib/oauth/oauth-server";
 import { bearerChallenge, mcpResource } from "@/lib/oauth/oauth";
-import { handleMcpPost, type McpServer } from "@/lib/mcp/protocol";
+import { handleMcpPost, hasOpenAiHints, type McpServer } from "@/lib/mcp/protocol";
 import { SERVER_INSTRUCTIONS, TOOLS } from "@/lib/mcp/tool-defs";
 import { runTool } from "@/lib/mcp/tools-server";
 
-// The MCP endpoint ChatGPT talks to (the Campus OS plugin). Listing the
-// tools needs no sign-in; calling one needs an access token from "Sign in
-// with Campus OS" (src/lib/oauth/). Without one, the tool call comes back
-// with a WWW-Authenticate challenge in _meta, which is what makes ChatGPT
-// show its "Connect" button; a token that's present but no good gets a 401
-// so ChatGPT refreshes it or signs in again.
+// The MCP endpoint ChatGPT and Claude talk to (chatgpt-plugin/,
+// claude-plugin/). Listing the tools needs no sign-in; calling one needs an
+// access token from "Sign in with Campus OS" (src/lib/oauth/). Without one:
+// - ChatGPT's tool calls (they carry openai/* hints in _meta) come back as a
+//   tool error with a WWW-Authenticate challenge in _meta, which is what
+//   makes ChatGPT show its "Connect" button.
+// - Everyone else's, Claude's among them, get an HTTP 401 with the
+//   challenge: Claude only starts sign-in on a 401 (it ignores a challenge
+//   in a 200), then retries the same call with the new token.
+// A token that's present but no good gets a 401 from every client, so it's
+// refreshed or the student signs in again.
 
 export const maxDuration = 30;
 
@@ -24,13 +29,15 @@ function json(status: number, body: unknown, extra: Record<string, string> = {})
 
 /**
  * DNS-rebinding protection from the MCP spec: a request that carries an
- * Origin header must come from this site or ChatGPT. Server-to-server
+ * Origin header must come from this site, ChatGPT or Claude. Server-to-server
  * requests (ChatGPT's own) carry none.
  */
+const APP_ORIGINS = ["https://chatgpt.com", "https://claude.ai"];
+
 function originAllowed(request: Request, origin: string): boolean {
   const from = request.headers.get("origin");
   if (!from) return true;
-  if (from === origin || from === "https://chatgpt.com") return true;
+  if (from === origin || APP_ORIGINS.includes(from)) return true;
   return process.env.NODE_ENV !== "production" && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(from);
 }
 
@@ -62,6 +69,10 @@ export async function POST(request: Request) {
   const server: McpServer = {
     instructions: SERVER_INSTRUCTIONS,
     tools: TOOLS,
+    challengeToolCall(params) {
+      if (userId || hasOpenAiHints(params)) return null;
+      return bearerChallenge(origin);
+    },
     async callTool(name, args) {
       if (!userId) {
         const description = "Connect your Campus OS account to continue.";
@@ -76,7 +87,7 @@ export async function POST(request: Request) {
   };
 
   const res = await handleMcpPost(request.headers, raw, server);
-  return json(res.status, res.body);
+  return json(res.status, res.body, res.headers);
 }
 
 function methodNotAllowed() {

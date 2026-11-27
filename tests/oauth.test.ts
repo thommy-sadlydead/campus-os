@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  CLAUDE_CLIENT_ID,
   KNOWN_CLIENTS,
   OAUTH_SCOPE,
   authorizationResponseUrl,
   authorizationServerMetadata,
   bearerChallenge,
   checkAuthorizeParams,
+  clientOwner,
   isAllowedClientId,
   isValidCodeVerifier,
   mcpResource,
@@ -71,6 +73,48 @@ describe("which apps can sign students in", () => {
     expect(isAllowedClientId("not a url")).toBe(false);
   });
 
+  it("allows Claude's client metadata document by its exact URL", () => {
+    expect(CLAUDE_CLIENT_ID).toBe("https://claude.ai/oauth/mcp-oauth-client-metadata");
+    expect(isAllowedClientId(CLAUDE_CLIENT_ID)).toBe(true);
+    expect(KNOWN_CLIENTS[CLAUDE_CLIENT_ID]).toEqual({
+      clientId: CLAUDE_CLIENT_ID,
+      clientName: "Claude",
+      redirectUris: ["https://claude.ai/api/mcp/auth_callback"],
+    });
+  });
+
+  it("refuses every other document on claude.ai, Claude Code's included", () => {
+    expect(isAllowedClientId("https://claude.ai/oauth/claude-code-client-metadata")).toBe(false);
+    expect(isAllowedClientId("https://claude.ai/oauth/mcp-oauth-client-metadata/")).toBe(false);
+    expect(isAllowedClientId("https://claude.ai/oauth/mcp-oauth-client-metadata?x=1")).toBe(false);
+    expect(isAllowedClientId("https://claude.ai/oauth/mcp-oauth-client-metadata#x")).toBe(false);
+    expect(isAllowedClientId("https://CLAUDE.ai/oauth/mcp-oauth-client-metadata")).toBe(false);
+    expect(isAllowedClientId("http://claude.ai/oauth/mcp-oauth-client-metadata")).toBe(false);
+    expect(isAllowedClientId("https://claude.ai.evil.com/oauth/mcp-oauth-client-metadata")).toBe(false);
+    expect(isAllowedClientId("https://claude.com/oauth/mcp-oauth-client-metadata")).toBe(false);
+    expect(isAllowedClientId("https://claude.ai/public/artifacts/client.json")).toBe(false);
+  });
+
+  it("reads Claude's published metadata document", () => {
+    // https://claude.ai/oauth/mcp-oauth-client-metadata as published (Nov 27, 2026).
+    const doc = {
+      client_id: CLAUDE_CLIENT_ID,
+      client_name: "Claude",
+      client_uri: "https://claude.ai",
+      redirect_uris: ["https://claude.ai/api/mcp/auth_callback"],
+      grant_types: ["authorization_code", "refresh_token", "urn:ietf:params:oauth:grant-type:jwt-bearer"],
+      response_types: ["code"],
+      token_endpoint_auth_method: "none",
+    };
+    expect(parseClientMetadata(doc, CLAUDE_CLIENT_ID)).toEqual(KNOWN_CLIENTS[CLAUDE_CLIENT_ID]);
+  });
+
+  it("names the host and company behind each app for the consent page", () => {
+    expect(clientOwner(CLAUDE_CLIENT_ID)).toEqual({ host: "claude.ai", company: "Anthropic" });
+    expect(clientOwner(CHATGPT)).toEqual({ host: "chatgpt.com", company: "OpenAI" });
+    expect(clientOwner("http://localhost:4100/client.json")).toEqual({ host: "localhost", company: null });
+  });
+
   it("only allows a localhost client for local testing", () => {
     expect(isAllowedClientId("http://localhost:4000/client.json")).toBe(false);
     expect(isAllowedClientId("http://localhost:4000/client.json", { allowLocal: true })).toBe(true);
@@ -131,7 +175,7 @@ describe("discovery metadata", () => {
     expect(prm.resource).toBe(`${ORIGIN}/mcp`);
   });
 
-  it("advertises what ChatGPT requires", () => {
+  it("advertises what ChatGPT and Claude require", () => {
     const as = authorizationServerMetadata(ORIGIN);
     expect(as.code_challenge_methods_supported).toContain("S256");
     expect(as.client_id_metadata_document_supported).toBe(true);

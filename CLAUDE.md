@@ -152,7 +152,8 @@ no third-party auth.
   `src/components/Logo.tsx` (flips in dark mode), the PNGs
   (`src/app/icon.png`, `src/app/apple-icon.png`, `public/icons/`, the iOS
   `AppIcon` and `LaunchIcon`, `chrome-extension/icons/`,
-  `chatgpt-plugin/assets/` plus its `brandColor`), `native-shell/offline.html`
+  `chatgpt-plugin/assets/` plus its `brandColor`, `claude-plugin/assets/`),
+  `native-shell/offline.html`
   and `logoMark` in `scripts/connect-videos/cw.js`. The PNGs were recolored
   from the old brown-orange files at the same sizes; there's no source SVG
   for them. Bump `CACHE_VERSION` in `public/sw.js` when an icon changes.
@@ -422,14 +423,20 @@ no third-party auth.
   links are built from `APP_URL` only, never the request's Host header, and
   neither action says whether an email has an account. `EMAIL_LOG_ONLY=1`
   prints emails to the dev server log instead of sending (not in production).
-- **ChatGPT plugin** (read `chatgpt-plugin/README.md`): "Sign in with
+- **ChatGPT plugin and Claude connector** (read `chatgpt-plugin/README.md`
+  and `claude-plugin/README.md`): "Sign in with
   Campus OS" is a hand-rolled OAuth 2.1 server in `src/lib/oauth/` (pure
   rules in `oauth.ts`, database in `oauth-server.ts`; consent page and token
   endpoint in `src/app/oauth/`, discovery documents in
   `src/app/.well-known/`). Clients are identified by client metadata
-  documents (CIMD) and only `chatgpt.com` ones are allowed; public clients
+  documents (CIMD): `chatgpt.com` ones, and Claude's one document by its
+  exact URL (`CLAUDE_CLIENT_ID`; Claude Code's loopback document is refused);
+  no dynamic client registration. Public clients
   with PKCE S256 only; every authorization response carries `iss`; tokens
-  are HMACs bound to `${APP_URL}/mcp`. The MCP endpoint (`src/app/mcp`,
+  are HMACs bound to `${APP_URL}/mcp`. A signed-out tool call gets an HTTP
+  401 with `WWW-Authenticate` (Claude only signs in on a 401 and ignores a
+  challenge in a 200), except ChatGPT's (recognized by `openai/*` keys in
+  `_meta`), which keep getting the challenge in the tool result's `_meta`. The MCP endpoint (`src/app/mcp`,
   `src/lib/mcp/`) speaks both legacy (initialize) and 2026-07-28 (stateless)
   MCP, and every tool is read-only and scoped to the token's account. A new
   tool must stay read-only unless the annotations, consent page, privacy
@@ -472,7 +479,7 @@ no third-party auth.
 ## Verifying a change before calling it done
 
 1. `npx tsc --noEmit` (after `npx prisma generate` if the schema changed)
-2. `npx vitest run` — 605 tests as of this writing across 56 files
+2. `npx vitest run` — 614 tests as of this writing across 56 files
 3. Clean build: `rm -rf .next && npx next build` (use `next build` directly
    to skip the `db push` the `npm run build` script triggers, if you're not
    ready to push schema changes yet)

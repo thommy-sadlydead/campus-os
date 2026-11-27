@@ -55,7 +55,7 @@ export const RATE_LIMITS = {
   // Connecting an LMS or previewing calendar links, per account: each one
   // makes requests to an outside address the student typed in.
   lmsConnect: { limit: 30, windowMs: 60 * MINUTE },
-  // ChatGPT reading an account through the MCP endpoint (src/app/mcp), per
+  // ChatGPT or Claude reading an account through the MCP endpoint (src/app/mcp), per
   // account. Each call is a few database reads; this only stops runaways.
   mcp: { limit: 1000, windowMs: DAY },
 } satisfies Record<string, RateLimitRule>;

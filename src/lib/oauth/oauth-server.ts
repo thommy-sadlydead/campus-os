@@ -192,7 +192,7 @@ export async function revokeAllGrants(userId: string): Promise<void> {
 /**
  * Apps connected to the account that can still use it (a refresh token that
  * hasn't expired), one entry per app: connecting again, or from a second
- * ChatGPT account, makes another grant for the same app.
+ * ChatGPT or Claude account, makes another grant for the same app.
  */
 export async function listConnectedApps(userId: string) {
   const grants = await prisma.oAuthGrant.findMany({

@@ -16,6 +16,11 @@ How it works on the website:
 - Students see and disconnect it under Account → Connected apps. Changing or
   resetting a password disconnects it too.
 - `scripts/check-mcp.mjs` runs the whole flow against a local server.
+- Claude uses the same endpoint and OAuth server (`claude-plugin/`). A
+  signed-out tool call gets an HTTP 401, which is what Claude needs to start
+  sign-in; ChatGPT's own calls (with `openai/*` hints in `_meta`) still get
+  the challenge in the tool result. Check both apps after changing
+  `src/app/mcp/route.ts`.
 
 This folder is the package uploaded to OpenAI: `plugin.json`, `mcp.json`
 and `assets/`.

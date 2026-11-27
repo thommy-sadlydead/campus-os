@@ -1,10 +1,13 @@
 // node scripts/check-mcp.mjs
 //
-// End-to-end check of the ChatGPT plugin against a LOCAL dev server: plays
-// ChatGPT's part (a client metadata document on localhost:4100), signs in
-// through "Sign in with Campus OS" in headless Chrome as the seed account,
-// exchanges and refreshes tokens, calls every MCP tool in both protocol
-// eras, and checks each result against the tool's outputSchema.
+// End-to-end check of the ChatGPT and Claude plugins against a LOCAL dev
+// server: plays the app's part (a client metadata document on
+// localhost:4100), signs in through "Sign in with Campus OS" in headless
+// Chrome as the seed account, exchanges and refreshes tokens, calls every MCP
+// tool in both protocol eras, and checks each result against the tool's
+// outputSchema. Then it signs in again as Claude, with Claude's real client
+// metadata document (the dev server fetches it from claude.ai) and redirect
+// URI: the browser's redirect to claude.ai is caught here and never sent.
 //
 // Setup: the dev server on port 3100 against a local database (never
 // production) with LMS_ALLOW_LOCAL_URLS=1 (so it can read the localhost
@@ -90,15 +93,26 @@ try {
   check(JSON.stringify(prm) === JSON.stringify(prmMcp), "path-suffixed metadata matches");
   check(as.code_challenge_methods_supported?.includes("S256") && as.authorization_response_iss_parameter_supported === true, "authorization server metadata", as);
 
-  // 2. Unauthenticated MCP: tools are listable, calls ask to connect
+  // 2. Unauthenticated MCP: tools are listable, calls ask to connect (a 401
+  // for Claude and other clients, a challenge in the result for ChatGPT)
   const init = await postJson("/mcp", { jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-11-25", capabilities: {}, clientInfo: { name: "check", version: "1" } } });
   check(init.status === 200 && init.body.result.protocolVersion === "2025-11-25", "legacy initialize", init.body);
   const list = await postJson("/mcp", { jsonrpc: "2.0", id: 2, method: "tools/list" });
   const tools = list.body?.result?.tools ?? [];
   check(tools.length === 8, `tools/list without signing in (${tools.length} tools)`);
   const anon = await postJson("/mcp", { jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "list_classes", arguments: {} } });
-  const challenge = anon.body?.result?._meta?.["mcp/www_authenticate"]?.[0] ?? "";
-  check(anon.body?.result?.isError === true && challenge.includes("resource_metadata="), "unauthenticated call asks to connect", anon.body);
+  const anonChallenge = anon.headers.get("www-authenticate") ?? "";
+  check(
+    anon.status === 401 && anonChallenge.includes(`resource_metadata="${BASE}/.well-known/oauth-protected-resource"`) && anonChallenge.includes('scope="campus.read"'),
+    "unauthenticated call gets 401 + WWW-Authenticate (what makes Claude sign in)",
+    { status: anon.status, challenge: anonChallenge, body: anon.body }
+  );
+  const anonChatGpt = await postJson("/mcp", { jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "list_classes", arguments: {}, _meta: { "openai/locale": "en-US" } } });
+  const challenge = anonChatGpt.body?.result?._meta?.["mcp/www_authenticate"]?.[0] ?? "";
+  check(anonChatGpt.status === 200 && anonChatGpt.body?.result?.isError === true && challenge.includes("resource_metadata="), "ChatGPT's unauthenticated call gets its challenge in _meta", anonChatGpt.body);
+  const claudeOrigin = await postJson("/mcp", { jsonrpc: "2.0", id: 3, method: "tools/list" }, { Origin: "https://claude.ai" });
+  const evilOrigin = await postJson("/mcp", { jsonrpc: "2.0", id: 3, method: "tools/list" }, { Origin: "https://evil.example.com" });
+  check(claudeOrigin.status === 200 && evilOrigin.status === 403, "Origin: claude.ai is allowed, another site isn't", [claudeOrigin.status, evilOrigin.status]);
   const bad = await postJson("/mcp", { jsonrpc: "2.0", id: 4, method: "tools/list" }, { Authorization: "Bearer nope" });
   check(bad.status === 401 && (bad.headers.get("www-authenticate") ?? "").includes('error="invalid_token"'), "a bad token gets 401 + WWW-Authenticate");
 
@@ -209,6 +223,82 @@ try {
   check(foreign.body?.result?.isError === true && /isn't in this Campus OS account/.test(foreign.body.result.content[0].text), "another account's id reads as not found");
   const invalid = await postJson("/mcp", { jsonrpc: "2.0", id: 100, method: "tools/call", params: { name: "get_upcoming_work", arguments: { days_ahead: 0 } } }, auth);
   check(invalid.body?.result?.isError === true, "invalid arguments come back as a tool error");
+
+  // 6. Claude: its real client metadata document and redirect URI
+  const CLAUDE_CLIENT_ID = "https://claude.ai/oauth/mcp-oauth-client-metadata";
+  const CLAUDE_REDIRECT_URI = "https://claude.ai/api/mcp/auth_callback";
+  const claudeVerifier = crypto.randomBytes(48).toString("base64url");
+  const claudeAuthorize = new URL(as.authorization_endpoint);
+  for (const [k, v] of Object.entries({
+    response_type: "code",
+    client_id: CLAUDE_CLIENT_ID,
+    redirect_uri: CLAUDE_REDIRECT_URI,
+    state: "claude-state",
+    code_challenge: crypto.createHash("sha256").update(claudeVerifier).digest("base64url"),
+    code_challenge_method: "S256",
+    scope: "campus.read",
+    resource: RESOURCE,
+  })) claudeAuthorize.searchParams.set(k, v);
+  const claudePage = await launch();
+  let sentToClaude = null;
+  await claudePage.block("https://claude.ai/*", (url) => (sentToClaude ??= url));
+  await claudePage.goto(claudeAuthorize.toString());
+  await sleep(2500);
+  const claudeConsent = await claudePage.eval("document.body.innerText");
+  check(
+    /Connect Claude/.test(claudeConsent) && /Claude \(claude\.ai\) is asking/.test(claudeConsent) && /goes to Claude \(Anthropic\)/.test(claudeConsent),
+    "consent page names Claude, its host and Anthropic",
+    claudeConsent.slice(0, 600)
+  );
+  await claudePage.eval(`[...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "Allow").click(), true`);
+  for (let i = 0; i < 30 && !sentToClaude; i++) await sleep(500);
+  await claudePage.close();
+  const claudeCb = sentToClaude ? new URL(sentToClaude) : null;
+  check(
+    claudeCb && claudeCb.origin + claudeCb.pathname === CLAUDE_REDIRECT_URI && claudeCb.searchParams.get("code") && claudeCb.searchParams.get("state") === "claude-state" && claudeCb.searchParams.get("iss") === as.issuer,
+    "Allow sends Claude's callback code, state and iss",
+    sentToClaude
+  );
+  if (!claudeCb?.searchParams.get("code")) throw new Error("No authorization code for Claude; stopping.");
+  const claudeTokens = await tokenRequest({
+    grant_type: "authorization_code",
+    code: claudeCb.searchParams.get("code"),
+    redirect_uri: CLAUDE_REDIRECT_URI,
+    client_id: CLAUDE_CLIENT_ID,
+    code_verifier: claudeVerifier,
+    resource: RESOURCE,
+  });
+  check(claudeTokens.status === 200 && claudeTokens.body.access_token && claudeTokens.body.refresh_token && claudeTokens.body.scope === "campus.read", "Claude's code exchange", claudeTokens.body);
+  const claudeRefreshed = await tokenRequest({ grant_type: "refresh_token", refresh_token: claudeTokens.body.refresh_token, client_id: CLAUDE_CLIENT_ID, resource: RESOURCE });
+  check(claudeRefreshed.status === 200 && claudeRefreshed.body.refresh_token !== claudeTokens.body.refresh_token, "Claude's refresh rotates the refresh token");
+  const asChatGpt = await tokenRequest({ grant_type: "refresh_token", refresh_token: claudeRefreshed.body.refresh_token, client_id: "https://chatgpt.com/oauth/client.json" });
+  check(asChatGpt.status === 400 && asChatGpt.body.error === "invalid_grant", "Claude's refresh token doesn't work for another client");
+  // The call Claude retries after signing in, now with its token.
+  const claudeAuth = { Authorization: `Bearer ${claudeRefreshed.body.access_token}` };
+  const claudeCall = await postJson("/mcp", { jsonrpc: "2.0", id: 200, method: "tools/call", params: { name: "list_classes", arguments: {} } }, claudeAuth);
+  check(claudeCall.status === 200 && !claudeCall.body?.result?.isError && claudeCall.body?.result?.structuredContent?.classes?.length > 0, "Claude's token reads the account", claudeCall.body);
+  const claudeProfile = await postJson("/mcp", { jsonrpc: "2.0", id: 201, method: "tools/call", params: { name: "get_profile", arguments: {} } }, claudeAuth);
+  check(claudeProfile.body?.result?.structuredContent?.id === profile?.id, "same profile id through Claude as through the other app");
+
+  // Requests Claude's flow must refuse: another redirect URI, and Claude Code's document.
+  const refused = async (overrides, label, expected) => {
+    const url = new URL(claudeAuthorize);
+    for (const [k, v] of Object.entries(overrides)) url.searchParams.set(k, v);
+    const p = await launch();
+    let leaked = null;
+    await p.block("https://claude.ai/*", (u) => (leaked ??= u));
+    await p.goto(url.toString());
+    await sleep(2000);
+    const text = await p.eval("document.body.innerText");
+    await p.close();
+    check(expected.test(text) && !leaked, label, text.slice(0, 200));
+  };
+  await refused({ redirect_uri: "https://claude.ai/api/mcp/other_callback" }, "a different claude.ai redirect URI is refused", /doesn't match the app/);
+  await refused(
+    { client_id: "https://claude.ai/oauth/claude-code-client-metadata", redirect_uri: "http://localhost:5599/callback" },
+    "Claude Code's client document is refused",
+    /can't connect to Campus OS/
+  );
 } catch (err) {
   console.error(err);
   failures++;
